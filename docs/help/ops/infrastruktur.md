@@ -49,7 +49,7 @@ sudo OPEN_HTTP=1 ops/harden/ufw.sh                                    # buka 80/
 ## Endpoint API terkait
 | Metode | Path | Keterangan |
 |---|---|---|
-| GET | `/api/v1/health` | Dipakai healthcheck Caddy & container (lihat [api/system.md](../api/system.md) mulai v0.1.3) |
+| GET | `/api/v1/health` | Dipakai healthcheck Caddy & container (lihat [api/system.md](../api/system.md)) |
 
 ## Pemecahan masalah
 - Container `unhealthy`: `make logs SERVICE=<nama>`.

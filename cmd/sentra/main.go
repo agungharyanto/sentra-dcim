@@ -1,41 +1,227 @@
-// Command sentra is the Sentra DCIM backend.
+// Command sentra is the Sentra DCIM backend (modular monolith).
 //
-// Infra placeholder (v0.1.2): serves a liveness endpoint so the container stack can be
-// validated. The real backend skeleton lands in v0.1.3.
+// Usage:
+//
+//	sentra serve                     start the HTTP API server
+//	sentra migrate up|down [n]|goto <v>|force <v>|version
+//	sentra healthcheck               probe the local liveness endpoint (container healthcheck)
+//	sentra version                   print build metadata
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"log/slog"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
 	"time"
+	_ "time/tzdata" // embed tz database; distroless images may lack it
+
+	"github.com/go-chi/chi/v5"
+
+	"github.com/agungharyanto/sentra-dcim/internal/platform/buildinfo"
+	"github.com/agungharyanto/sentra-dcim/internal/platform/cache"
+	"github.com/agungharyanto/sentra-dcim/internal/platform/config"
+	"github.com/agungharyanto/sentra-dcim/internal/platform/database"
+	"github.com/agungharyanto/sentra-dcim/internal/platform/httpserver"
+	"github.com/agungharyanto/sentra-dcim/internal/platform/logging"
+	"github.com/agungharyanto/sentra-dcim/internal/platform/migrator"
+	systemhandler "github.com/agungharyanto/sentra-dcim/internal/system/handler"
+	systemrepo "github.com/agungharyanto/sentra-dcim/internal/system/repo"
+	systemservice "github.com/agungharyanto/sentra-dcim/internal/system/service"
 )
 
 func main() {
+	args := os.Args[1:]
 	cmd := "serve"
-	if len(os.Args) > 1 {
-		cmd = os.Args[1]
+	if len(args) > 0 {
+		cmd, args = args[0], args[1:]
 	}
+
+	var err error
 	switch cmd {
 	case "serve":
-		mux := http.NewServeMux()
-		mux.HandleFunc("GET /api/v1/health", func(w http.ResponseWriter, _ *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"status":"ok"}`))
-		})
-		srv := &http.Server{Addr: ":8080", Handler: mux, ReadHeaderTimeout: 5 * time.Second}
-		if err := srv.ListenAndServe(); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
+		err = serve()
+	case "migrate":
+		err = runMigrate(args)
 	case "healthcheck":
-		c := http.Client{Timeout: 2 * time.Second}
-		resp, err := c.Get("http://127.0.0.1:8080/api/v1/health")
-		if err != nil || resp.StatusCode != http.StatusOK {
-			os.Exit(1)
-		}
+		err = healthcheck()
+	case "version":
+		err = json.NewEncoder(os.Stdout).Encode(buildinfo.Get())
 	default:
-		fmt.Fprintf(os.Stderr, "unknown command %q\n", cmd)
-		os.Exit(2)
+		err = fmt.Errorf("unknown command %q (want serve|migrate|healthcheck|version)", cmd)
 	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+}
+
+func serve() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("config: %w", err)
+	}
+	log := logging.New(os.Stdout, cfg.LogLevel)
+	slog.SetDefault(log)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	pool, err := database.Connect(ctx, cfg.DB)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	rdb, err := cache.Connect(ctx, cfg.Redis)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rdb.Close() }()
+
+	latest, err := migrator.Latest()
+	if err != nil {
+		return fmt.Errorf("read embedded migrations: %w", err)
+	}
+
+	sys := systemservice.New(log, cfg.DisplayTZ,
+		systemservice.FuncChecker{CheckName: "database", Fn: pool.Ping},
+		systemservice.FuncChecker{CheckName: "redis", Fn: func(ctx context.Context) error { return rdb.Ping(ctx).Err() }},
+		systemservice.MigrationChecker(systemrepo.NewStore(pool), latest),
+	)
+
+	rl := httpserver.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
+	go rl.Janitor(ctx)
+
+	router := httpserver.NewRouter(log, rl, cfg.TrustedProxies, func(r chi.Router) {
+		systemhandler.New(sys).Routes(r)
+	})
+	srv := httpserver.NewServer(cfg.HTTPAddr, router, log)
+
+	errCh := make(chan error, 1)
+	go func() {
+		log.Info("http server starting", "addr", cfg.HTTPAddr, "version", buildinfo.Version, "env", cfg.Env)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+		close(errCh)
+	}()
+
+	select {
+	case err := <-errCh:
+		return fmt.Errorf("http server: %w", err)
+	case <-ctx.Done():
+	}
+
+	log.Info("shutdown signal received, draining", "timeout", cfg.ShutdownTimeout.String())
+	sys.SetDraining()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("graceful shutdown: %w", err)
+	}
+	log.Info("server stopped cleanly")
+	return nil
+}
+
+func runMigrate(args []string) error {
+	if len(args) == 0 {
+		return errors.New("usage: sentra migrate up|down [n]|goto <version>|force <version>|version")
+	}
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("config: %w", err)
+	}
+	log := logging.New(os.Stdout, cfg.LogLevel)
+	m, err := migrator.New(cfg.DB.DSN(), log)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = m.Close() }()
+
+	intArg := func(def int) (int, error) {
+		if len(args) < 2 {
+			if def < 0 {
+				return 0, fmt.Errorf("migrate %s: missing argument", args[0])
+			}
+			return def, nil
+		}
+		n, err := strconv.Atoi(args[1])
+		if err != nil || n < 0 {
+			return 0, fmt.Errorf("migrate %s: invalid number %q", args[0], args[1])
+		}
+		return n, nil
+	}
+
+	switch args[0] {
+	case "up":
+		err = m.Up()
+	case "down":
+		var n int
+		if n, err = intArg(1); err == nil {
+			err = m.Down(n)
+		}
+	case "goto":
+		var v int
+		if v, err = intArg(-1); err == nil {
+			err = m.Goto(uint(v))
+		}
+	case "force":
+		var v int
+		if v, err = intArg(-1); err == nil {
+			err = m.Force(v)
+		}
+	case "version":
+	default:
+		return fmt.Errorf("unknown migrate subcommand %q", args[0])
+	}
+	if err != nil {
+		return err
+	}
+
+	v, dirty, ok, err := m.Version()
+	if err != nil {
+		return err
+	}
+	latest, _ := migrator.Latest()
+	if !ok {
+		fmt.Printf("version=none dirty=false latest=%d\n", latest)
+		return nil
+	}
+	fmt.Printf("version=%d dirty=%t latest=%d\n", v, dirty, latest)
+	return nil
+}
+
+func healthcheck() error {
+	addr := os.Getenv("APP_HTTP_ADDR")
+	if addr == "" {
+		addr = ":8080"
+	}
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Errorf("APP_HTTP_ADDR: %w", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	url := "http://" + net.JoinHostPort("127.0.0.1", port) + "/api/v1/health"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil) //nolint:gosec // loopback only
+	if err != nil {
+		return err
+	}
+	resp, err := http.DefaultClient.Do(req) //nolint:gosec // loopback only
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("health status %d", resp.StatusCode)
+	}
+	return nil
 }

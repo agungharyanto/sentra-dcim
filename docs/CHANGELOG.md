@@ -3,7 +3,30 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
-## [v0.1.2] - 2026-10-12 — Infra Base
+## [v0.1.3] - 2026-10-12 — Backend Skeleton
+
+### Ditambahkan
+- Backend Go modular monolith: `cmd/sentra` dengan subcommand `serve`, `migrate up|down|goto|force|version`,
+  `healthcheck`, `version`.
+- Endpoint `GET /api/v1/health`, `GET /api/v1/ready` (cek database, redis, versi migrasi), `GET /api/v1/version`
+  (versi dari tag Git via ldflags, waktu UTC + WITA).
+- `internal/platform/`: config dari env (tervalidasi), logging slog JSON (UTC), pool pgx, klien Redis, migrator
+  golang-migrate (migrasi di-embed ke binary), HTTP server (request ID, access log, recoverer JSON, security headers,
+  batas body 1 MB, timeout, rate limit per IP, real-IP hanya dari proxy tepercaya).
+- Graceful shutdown: SIGTERM → readiness 503 (draining) → `Shutdown` dengan timeout.
+- Migrasi pertama `000001_init` (extension timescaledb, tabel `system_info`) dengan `down`.
+- sqlc (`sqlc.yaml`, repo modul `system`), `api/openapi.yaml` (OpenAPI 3.1, lulus Redocly lint).
+- Unit test (config, service, handler, middleware), integration test (migrasi up/down/up pada DB sementara, Redis),
+  API smoke test `test/api/smoke.sh`; golangci-lint v2 (`.golangci.yml`).
+- Pusat Bantuan: `docs/help/api/system.md`.
+- Target Make: `openapi-lint`, `migrate-down/version/goto`, `test-integration`, `test-api`.
+
+### Diubah
+- Caddy tidak lagi memakai `trusted_proxies`; `X-Real-IP` di-set dari IP klien sebenarnya dan `True-Client-IP` dibuang
+  (mencegah spoofing IP untuk bypass rate limit).
+- `make gitleaks` memindai riwayat Git + file yang tidak di-ignore (sebelumnya `.env` lokal ikut terdeteksi).
+
+ - 2026-10-12 — Infra Base
 
 ### Ditambahkan
 - `docker-compose.yml`: service `db` (TimescaleDB 2.30.2-pg16), `redis` (8.10.2), `app`, `caddy` (2.11.7) dengan

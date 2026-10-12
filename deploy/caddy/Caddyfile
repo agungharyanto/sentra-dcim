@@ -2,9 +2,7 @@
 	admin 127.0.0.1:2019
 	http_port 8080
 	auto_https off
-	servers {
-		trusted_proxies static private_ranges
-	}
+	# Caddy is the edge proxy: no trusted_proxies, so client-supplied X-Forwarded-For is never trusted.
 	log {
 		output stdout
 		format json
@@ -33,6 +31,9 @@
 
 	handle /api/* {
 		reverse_proxy app:8080 {
+			# The app derives client IP (rate limiting, audit) from X-Real-IP; never trust client-supplied values.
+			header_up X-Real-IP {client_ip}
+			header_up -True-Client-IP
 			health_uri /api/v1/health
 			health_interval 15s
 		}

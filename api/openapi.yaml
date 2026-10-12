@@ -1,0 +1,132 @@
+openapi: 3.1.0
+info:
+  title: Sentra DCIM API
+  version: 0.1.3
+  summary: REST API Sentra DCIM — Diskominfo Provinsi Bali
+  description: |
+    Semua endpoint berada di bawah `/api/v1`. Waktu dikirim dalam UTC (RFC 3339);
+    zona tampilan default `Asia/Makassar` (WITA).
+
+    Setiap respons menyertakan header `X-Request-Id` untuk penelusuran. Error memakai format `ErrorBody`.
+    Rate limit per IP klien (default 20 req/detik, burst 40) — respons `429` menyertakan `Retry-After`.
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+servers:
+  - url: http://127.0.0.1:8080
+    description: Server lokal (via Caddy)
+tags:
+  - name: system
+    description: Status layanan dan informasi build
+paths:
+  /api/v1/health:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: Liveness — proses berjalan
+      description: Tidak memeriksa dependensi. Dipakai healthcheck container dan Caddy.
+      security: []
+      responses:
+        "200":
+          description: Proses hidup
+          headers:
+            X-Request-Id: { $ref: "#/components/headers/X-Request-Id" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/ready:
+    get:
+      tags: [system]
+      operationId: getReady
+      summary: Readiness — dependensi siap
+      description: |
+        Memeriksa `database`, `redis`, dan `migrations` (versi skema DB sama dengan migrasi di binary).
+        Detail error tidak dikirim ke klien (hanya ke log server).
+      security: []
+      responses:
+        "200":
+          description: Semua dependensi siap
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Readiness" }
+        "503":
+          description: Satu atau lebih dependensi tidak siap, atau server sedang shutdown
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Readiness" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/version:
+    get:
+      tags: [system]
+      operationId: getVersion
+      summary: Versi build dan waktu server
+      security: []
+      responses:
+        "200":
+          description: Informasi versi
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Version" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+components:
+  headers:
+    X-Request-Id:
+      description: ID unik request untuk penelusuran log
+      schema: { type: string }
+  responses:
+    TooManyRequests:
+      description: Rate limit terlampaui
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ok] }
+    CheckResult:
+      type: object
+      required: [status, latency_ms]
+      properties:
+        status: { type: string, enum: [ok, unavailable] }
+        latency_ms: { type: integer, format: int64, minimum: 0 }
+    Readiness:
+      type: object
+      required: [status, checks, checked_at]
+      properties:
+        status: { type: string, enum: [ready, not_ready] }
+        checks:
+          type: object
+          additionalProperties: { $ref: "#/components/schemas/CheckResult" }
+          example:
+            database: { status: ok, latency_ms: 1 }
+            redis: { status: ok, latency_ms: 0 }
+            migrations: { status: ok, latency_ms: 1 }
+        checked_at: { type: string, format: date-time }
+    Version:
+      type: object
+      required: [version, commit, go_version, server_time_utc, display_timezone, server_time_display]
+      properties:
+        version: { type: string, example: v0.1.3 }
+        commit: { type: string, example: 1a2b3c4 }
+        build_date: { type: string, format: date-time }
+        go_version: { type: string, example: go1.27.2 }
+        server_time_utc: { type: string, format: date-time }
+        display_timezone: { type: string, example: Asia/Makassar }
+        server_time_display: { type: string, format: date-time, example: "2026-10-12T20:00:00+08:00" }
+    ErrorBody:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, example: not_found }
+            message: { type: string }
+            request_id: { type: string }

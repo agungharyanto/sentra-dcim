@@ -19,4 +19,7 @@ sampai ada keputusan), **Superseded** (digantikan keputusan lain).
 | D-012 | 2026-10-12 | Repo GitHub `agungharyanto/sentra-dcim`, push via deploy key SSH server | Accepted | |
 | D-013 | 2026-10-12 | Domain produksi & sertifikat TLS | Pending/Default | Caddyfile memakai `:80` internal sampai domain ditetapkan |
 | D-014 | 2026-10-12 | Migrasi DB dijalankan oleh binary app (`sentra migrate up/down/goto`) memakai golang-migrate dengan file tertanam (embed), bukan container terpisah | Accepted | Image tetap distroless, tanpa shell |
+| D-016 | 2026-10-12 | `chi/middleware.RealIP` tidak dipakai (deprecated, rentan spoofing). Middleware sendiri: `X-Real-IP` hanya dipercaya dari CIDR `APP_TRUSTED_PROXIES`; Caddy (edge) tidak mempercayai `X-Forwarded-For` klien | Accepted | |
+| D-017 | 2026-10-12 | Rate limit in-memory per IP (20 rps, burst 40) selama app 1 replika | Pending/Default | Pindah ke Redis bila app di-scale >1 replika |
+| D-018 | 2026-10-12 | `/health`, `/ready`, `/version` publik tanpa auth; detail error hanya di log | Accepted | Ditinjau ulang di v0.3 (Auth) |
 | D-015 | 2026-10-12 | Container tidak di-expose ke host kecuali Caddy di `127.0.0.1:8080`; app/DB/Redis hanya di network internal (DB & Redis tetap bisa diakses dari host via `127.0.0.1` untuk ops) | Accepted | Docker melewati ufw, jadi bind 127.0.0.1 wajib |
