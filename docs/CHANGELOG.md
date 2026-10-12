@@ -3,6 +3,11 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [Unreleased]
+
+### Dokumentasi
+- DECISIONS: D-022 (hotfix pasca-sprint memakai slot cadangan), tertinggal dari commit v0.1.5.
+
 ## [v0.1.5] - 2026-10-12 — CI Redis Auth (hotfix pasca-sprint)
 
 ### Diperbaiki

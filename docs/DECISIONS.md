@@ -25,4 +25,5 @@ sampai ada keputusan), **Superseded** (digantikan keputusan lain).
 | D-019 | 2026-10-12 | Backup otomatis harian 02:00 WITA via systemd timer (bukan cron/container) | Pending/Default | |
 | D-020 | 2026-10-12 | Rollback memakai `ops/rollback.sh` dengan target minimum v0.1.3; schema down dijalankan oleh binary versi saat ini | Accepted | |
 | D-021 | 2026-10-12 | `.env` tidak ikut backup; salinan disimpan di brankas password tim | Pending/Default | Alternatif: backup `.env` terenkripsi (age/gpg) |
+| D-022 | 2026-10-12 | Hotfix setelah penutup sprint (`.9`) memakai slot cadangan kosong pertama (`.5–.8`) sprint tersebut | Pending/Default | v0.1.5 = hotfix CI |
 | D-015 | 2026-10-12 | Container tidak di-expose ke host kecuali Caddy di `127.0.0.1:8080`; app/DB/Redis hanya di network internal (DB & Redis tetap bisa diakses dari host via `127.0.0.1` untuk ops) | Accepted | Docker melewati ufw, jadi bind 127.0.0.1 wajib |
