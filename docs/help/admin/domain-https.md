@@ -20,7 +20,7 @@ Nilai di `.env` (tidak di-commit; contoh ada di `.env.example`):
 
 | Variabel | Nilai produksi | Fungsi |
 |---|---|---|
-| `DOMAIN` | `sentra.bajastu.id` | Nama host publik; record DNS A harus menunjuk ke IP server |
+| `DOMAIN` | `sentra.bajastu.id` | Nama host publik; record DNS A harus menunjuk ke IP server. Kosong = `localhost` (dev/CI, CA internal) |
 | `ACME_EMAIL` | email tim | Akun Let's Encrypt, untuk pemberitahuan sertifikat bermasalah atau akan kedaluwarsa |
 | `CADDY_PUBLIC_HTTP_BIND` | `0.0.0.0:80` | Listener HTTP publik (redirect + challenge ACME HTTP-01) |
 | `CADDY_PUBLIC_HTTPS_BIND` | `0.0.0.0:443` | Listener HTTPS publik |
@@ -63,6 +63,7 @@ Detail: [api/system.md](../api/system.md).
 | Log `challenge failed` … `NXDOMAIN` | DNS baru dibuat, belum menyebar ke semua validator | Biasanya berhasil sendiri saat dicoba ulang; cek `dig +short` dari beberapa resolver |
 | Log `Timeout during connect` | Port 80/443 tidak terjangkau dari internet (firewall upstream/NAT) | Buka port di firewall penyedia; bila mustahil gunakan DNS-01 (lihat di bawah) |
 | Browser menolak sertifikat | Sertifikat *staging* atau internal CA (DOMAIN kosong) | Pastikan `DOMAIN` terisi, `make up`, cek issuer: `openssl s_client -connect DOMAIN:443` |
+| `make up` berhenti: `DOMAIN=... requires ACME_EMAIL` | `ACME_EMAIL` kosong | Isi `ACME_EMAIL` di `.env` |
 | `403 forbidden` untuk endpoint yang diperlukan | Endpoint belum dibuka publik | Disengaja; akses dari server lewat `127.0.0.1:8080` |
 
 ### Opsi DNS-01 (Pending, D-024)

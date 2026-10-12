@@ -28,10 +28,20 @@ hooks: ## Install git pre-commit hook (gitleaks)
 	@echo ".env missing: cp .env.example .env && chmod 600 .env, then fill in secrets" >&2; exit 1
 
 ## ---------- Containers ----------
-.PHONY: up down logs ps build
-up: .env ## Build and start all containers, then run migrations
+.PHONY: up down logs ps build preflight caddy-validate
+up: .env preflight ## Build and start all containers, then run migrations
 	$(COMPOSE) up -d --build --wait
 	$(MAKE) migrate
+
+preflight: .env ## Validate .env before starting (domain/ACME settings)
+	@set -a; source .env; set +a; \
+	if [[ -n "$${DOMAIN:-}" && "$$DOMAIN" != localhost && -z "$${ACME_EMAIL:-}" ]]; then \
+	  echo "preflight: DOMAIN=$$DOMAIN requires ACME_EMAIL in .env" >&2; exit 1; fi
+
+caddy-validate: ## Validate the Caddyfile for production-like and empty (dev/CI) settings
+	docker build -q -t sentra-caddy:validate deploy/caddy >/dev/null
+	docker run --rm -e DOMAIN=sentra.example.go.id -e ACME_EMAIL=admin@example.go.id --entrypoint caddy sentra-caddy:validate validate --config /etc/caddy/Caddyfile
+	docker run --rm -e DOMAIN=localhost -e ACME_EMAIL=admin@localhost --entrypoint caddy sentra-caddy:validate validate --config /etc/caddy/Caddyfile
 
 down: ## Stop containers (volumes are kept)
 	$(COMPOSE) down

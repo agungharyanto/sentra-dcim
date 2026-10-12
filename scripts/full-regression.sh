@@ -46,6 +46,9 @@ check "shellcheck" shellcheck -x ops/*.sh ops/harden/*.sh scripts/*.sh scripts/h
 check "OpenAPI lint (Redocly)" make --no-print-directory openapi-lint
 check "sqlc generated code up to date" sqlc diff
 check "docker compose config valid" docker compose config -q
+check "Caddyfile valid (production-like + empty env)" make --no-print-directory caddy-validate
+check "compose renders Caddy defaults for empty DOMAIN/ACME_EMAIL" bash -c \
+  "DOMAIN= ACME_EMAIL= docker compose config --format json | jq -e '.services.caddy.environment | .DOMAIN==\"localhost\" and .ACME_EMAIL==\"admin@localhost\"' >/dev/null"
 if command -v actionlint >/dev/null; then check "actionlint (CI workflow)" actionlint .github/workflows/ci.yml; fi
 check "no .env / keys tracked by git" bash -c '! git ls-files | grep -E "(^|/)\.env$|\.pem$|\.key$|credentials"'
 check "pre-commit hook active" bash -c '[[ "$(git config core.hooksPath)" == "scripts/hooks" ]]'

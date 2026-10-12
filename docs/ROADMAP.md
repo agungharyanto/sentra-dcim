@@ -33,5 +33,6 @@ Sprint = 1 minggu.
 | v0.1.4 | Ops & DR | backup/restore/rollback/bootstrap, GitHub Actions CI | Selesai |
 | v0.1.5 | CI Redis Auth (hotfix) | Perbaikan CI pertama di GitHub | Selesai |
 | v0.1.6 | Domain & HTTPS (tambahan scope) | `sentra.bajastu.id`, Let's Encrypt, ufw 80/443, redirect, HSTS & security headers, allowlist endpoint publik | Selesai |
-| v0.1.7–v0.1.8 | (cadangan) | — | Kosong |
+| v0.1.7 | Caddy Empty Env Fix (hotfix) | Perbaikan CI v0.1.6 (DOMAIN/ACME_EMAIL kosong) | Selesai |
+| v0.1.8 | (cadangan) | — | Kosong |
 | v0.1.9 | Full Regression & DoD | Semua test, uji restore, uji rollback, uji firewall, release notes, GitHub Release | Selesai (push & GitHub Release menunggu ISS-001) |

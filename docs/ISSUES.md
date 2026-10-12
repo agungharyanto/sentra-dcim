@@ -18,6 +18,7 @@ Format: ID, judul, prioritas (P1 kritis – P4 rendah), versi ditemukan, versi d
 | ISS-004 | Workflow CI belum pernah berjalan di GitHub | P2 | v0.1.4 | v0.1.5 | Run pertama menemukan ISS-009 |
 | ISS-009 | CI integration test gagal: service Redis tanpa password menerima password apa pun | P2 | v0.1.5 | v0.1.5 | CI menjalankan Redis dengan `requirepass` |
 | ISS-002 | IP klien asli tersembunyi oleh docker userland-proxy saat 80/443 dibuka | P2 | v0.1.3 | v0.1.6 | Port publish `0.0.0.0` memakai DNAT iptables: access log Caddy mencatat IP eksternal asli (mis. validator Let's Encrypt). userland-proxy hanya dipakai untuk loopback |
+| ISS-014 | CI build gagal sejak v0.1.6: Caddyfile tak valid bila `DOMAIN`/`ACME_EMAIL` kosong | P2 | v0.1.6 | v0.1.7 | Default di compose + `make caddy-validate` di CI/regresi. Lolos di server karena `.env` produksi terisi |
 | ISS-011 | Redirect HTTP→HTTPS otomatis Caddy membocorkan header `Server: Caddy` | P4 | v0.1.6 | v0.1.6 | Blok `http://` eksplisit dengan `header -Server` |
 | ISS-012 | `curl -I` (HEAD) ke endpoint GET akan 405 | P3 | v0.1.6 | v0.1.6 | `middleware.GetHead` |
 | ISS-013 | `X-Request-Id` membocorkan ID container (hostname) | P4 | v0.1.6 | v0.1.6 | `hostname: sentra-app` |
