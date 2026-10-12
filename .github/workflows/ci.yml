@@ -67,13 +67,17 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U sentra -d sentra"
           --health-interval 5s --health-timeout 5s --health-retries 20
-      redis:
-        image: redis:8.10.2-alpine
-        ports: ["6379:6379"]
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s --health-timeout 3s --health-retries 20
     steps:
+      # Redis runs with requirepass like production; service containers cannot override the command.
+      - name: Start Redis (password protected)
+        run: |
+          docker run -d --name redis -p 127.0.0.1:6379:6379 redis:8.10.2-alpine \
+            redis-server --requirepass ci-only-redis-password
+          for _ in $(seq 1 30); do
+            docker exec redis redis-cli -a ci-only-redis-password --no-auth-warning ping | grep -q PONG && exit 0
+            sleep 1
+          done
+          exit 1
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
@@ -84,7 +88,7 @@ jobs:
         env:
           SENTRA_IT_DATABASE_URL: postgres://sentra:ci-only-password@127.0.0.1:5432/sentra?sslmode=disable
           SENTRA_IT_REDIS_ADDR: 127.0.0.1:6379
-          SENTRA_IT_REDIS_PASSWORD: ""
+          SENTRA_IT_REDIS_PASSWORD: ci-only-redis-password
         run: go test -count=1 -tags=integration ./test/integration/...
 
   build:
