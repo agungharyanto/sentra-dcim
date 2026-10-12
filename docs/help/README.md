@@ -35,6 +35,7 @@ Apa yang diselesaikan fitur ini dan untuk siapa.
 | Modul | Fitur | Halaman | Sejak |
 |---|---|---|---|
 | Ops | Infrastruktur & hardening server | [ops/infrastruktur.md](ops/infrastruktur.md) | v0.1.2 |
+| Ops | Backup, restore & rollback | [ops/backup-restore.md](ops/backup-restore.md) | v0.1.4 |
 | API | Endpoint sistem (health, ready, version) | [api/system.md](api/system.md) | v0.1.3 |
 
 ## Dokumentasi API

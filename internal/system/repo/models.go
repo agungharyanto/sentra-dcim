@@ -8,6 +8,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// Operational runs recorded by ops/*.sh. Timestamps are UTC.
+type OpsRun struct {
+	ID         int64              `json:"id"`
+	Kind       string             `json:"kind"`
+	Status     string             `json:"status"`
+	Ref        string             `json:"ref"`
+	AppVersion string             `json:"app_version"`
+	Details    []byte             `json:"details"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type SchemaMigration struct {
 	Version int64 `json:"version"`
 	Dirty   bool  `json:"dirty"`

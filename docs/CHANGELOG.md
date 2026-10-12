@@ -3,7 +3,25 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
-## [v0.1.3] - 2026-10-12 — Backend Skeleton
+## [v0.1.4] - 2026-10-12 — Ops & DR
+
+### Ditambahkan
+- `ops/backup.sh`: `pg_dump` custom terkompresi + globals + volume `caddy_data`/`caddy_config`/`redis_data`,
+  `manifest.json`, `SHA256SUMS` (diverifikasi), lock, retensi (default 14 hari), hook offsite (Pending), pembersihan
+  direktori `.partial` saat gagal.
+- `ops/restore.sh`: verifikasi checksum, restore penuh (safety backup otomatis, stop app/caddy, TimescaleDB
+  pre/post restore, volume, migrate up, tunggu ready) atau restore terisolasi ke DB lain (`--target-db`).
+- `ops/rollback.sh <tag|main>`: backup → migrate down dengan binary saat ini → checkout → `make up` → verifikasi
+  `/ready` & `/version`; re-exec dari salinan sementara agar aman terhadap `git checkout`.
+- `ops/bootstrap-new-server.sh`: Ubuntu 24.04 kosong → Docker CE, user `sentra`, clone, `.env`, hardening, timer
+  backup, `make up`, restore opsional, smoke test; mode `--dry-run`.
+- Timer systemd `sentra-backup.timer` (harian 02:00 WITA) + `ops/install-backup-timer.sh`, target `make backup-timer`.
+- Migrasi `000002_ops_runs` (log operasi backup/restore/rollback) dengan `down`.
+- GitHub Actions CI (`.github/workflows/ci.yml`): gitleaks, golangci-lint, ShellCheck, OpenAPI lint, `sqlc diff`,
+  unit + integration test (service TimescaleDB & Redis), build image + cek non-root + API smoke test.
+- `docs/DISASTER_RECOVERY.md` lengkap; Pusat Bantuan `docs/help/ops/backup-restore.md`.
+
+ - 2026-10-12 — Backend Skeleton
 
 ### Ditambahkan
 - Backend Go modular monolith: `cmd/sentra` dengan subcommand `serve`, `migrate up|down|goto|force|version`,

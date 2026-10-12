@@ -30,6 +30,6 @@ Sprint = 1 minggu.
 | v0.1.1 | Repo Scaffold | Struktur folder, CLAUDE.md, .gitignore, .editorconfig, .env.example, Makefile, dokumen wajib, Pusat Bantuan README, pre-commit gitleaks | Selesai |
 | v0.1.2 | Infra Base | docker-compose (timescaledb, redis, caddy, app), healthcheck, volume, bind 127.0.0.1, limit, restart; `ops/harden/*.sh` | Selesai |
 | v0.1.3 | Backend Skeleton | `/api/v1/health`, `/ready`, `/version`, config env, graceful shutdown, migrasi pertama, OpenAPI, test, lint | Selesai |
-| v0.1.4 | Ops & DR | backup/restore/rollback/bootstrap, GitHub Actions CI | Rencana |
+| v0.1.4 | Ops & DR | backup/restore/rollback/bootstrap, GitHub Actions CI | Selesai |
 | v0.1.5–v0.1.8 | (cadangan) | — | Kosong |
 | v0.1.9 | Full Regression & DoD | Semua test, uji restore, uji rollback, uji firewall, release notes, GitHub Release | Rencana |

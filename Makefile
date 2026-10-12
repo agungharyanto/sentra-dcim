@@ -92,18 +92,21 @@ migrate-goto: ## Migrate to a specific version (V=n)
 	$(COMPOSE) exec -T app /sentra migrate goto $(V)
 
 ## ---------- Ops & DR ----------
-.PHONY: backup restore rollback release harden
+.PHONY: backup restore rollback release harden backup-timer
 backup: ## Backup DB + important volumes to $$BACKUP_DIR
 	./ops/backup.sh
 
-restore: ## Restore from a backup directory (FROM=/var/backups/sentra/<stamp>)
-	./ops/restore.sh $(FROM)
+restore: ## Restore from a backup directory (FROM=/var/backups/sentra/<dir>; ARGS="--target-db x --yes")
+	./ops/restore.sh $(FROM) $(ARGS)
 
 rollback: ## Roll back to a git tag (TAG=vX.Y.Z): backup -> checkout -> migrate -> up
 	./ops/rollback.sh $(TAG)
 
 release: ## Merge current feature branch to main, tag and push (V=vX.Y.Z T="Title")
 	./scripts/release.sh $(V) "$(T)"
+
+backup-timer: ## Install the systemd daily backup timer (02:00 WITA); needs sudo
+	sudo ./ops/install-backup-timer.sh
 
 harden: ## Apply server hardening (ufw, fail2ban, sysctl, unattended-upgrades); needs sudo
 	sudo ./ops/harden/all.sh

@@ -37,6 +37,13 @@ ditambah, diubah versinya, atau dihapus.
 | sqlc | 1.31.1 | MIT | Generate kode Go type-safe dari query SQL |
 | Redocly CLI (`redocly/cli:2.62.1`) | 2.62.1 | MIT | Validasi `api/openapi.yaml` |
 | GCC | (paket Ubuntu) | GPL-3.0 | Dibutuhkan race detector (`go test -race`, CGO) |
+| actionlint | 1.7.12 | MIT | Validasi workflow GitHub Actions (lokal) |
+| actions/checkout | v7 | MIT | CI: checkout repo |
+| actions/setup-go | v7 | MIT | CI: instal Go |
+| golangci/golangci-lint-action | v9 | MIT | CI: jalankan golangci-lint |
+| docker/setup-buildx-action | v4 | Apache-2.0 | CI: Docker Buildx |
+| docker/build-push-action | v7 | Apache-2.0 | CI: build image (tanpa push) |
+| systemd timer | (Ubuntu 24.04) | LGPL-2.1 | Penjadwalan backup harian |
 | GNU Make | 4.3 | GPL-3.0 | Task runner (`Makefile`) |
 | ufw | 0.36.2 | GPL-3.0 | Firewall host |
 | fail2ban | 1.0.2 | GPL-2.0 | Proteksi brute-force SSH |

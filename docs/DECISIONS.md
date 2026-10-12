@@ -22,4 +22,7 @@ sampai ada keputusan), **Superseded** (digantikan keputusan lain).
 | D-016 | 2026-10-12 | `chi/middleware.RealIP` tidak dipakai (deprecated, rentan spoofing). Middleware sendiri: `X-Real-IP` hanya dipercaya dari CIDR `APP_TRUSTED_PROXIES`; Caddy (edge) tidak mempercayai `X-Forwarded-For` klien | Accepted | |
 | D-017 | 2026-10-12 | Rate limit in-memory per IP (20 rps, burst 40) selama app 1 replika | Pending/Default | Pindah ke Redis bila app di-scale >1 replika |
 | D-018 | 2026-10-12 | `/health`, `/ready`, `/version` publik tanpa auth; detail error hanya di log | Accepted | Ditinjau ulang di v0.3 (Auth) |
+| D-019 | 2026-10-12 | Backup otomatis harian 02:00 WITA via systemd timer (bukan cron/container) | Pending/Default | |
+| D-020 | 2026-10-12 | Rollback memakai `ops/rollback.sh` dengan target minimum v0.1.3; schema down dijalankan oleh binary versi saat ini | Accepted | |
+| D-021 | 2026-10-12 | `.env` tidak ikut backup; salinan disimpan di brankas password tim | Pending/Default | Alternatif: backup `.env` terenkripsi (age/gpg) |
 | D-015 | 2026-10-12 | Container tidak di-expose ke host kecuali Caddy di `127.0.0.1:8080`; app/DB/Redis hanya di network internal (DB & Redis tetap bisa diakses dari host via `127.0.0.1` untuk ops) | Accepted | Docker melewati ufw, jadi bind 127.0.0.1 wajib |
