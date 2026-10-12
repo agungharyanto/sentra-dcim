@@ -34,7 +34,7 @@ Apa yang diselesaikan fitur ini dan untuk siapa.
 
 | Modul | Fitur | Halaman | Sejak |
 |---|---|---|---|
-| — | — | — | — |
+| Ops | Infrastruktur & hardening server | [ops/infrastruktur.md](ops/infrastruktur.md) | v0.1.2 |
 
 ## Dokumentasi API
 

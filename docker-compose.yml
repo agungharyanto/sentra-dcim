@@ -1,0 +1,148 @@
+# Sentra DCIM stack. All host ports bind to 127.0.0.1 because Docker bypasses ufw (CLAUDE.md rule 5).
+name: sentra
+
+x-hardening: &hardening
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
+services:
+  db:
+    <<: *hardening
+    image: timescale/timescaledb:2.30.2-pg16
+    user: "70:70"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+      TIMESCALEDB_TELEMETRY: "off"
+      TZ: UTC
+      PGTZ: UTC
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    tmpfs:
+      - /var/run/postgresql:uid=70,gid=70,mode=0775
+      - /tmp:uid=70,gid=70,mode=1777
+    read_only: true
+    shm_size: 256m
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+    networks: [data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 2g, pids: 512 }
+
+  redis:
+    <<: *hardening
+    image: redis:8.10.2-alpine
+    user: "999:1000"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    command:
+      - sh
+      - -c
+      - exec redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --protected-mode yes
+    volumes:
+      - redis_data:/data
+    read_only: true
+    ports:
+      - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
+    networks: [data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 320m, pids: 128 }
+
+  app:
+    <<: *hardening
+    build:
+      context: .
+      args:
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-}
+    image: sentra-app:${VERSION:-dev}
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      APP_LOG_LEVEL: ${APP_LOG_LEVEL:-info}
+      APP_HTTP_ADDR: ":8080"
+      APP_SHUTDOWN_TIMEOUT: ${APP_SHUTDOWN_TIMEOUT:-15s}
+      APP_DISPLAY_TZ: ${APP_DISPLAY_TZ:-Asia/Makassar}
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_SSLMODE: disable
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    read_only: true
+    networks: [data, edge]
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "/sentra", "healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 512m, pids: 256 }
+
+  caddy:
+    <<: *hardening
+    build:
+      context: deploy/caddy
+    image: sentra-caddy:2.11.7
+    environment:
+      CADDY_SITE_ADDRESS: ${CADDY_SITE_ADDRESS:-:8080}
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    tmpfs:
+      - /tmp
+    read_only: true
+    ports:
+      - "${CADDY_HTTP_BIND:-127.0.0.1:8080}:8080"
+    networks: [edge]
+    depends_on:
+      app: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 256m, pids: 128 }
+
+volumes:
+  db_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  data:
+  edge:

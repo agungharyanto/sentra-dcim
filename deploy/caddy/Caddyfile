@@ -1,0 +1,44 @@
+{
+	admin 127.0.0.1:2019
+	http_port 8080
+	auto_https off
+	servers {
+		trusted_proxies static private_ranges
+	}
+	log {
+		output stdout
+		format json
+	}
+}
+
+# Inside the container Caddy listens on :8080; host binding is controlled by CADDY_HTTP_BIND.
+# When a domain is decided (D-013), set CADDY_SITE_ADDRESS to it and enable auto_https.
+{$CADDY_SITE_ADDRESS::8080} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		Content-Security-Policy "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		Cross-Origin-Opener-Policy "same-origin"
+		-Server
+	}
+
+	request_body {
+		max_size 10MB
+	}
+
+	handle /api/* {
+		reverse_proxy app:8080 {
+			health_uri /api/v1/health
+			health_interval 15s
+		}
+	}
+
+	handle {
+		respond "Sentra DCIM — UI tersedia mulai v0.2" 200
+	}
+}
