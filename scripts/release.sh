@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Merge the current feature branch into main with --no-ff, create an annotated tag and push.
 # Usage: scripts/release.sh vX.Y.Z "Title"
+# Set NO_PUSH=1 to skip pushing (e.g. remote temporarily unreachable); push later with:
+#   git push origin main --follow-tags
 set -euo pipefail
 
 version="${1:?usage: release.sh vX.Y.Z \"Title\"}"
@@ -19,7 +21,11 @@ if git ls-remote --exit-code origin main >/dev/null 2>&1; then
 fi
 git merge --no-ff "$branch" -m "merge: $version $title"
 git tag -a "$version" -m "$title"
-git push origin main "$version"
+if [[ "${NO_PUSH:-0}" == "1" ]]; then
+  echo "WARNING: NO_PUSH=1, $version not pushed. Run: git push origin main --follow-tags" >&2
+else
+  git push origin main "$version"
+fi
 git branch -d "$branch"
 
 echo "released $version \"$title\""
