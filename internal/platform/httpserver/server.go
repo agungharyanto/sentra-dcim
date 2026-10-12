@@ -26,6 +26,7 @@ func NewRouter(log *slog.Logger, rl *RateLimiter, trustedProxies []netip.Prefix,
 	r.Use(securityHeaders)
 	r.Use(maxBody(MaxBodyBytes))
 	r.Use(middleware.Timeout(30 * time.Second))
+	r.Use(middleware.GetHead) // HEAD is served by GET handlers (e.g. `curl -I`)
 	if rl != nil {
 		r.Use(rl.Middleware)
 	}

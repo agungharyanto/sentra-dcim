@@ -1,4 +1,5 @@
-# Caddy running as non-root on unprivileged port 8080.
+# Caddy running as non-root. Ports 80/443 are bound via the container sysctl
+# net.ipv4.ip_unprivileged_port_start=0 (see docker-compose.yml), so no capability is needed.
 FROM caddy:2.11.7-alpine
 # Drop file capabilities so the binary runs under no-new-privileges + cap_drop ALL.
 RUN apk add --no-cache libcap \
@@ -8,4 +9,4 @@ RUN apk add --no-cache libcap \
  && chown -R 65532:65532 /data /config
 COPY Caddyfile /etc/caddy/Caddyfile
 USER 65532:65532
-EXPOSE 8080
+EXPOSE 80 443 8081

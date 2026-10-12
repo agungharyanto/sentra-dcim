@@ -113,6 +113,20 @@ func TestVersion(t *testing.T) {
 	}
 }
 
+func TestHeadIsServedByGet(t *testing.T) {
+	srv := newServer(t)
+	for _, p := range []string{"/api/v1/health", "/api/v1/version"} {
+		resp, err := http.Head(srv.URL + p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("HEAD %s = %d", p, resp.StatusCode)
+		}
+	}
+}
+
 func TestNotFoundAndMethodNotAllowed(t *testing.T) {
 	srv := newServer(t)
 	var e httpserver.ErrorBody

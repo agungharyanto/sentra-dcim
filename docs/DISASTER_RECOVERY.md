@@ -24,7 +24,7 @@ Setiap backup adalah satu direktori `/var/backups/sentra/<UTC-stamp>_<label>/`:
 | `db.dump` | `pg_dump --format=custom --compress=6` database aplikasi |
 | `db.toc` | Daftar isi dump (bukti dump terbaca) |
 | `globals.sql` | Role & atribut global (`pg_dumpall --globals-only`) |
-| `vol_caddy_data.tar.gz`, `vol_caddy_config.tar.gz` | Sertifikat TLS & state Caddy |
+| `vol_caddy_data.tar.gz`, `vol_caddy_config.tar.gz` | Sertifikat TLS Let's Encrypt, kunci akun ACME & state Caddy |
 | `vol_redis_data.tar.gz` | Data Redis (cache/antrian) |
 | `manifest.json` | Waktu, label, versi aplikasi, commit, versi skema DB, host |
 | `SHA256SUMS` | Checksum semua file — diverifikasi saat backup & sebelum restore |
@@ -88,7 +88,9 @@ sudo git clone --branch v0.1.9 git@github.com:agungharyanto/sentra-dcim.git /opt
 sudo /opt/sentra-dcim/ops/bootstrap-new-server.sh --ref v0.1.9 --env-file /root/sentra.env --restore-from /root/restore/<dir>
 ```
 
-Tanpa `--env-file`, `.env` baru dengan secret acak dibuat otomatis. Tanpa `--restore-from`, database kosong.
+Bila server baru memiliki IP berbeda, ubah record DNS A `sentra.bajastu.id` ke IP baru **sebelum** langkah 3 agar
+Caddy bisa menerbitkan/menggunakan sertifikat (sertifikat lama ikut dipulihkan dari volume `caddy_data`).
+Tanpa `--env-file`, `.env` baru dengan secret acak dibuat otomatis (isi `DOMAIN`/`ACME_EMAIL` setelahnya). Tanpa `--restore-from`, database kosong.
 `--dry-run` menampilkan langkah tanpa mengeksekusi. Setelah selesai: cek `make ps` dan `sudo ufw status`.
 
 > Catatan: langkah 2 di-clone sebagai root memakai key root; langkah 3 mengubah kepemilikan repo ke user `sentra`

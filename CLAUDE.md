@@ -31,8 +31,8 @@ Aturan di bawah **wajib dipatuhi di setiap sesi**. Bila ada konflik, aturan ini 
    prosedur rollback teruji, tag Git, changelog.
 10. **Scope terkunci** = `docs/ROADMAP.md`. Fitur baru → slot versi kosong (.5–.8 atau sprint berikut), catat di ROADMAP.
 11. **Laporan ke user singkat:** tag, hasil test, issue terbuka, keputusan yang dibutuhkan.
-12. **Bahasa.** Komunikasi, dokumentasi (`docs/`, Pusat Bantuan, CHANGELOG, ISSUES) dalam Bahasa Indonesia.
-    Kode, nama variabel, pesan commit, dan komentar kode dalam Bahasa Inggris.
+12. **Bahasa.** Komunikasi & dokumentasi (`docs/`, Pusat Bantuan, CHANGELOG, ISSUES) dalam Bahasa Indonesia.
+    Kode, nama variabel, pesan commit, komentar kode dalam Bahasa Inggris.
 
 ## Ringkasan teknis
 
@@ -43,4 +43,5 @@ Aturan di bawah **wajib dipatuhi di setiap sesi**. Bila ada konflik, aturan ini 
 - **Waktu:** simpan UTC, tampilkan Asia/Makassar (WITA).
 - **Perintah:** `make help` — `up/down/logs/test/lint/migrate/backup/restore/rollback/release`.
 - **Server:** user `sentra`, repo di `/opt/sentra-dcim`, backup di `/var/backups/sentra`, sshd di port non-standar
-  (dibaca otomatis oleh `ops/harden/ufw.sh`).
+  (dibaca otomatis oleh `ops/harden/ufw.sh`). Domain publik `https://sentra.bajastu.id` (Caddy + Let's Encrypt);
+  hanya `/api/v1/health` & `/api/v1/version` publik, API lengkap via `http://127.0.0.1:8080`.

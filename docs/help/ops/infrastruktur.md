@@ -18,12 +18,13 @@ Menjelaskan komponen container Sentra DCIM dan cara menerapkan hardening server 
 | `db` | timescale/timescaledb:2.30.2-pg16 | `127.0.0.1:5432` | PostgreSQL 16 + TimescaleDB, user `postgres` (70) |
 | `redis` | redis:8.10.2-alpine | `127.0.0.1:6379` | Wajib password, AOF aktif, user `redis` (999) |
 | `app` | sentra-app (distroless) | — (internal) | Backend Go, user `nonroot` (65532) |
-| `caddy` | sentra-caddy (turunan caddy:2.11.7-alpine) | `127.0.0.1:8080` | Reverse proxy + security headers, user 65532 |
+| `caddy` | sentra-caddy (turunan caddy:2.11.7-alpine) | `0.0.0.0:80`, `0.0.0.0:443` (publik), `127.0.0.1:8080` (internal) | Reverse proxy, TLS Let's Encrypt, security headers, user 65532 — lihat [admin/domain-https.md](../admin/domain-https.md) |
 
 Semua container: `read_only`, `no-new-privileges`, `cap_drop: ALL`, batas CPU/memori/PID, `restart: unless-stopped`,
 healthcheck, rotasi log 10 MB × 5. Data disimpan di named volume `db_data`, `redis_data`, `caddy_data`, `caddy_config`.
 
 > **Penting:** Docker melewati ufw. Port container **wajib** bind ke `127.0.0.1`; jangan menulis `"8080:8080"` tanpa IP.
+> Satu-satunya pengecualian: Caddy 80/443 (reverse proxy publik).
 
 ## Langkah-langkah
 
@@ -33,7 +34,7 @@ healthcheck, rotasi log 10 MB × 5. Data disimpan di named volume `db_data`, `re
 
 | Skrip | Fungsi |
 |---|---|
-| `ops/harden/ufw.sh` | Default deny incoming; hanya port sshd aktif (dideteksi otomatis dari `sshd -T`) yang dibuka. 80/443 tertutup |
+| `ops/harden/ufw.sh` | Default deny incoming; port sshd aktif (dideteksi otomatis dari `sshd -T`) + 80/443 bila `UFW_OPEN_HTTP=1` di `.env` |
 | `ops/harden/fail2ban.sh` | Jail `sshd` (mode aggressive), ban 1 jam bertambah s.d. 1 minggu, maks 5 gagal / 10 menit |
 | `ops/harden/sysctl.sh` | Anti-spoofing, tanpa ICMP redirect/source route, SYN cookies, pembatasan kernel pointer/dmesg/BPF |
 | `ops/harden/unattended-upgrades.sh` | Update keamanan otomatis harian, tanpa reboot otomatis |
@@ -43,7 +44,7 @@ healthcheck, rotasi log 10 MB × 5. Data disimpan di named volume `db_data`, `re
 ```bash
 sudo SSH_ALLOW_FROM="203.0.113.10/32,10.8.0.0/24" ops/harden/ufw.sh   # SSH hanya dari allowlist
 sudo WG_PORT=51820 ops/harden/ufw.sh                                  # buka WireGuard
-sudo OPEN_HTTP=1 ops/harden/ufw.sh                                    # buka 80/443 saat domain siap
+sudo OPEN_HTTP=0 ops/harden/ufw.sh                                    # tutup 80/443 sementara (override .env)
 ```
 
 ## Endpoint API terkait

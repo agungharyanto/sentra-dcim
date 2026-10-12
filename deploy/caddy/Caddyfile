@@ -1,7 +1,12 @@
 {
 	admin 127.0.0.1:2019
-	http_port 8080
-	auto_https off
+	# ACME account email for Let's Encrypt expiry/problem notices (from .env, never committed).
+	email {$ACME_EMAIL}
+	skip_install_trust
+	servers {
+		# HTTP/3 (UDP 443) disabled: only 80/tcp and 443/tcp are opened in the firewall.
+		protocols h1 h2
+	}
 	# Caddy is the edge proxy: no trusted_proxies, so client-supplied X-Forwarded-For is never trusted.
 	log {
 		output stdout
@@ -9,37 +14,73 @@
 	}
 }
 
-# Inside the container Caddy listens on :8080; host binding is controlled by CADDY_HTTP_BIND.
-# When a domain is decided (D-013), set CADDY_SITE_ADDRESS to it and enable auto_https.
-{$CADDY_SITE_ADDRESS::8080} {
-	encode zstd gzip
-
+(security_headers) {
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "geolocation=(), microphone=(), camera=()"
-		Content-Security-Policy "default-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Resource-Policy "same-origin"
 		-Server
+		-Via
 	}
+}
+
+(app_proxy) {
+	reverse_proxy app:8080 {
+		# The app derives client IP (rate limiting, audit) from X-Real-IP; never trust client-supplied values.
+		header_up X-Real-IP {client_ip}
+		header_up -True-Client-IP
+		header_down -Server
+		header_down -Via
+		health_uri /api/v1/health
+		health_interval 15s
+	}
+}
+
+# Public site. Certificates are obtained automatically from Let's Encrypt (HTTP-01 / TLS-ALPN-01) and
+# plain HTTP is redirected to HTTPS. Without DOMAIN (dev/CI) Caddy serves localhost with its internal CA.
+{$DOMAIN:localhost} {
+	import security_headers
+	encode zstd gzip
+	log
 
 	request_body {
-		max_size 10MB
+		max_size 1MB
 	}
+
+	# Until Auth (v0.3) only these endpoints are public; everything else is rejected at the proxy.
+	@public {
+		method GET HEAD
+		path /api/v1/health /api/v1/version
+	}
+	handle @public {
+		import app_proxy
+	}
+	handle {
+		header Content-Type "application/json; charset=utf-8"
+		respond `{"error":{"code":"forbidden","message":"not publicly available"}}` 403
+	}
+}
+
+# Explicit HTTP→HTTPS redirect (instead of Caddy's automatic one) so the Server header is hidden here too.
+# ACME HTTP-01 challenges on port 80 are still answered by Caddy before these routes.
+http://{$DOMAIN:localhost} {
+	header -Server
+	redir https://{host}{uri} 308
+}
+
+# Internal listener, published on host 127.0.0.1:8080 only: full API for ops scripts and smoke tests.
+http://:8081 {
+	import security_headers
 
 	handle /api/* {
-		reverse_proxy app:8080 {
-			# The app derives client IP (rate limiting, audit) from X-Real-IP; never trust client-supplied values.
-			header_up X-Real-IP {client_ip}
-			header_up -True-Client-IP
-			health_uri /api/v1/health
-			health_interval 15s
-		}
+		import app_proxy
 	}
-
 	handle {
-		respond "Sentra DCIM — UI tersedia mulai v0.2" 200
+		respond "Sentra DCIM (internal)" 200
 	}
 }
