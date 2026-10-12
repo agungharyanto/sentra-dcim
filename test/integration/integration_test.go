@@ -166,12 +166,17 @@ func TestRedis(t *testing.T) {
 	if addr == "" {
 		t.Skip("SENTRA_IT_REDIS_ADDR not set")
 	}
+	password := os.Getenv("SENTRA_IT_REDIS_PASSWORD")
+	if password == "" {
+		// Redis without requirepass accepts any password, so auth cannot be verified. Production always sets one.
+		t.Fatal("SENTRA_IT_REDIS_PASSWORD must be set: Redis must run with requirepass, as in production")
+	}
 	ctx := context.Background()
 
 	if _, err := cache.Connect(ctx, config.Redis{Addr: addr, Password: "wrong-password"}); err == nil {
 		t.Fatal("expected auth failure with wrong password")
 	}
-	c, err := cache.Connect(ctx, config.Redis{Addr: addr, Password: os.Getenv("SENTRA_IT_REDIS_PASSWORD")})
+	c, err := cache.Connect(ctx, config.Redis{Addr: addr, Password: password})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3,7 +3,14 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
-## [v0.1.9] - 2026-10-12 — Full Regression & DoD
+## [v0.1.5] - 2026-10-12 — CI Redis Auth (hotfix pasca-sprint)
+
+### Diperbaiki
+- CI: Redis kini berjalan dengan `requirepass` seperti produksi. Sebelumnya service Redis tanpa password membuat
+  `TestRedis` gagal karena Redis 8 menerima password apa pun bila user `default` tanpa password (ISS-009).
+- Integration test `TestRedis` gagal dengan pesan jelas bila `SENTRA_IT_REDIS_PASSWORD` kosong.
+
+ - 2026-10-12 — Full Regression & DoD
 
 ### Ditambahkan
 - `scripts/full-regression.sh`: 67 check regresi + DoD (static/secret scan, unit, integration, container, API,
