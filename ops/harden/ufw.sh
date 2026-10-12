@@ -3,7 +3,8 @@
 # Idempotent. Variables (Pending decisions D-007/D-008):
 #   SSH_ALLOW_FROM  comma-separated CIDRs allowed to reach SSH (empty = anywhere, protected by fail2ban)
 #   WG_PORT         WireGuard UDP port to open (empty = closed)
-#   OPEN_HTTP       1 = open 80/443 for Caddy (default 0 = closed)
+#   OPEN_HTTP       1 = open 80/tcp and 443/tcp for Caddy. Defaults to UFW_OPEN_HTTP from the repo .env,
+#                   else 0 (closed), so re-running all.sh never silently closes a published site.
 # NOTE: Docker-published ports bypass ufw; every container port must bind to 127.0.0.1.
 export HARDEN_STEP=ufw
 # shellcheck source=lib.sh
@@ -13,7 +14,12 @@ apt_install ufw
 
 SSH_ALLOW_FROM="${SSH_ALLOW_FROM:-}"
 WG_PORT="${WG_PORT:-}"
+env_file="$(cd "$(dirname "$0")/../.." && pwd)/.env"
+if [[ -z "${OPEN_HTTP:-}" && -f "$env_file" ]]; then
+  OPEN_HTTP="$(sed -n 's/^UFW_OPEN_HTTP=\([01]\)$/\1/p' "$env_file" | tail -1)"
+fi
 OPEN_HTTP="${OPEN_HTTP:-0}"
+log "open 80/443: $OPEN_HTTP"
 
 mapfile -t ports < <(sshd_ports)
 log "sshd ports: ${ports[*]}"

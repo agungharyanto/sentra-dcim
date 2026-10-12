@@ -81,6 +81,8 @@ services:
         COMMIT: ${COMMIT:-unknown}
         BUILD_DATE: ${BUILD_DATE:-}
     image: sentra-app:${VERSION:-dev}
+    # chi prefixes request IDs with the hostname; a fixed name avoids leaking the container ID.
+    hostname: sentra-app
     environment:
       APP_ENV: ${APP_ENV:-production}
       APP_LOG_LEVEL: ${APP_LOG_LEVEL:-info}
@@ -119,15 +121,23 @@ services:
       context: deploy/caddy
     image: sentra-caddy:2.11.7
     environment:
-      CADDY_SITE_ADDRESS: ${CADDY_SITE_ADDRESS:-:8080}
+      DOMAIN: ${DOMAIN:-}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    # Lets the non-root Caddy bind 80/443 inside its own network namespace without any capability.
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
     volumes:
       - caddy_data:/data
       - caddy_config:/config
     tmpfs:
       - /tmp
     read_only: true
+    # Public 80/443 is the only exception to the 127.0.0.1 rule (reverse proxy, CLAUDE.md rule 5).
+    # Defaults stay on loopback; production sets 0.0.0.0 in .env. The internal listener (:8081) is loopback-only.
     ports:
-      - "${CADDY_HTTP_BIND:-127.0.0.1:8080}:8080"
+      - "${CADDY_PUBLIC_HTTP_BIND:-127.0.0.1:80}:80"
+      - "${CADDY_PUBLIC_HTTPS_BIND:-127.0.0.1:443}:443"
+      - "${CADDY_HTTP_BIND:-127.0.0.1:8080}:8081"
     networks: [edge]
     depends_on:
       app: { condition: service_healthy }

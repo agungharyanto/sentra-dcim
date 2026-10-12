@@ -13,6 +13,7 @@ ditambah, diubah versinya, atau dihapus.
 | TimescaleDB (`timescale/timescaledb:2.30.2-pg16`) | 2.30.2 / PostgreSQL 16 | Timescale License (TSL) + Apache-2.0 (core); PostgreSQL License | Database relasional + time-series |
 | Redis (`redis:8.10.2-alpine`) | 8.10.2 | AGPLv3 / RSALv2 / SSPLv1 (tri-license) | Cache, rate-limit store, queue ringan (lihat D-011) |
 | Caddy (`caddy:2.11.7-alpine`) | 2.11.7 | Apache-2.0 | Reverse proxy, TLS otomatis, security headers |
+| Let's Encrypt (ACME v2, layanan eksternal) | — | ISRG Subscriber Agreement | CA sertifikat TLS gratis untuk `sentra.bajastu.id`, diperpanjang otomatis oleh Caddy |
 | Distroless static (`gcr.io/distroless/static-debian12:nonroot`) | debian12 | Apache-2.0 | Base image runtime backend (non-root, tanpa shell) |
 
 ## Backend (Go)

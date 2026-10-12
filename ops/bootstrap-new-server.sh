@@ -79,6 +79,9 @@ elif [[ ! -f "$APP_DIR/.env" ]]; then
   fi
   echo "    generated $APP_DIR/.env with random secrets — store a copy in the password vault"
 fi
+if ((!dry_run)) && grep -qE '^DOMAIN=sentra\.example\.go\.id$' "$APP_DIR/.env"; then
+  echo "    WARNING: DOMAIN/ACME_EMAIL in $APP_DIR/.env are still placeholders; edit them, then: make -C $APP_DIR up"
+fi
 
 step "6/7 hardening + backup timer"
 run "$APP_DIR/ops/harden/all.sh"

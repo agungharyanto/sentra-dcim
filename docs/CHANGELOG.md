@@ -3,10 +3,29 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
-## [Unreleased]
+## [v0.1.6] - 2026-10-12 — Domain & HTTPS
+
+### Ditambahkan
+- HTTPS publik `https://sentra.bajastu.id` via Caddy dengan sertifikat Let's Encrypt otomatis (HTTP-01/TLS-ALPN-01).
+  `DOMAIN` dan `ACME_EMAIL` di `.env` (contoh di `.env.example`).
+- Redirect HTTP → HTTPS (308) eksplisit; HSTS 1 tahun, CSP, X-Frame-Options, X-Content-Type-Options,
+  Referrer-Policy, Permissions-Policy, CORP/COOP; header `Server` & `Via` disembunyikan (termasuk pada redirect).
+- Allowlist proxy: hanya `GET`/`HEAD` `/api/v1/health` dan `/api/v1/version` yang publik; lainnya `403` JSON.
+- Listener internal `127.0.0.1:8080` (API lengkap) untuk skrip ops dan smoke test.
+- `test/api/public.sh`: 25 uji edge publik (TLS issuer & masa berlaku, TLS 1.1 ditolak, headers, allowlist,
+  path traversal, redirect); masuk ke `scripts/full-regression.sh`.
+- Pusat Bantuan: `docs/help/admin/domain-https.md`.
 
 ### Dokumentasi
-- DECISIONS: D-022 (hotfix pasca-sprint memakai slot cadangan), tertinggal dari commit v0.1.5.
+- DECISIONS D-022 (hotfix pasca-sprint memakai slot cadangan), tertinggal dari commit v0.1.5.
+
+### Diubah
+- ufw membuka 80/tcp & 443/tcp; `ops/harden/ufw.sh` membaca `UFW_OPEN_HTTP` dari `.env` (re-run tidak menutup situs).
+- Caddy non-root bind 80/443 lewat sysctl container `net.ipv4.ip_unprivileged_port_start=0` (tanpa capability);
+  HTTP/3 dimatikan (hanya TCP yang dibuka).
+- Backend melayani `HEAD` untuk route `GET` (`curl -I` sebelumnya akan 405).
+- Container app memakai `hostname: sentra-app` agar `X-Request-Id` tidak membocorkan ID container.
+- CI memakai `DOMAIN` kosong (localhost) dan bind loopback.
 
 ## [v0.1.5] - 2026-10-12 — CI Redis Auth (hotfix pasca-sprint)
 

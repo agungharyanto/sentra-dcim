@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sentra DCIM API
-  version: 0.1.3
+  version: 0.1.6
   summary: REST API Sentra DCIM — Diskominfo Provinsi Bali
   description: |
     Semua endpoint berada di bawah `/api/v1`. Waktu dikirim dalam UTC (RFC 3339);
@@ -9,12 +9,18 @@ info:
 
     Setiap respons menyertakan header `X-Request-Id` untuk penelusuran. Error memakai format `ErrorBody`.
     Rate limit per IP klien (default 20 req/detik, burst 40) — respons `429` menyertakan `Retry-After`.
+    Endpoint `GET` juga melayani `HEAD`.
+
+    **Akses publik:** lewat `https://sentra.bajastu.id` hanya `/api/v1/health` dan `/api/v1/version` yang
+    diteruskan; permintaan lain ditolak proxy dengan `403`. API lengkap tersedia di listener internal server.
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
 servers:
+  - url: https://sentra.bajastu.id
+    description: Produksi (publik; hanya health & version)
   - url: http://127.0.0.1:8080
-    description: Server lokal (via Caddy)
+    description: Listener internal di server (API lengkap)
 tags:
   - name: system
     description: Status layanan dan informasi build

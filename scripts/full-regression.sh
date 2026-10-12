@@ -70,11 +70,14 @@ for s in db redis app caddy; do
   check "$s not privileged, no docker.sock mount" bash -c \
     "[[ \$(docker inspect -f '{{.HostConfig.Privileged}}' $c) == false ]] && ! docker inspect -f '{{range .Mounts}}{{.Source}} {{end}}' $c | grep -q docker.sock"
 done
-check "published ports bound to 127.0.0.1 only" bash -c \
-  '! docker ps --format "{{.Ports}}" | tr "," "\n" | grep -- "->" | grep -vE "^ *127\.0\.0\.1:"'
+check "published ports bound to 127.0.0.1, except Caddy 80/443" bash -c \
+  '! docker ps --format "{{.Names}} {{.Ports}}" | awk "{n=\$1; \$1=\"\"; gsub(/, /,\"\n\"n\" \"); print n\" \"\$0}" | grep -- "->" | grep -vE "^[^ ]+ +127\.0\.0\.1:" | grep -vE "^sentra-caddy-1 +(0\.0\.0\.0|\[::\]):(80|443)->(80|443)/tcp$"'
 
 section "5. API tests"
-check "API smoke test${EXPECT_VERSION:+ (expect $EXPECT_VERSION)}" env EXPECT_VERSION="$EXPECT_VERSION" ./test/api/smoke.sh
+check "API smoke test (internal)${EXPECT_VERSION:+ (expect $EXPECT_VERSION)}" env EXPECT_VERSION="$EXPECT_VERSION" ./test/api/smoke.sh
+if [[ -n "${DOMAIN:-}" ]]; then
+  check "public edge test https://$DOMAIN (TLS, headers, proxy allowlist)" ./test/api/public.sh
+fi
 
 section "6. Backup & restore (isolated database)"
 backup_dir=""
@@ -113,12 +116,18 @@ check "Caddy port not reachable from non-loopback IP" bash -c "ip=\$(hostname -I
 
 section "9. Firewall & host hardening"
 ssh_ports="$(sudo sshd -T | awk '$1=="port"{print $2}' | paste -sd' ')"
-info "sshd ports: $ssh_ports"
+allowed_ports="$ssh_ports"
+[[ "${UFW_OPEN_HTTP:-0}" == "1" ]] && allowed_ports="$ssh_ports 80 443"
+info "sshd ports: $ssh_ports; allowed inbound: $allowed_ports"
 check "ufw active, default deny incoming" bash -c 'sudo ufw status verbose | grep -q "Status: active" && sudo ufw status verbose | grep -q "Default: deny (incoming)"'
-check "ufw allows only sshd port(s)" bash -c "[[ -z \$(sudo ufw status | awk 'NR>4 && NF{print \$1}' | sed 's#/.*##' | sort -u | grep -vxE '$(echo "$ssh_ports" | tr ' ' '|')') ]]"
-check "80/443 closed in ufw" bash -c '! sudo ufw status | grep -qE "^(80|443)/tcp"'
-check "only sshd listens on non-loopback addresses" bash -c \
-  "[[ -z \$(sudo ss -Htln | awk '{print \$4}' | grep -vE '^(127\.|\[::1\]|\[::ffff:127\.)' | sed -E 's/.*:([0-9]+)\$/\1/' | sort -u | grep -vxE '$(echo "$ssh_ports" | tr ' ' '|')') ]]"
+check "ufw allows only: $allowed_ports" bash -c "[[ -z \$(sudo ufw status | awk 'NR>4 && NF{print \$1}' | sed 's#/.*##' | sort -u | grep -vxE '$(echo "$allowed_ports" | tr ' ' '|')') ]]"
+if [[ "${UFW_OPEN_HTTP:-0}" == "1" ]]; then
+  check "80/443 open in ufw (UFW_OPEN_HTTP=1)" bash -c 'sudo ufw status | grep -qE "^80/tcp +ALLOW" && sudo ufw status | grep -qE "^443/tcp +ALLOW"'
+else
+  check "80/443 closed in ufw" bash -c '! sudo ufw status | grep -qE "^(80|443)/tcp"'
+fi
+check "only allowed ports listen on non-loopback addresses" bash -c \
+  "[[ -z \$(sudo ss -Htln | awk '{print \$4}' | grep -vE '^(127\.|\[::1\]|\[::ffff:127\.)' | sed -E 's/.*:([0-9]+)\$/\1/' | sort -u | grep -vxE '$(echo "$allowed_ports" | tr ' ' '|')') ]]"
 check "fail2ban sshd jail active" sudo fail2ban-client status sshd
 check "sysctl hardening applied" bash -c '[[ $(sysctl -n net.ipv4.tcp_syncookies) == 1 && $(sysctl -n kernel.kptr_restrict) == 2 && $(sysctl -n net.ipv4.conf.all.accept_redirects) == 0 ]]'
 check "unattended-upgrades enabled" bash -c 'systemctl is-enabled unattended-upgrades && grep -q "Unattended-Upgrade \"1\"" /etc/apt/apt.conf.d/20auto-upgrades'
