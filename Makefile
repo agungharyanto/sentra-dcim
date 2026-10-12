@@ -1,0 +1,104 @@
+# Sentra DCIM — task runner. Run `make help` for the list of targets.
+SHELL := /usr/bin/env bash
+.DEFAULT_GOAL := help
+
+export PATH := $(PATH):/usr/local/go/bin:$(HOME)/go/bin
+
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS := -s -w \
+	-X github.com/agungharyanto/sentra-dcim/internal/platform/buildinfo.Version=$(VERSION) \
+	-X github.com/agungharyanto/sentra-dcim/internal/platform/buildinfo.Commit=$(COMMIT) \
+	-X github.com/agungharyanto/sentra-dcim/internal/platform/buildinfo.BuildDate=$(BUILD_DATE)
+
+COMPOSE := VERSION=$(VERSION) COMMIT=$(COMMIT) BUILD_DATE=$(BUILD_DATE) docker compose
+
+.PHONY: help
+help: ## Show this help
+	@awk 'BEGIN{FS=":.*## "} /^[a-zA-Z_-]+:.*## /{printf "  \033[36m%-18s\033[0m %s\n",$$1,$$2}' $(MAKEFILE_LIST)
+
+## ---------- Setup ----------
+.PHONY: hooks
+hooks: ## Install git pre-commit hook (gitleaks)
+	git config core.hooksPath scripts/hooks
+	@echo "pre-commit hook installed (core.hooksPath=scripts/hooks)"
+
+.env:
+	@echo ".env missing: cp .env.example .env && chmod 600 .env, then fill in secrets" >&2; exit 1
+
+## ---------- Containers ----------
+.PHONY: up down logs ps build
+up: .env ## Build and start all containers, then run migrations
+	$(COMPOSE) up -d --build --wait
+	$(MAKE) migrate
+
+down: ## Stop containers (volumes are kept)
+	$(COMPOSE) down
+
+logs: ## Follow container logs (SERVICE=app to filter)
+	$(COMPOSE) logs -f --tail=200 $(SERVICE)
+
+ps: ## Show container status
+	$(COMPOSE) ps
+
+build: ## Build backend binary to bin/sentra
+	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/sentra ./cmd/sentra
+
+## ---------- Quality ----------
+.PHONY: test test-integration test-api lint gitleaks sqlc fmt
+test: ## Run unit tests with race detector and coverage
+	go test -race -count=1 -coverprofile=coverage.out ./...
+
+test-integration: ## Run integration tests against running DB/Redis (requires `make up`)
+	set -a; source .env; set +a; \
+	SENTRA_IT_DATABASE_URL="postgres://$$POSTGRES_USER:$$POSTGRES_PASSWORD@127.0.0.1:$${POSTGRES_HOST_PORT:-5432}/$$POSTGRES_DB?sslmode=disable" \
+	SENTRA_IT_REDIS_ADDR="127.0.0.1:$${REDIS_HOST_PORT:-6379}" SENTRA_IT_REDIS_PASSWORD="$$REDIS_PASSWORD" \
+	go test -count=1 -tags=integration ./...
+
+test-api: ## Run API smoke tests against the running stack (BASE_URL overridable)
+	BASE_URL=$${BASE_URL:-http://127.0.0.1:8080} ./test/api/smoke.sh
+
+lint: ## Run golangci-lint
+	golangci-lint run ./...
+
+gitleaks: ## Scan full git history and working tree for secrets
+	gitleaks git --redact --no-banner --config .gitleaks.toml .
+	gitleaks dir --redact --no-banner --config .gitleaks.toml .
+
+sqlc: ## Regenerate sqlc code
+	sqlc generate
+
+fmt: ## Format Go code
+	gofmt -s -w cmd internal
+
+## ---------- Database ----------
+.PHONY: migrate migrate-down migrate-version migrate-goto
+migrate: ## Apply all pending migrations
+	$(COMPOSE) exec -T app /sentra migrate up
+
+migrate-down: ## Roll back the last migration (STEPS=n for more)
+	$(COMPOSE) exec -T app /sentra migrate down $${STEPS:-1}
+
+migrate-version: ## Show current migration version
+	$(COMPOSE) exec -T app /sentra migrate version
+
+migrate-goto: ## Migrate to a specific version (V=n)
+	$(COMPOSE) exec -T app /sentra migrate goto $(V)
+
+## ---------- Ops & DR ----------
+.PHONY: backup restore rollback release harden
+backup: ## Backup DB + important volumes to $$BACKUP_DIR
+	./ops/backup.sh
+
+restore: ## Restore from a backup directory (FROM=/var/backups/sentra/<stamp>)
+	./ops/restore.sh $(FROM)
+
+rollback: ## Roll back to a git tag (TAG=vX.Y.Z): backup -> checkout -> migrate -> up
+	./ops/rollback.sh $(TAG)
+
+release: ## Merge current feature branch to main, tag and push (V=vX.Y.Z T="Title")
+	./scripts/release.sh $(V) "$(T)"
+
+harden: ## Apply server hardening (ufw, fail2ban, sysctl, unattended-upgrades); needs sudo
+	sudo ./ops/harden/all.sh
