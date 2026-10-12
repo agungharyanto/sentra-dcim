@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"net/url"
 	"os"
 	"testing"
@@ -82,7 +83,7 @@ func TestMigrationsUpDownUp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 	latest, _ := migrator.Latest()
 
 	if err := m.Up(); err != nil {
@@ -167,7 +168,7 @@ func TestRedis(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	key := "sentra:it:" + time.Now().Format(time.RFC3339Nano)
 	if err := c.Set(ctx, key, "1", time.Minute).Err(); err != nil {
 		t.Fatal(err)
@@ -176,7 +177,7 @@ func TestRedis(t *testing.T) {
 		t.Fatalf("get: %q %v", v, err)
 	}
 	_ = c.Del(ctx, key)
-	if _, err := c.Get(ctx, key).Result(); err != redis.Nil {
+	if _, err := c.Get(ctx, key).Result(); !errors.Is(err, redis.Nil) {
 		t.Fatalf("expected redis.Nil, got %v", err)
 	}
 }

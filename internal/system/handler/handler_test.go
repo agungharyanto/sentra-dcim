@@ -29,19 +29,24 @@ func newServer(t *testing.T, checkers ...service.Checker) *httptest.Server {
 	return srv
 }
 
-func get(t *testing.T, url string, out any) *http.Response {
+type result struct {
+	StatusCode int
+	Header     http.Header
+}
+
+func get(t *testing.T, url string, out any) result {
 	t.Helper()
 	resp, err := http.Get(url)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if out != nil {
 		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 			t.Fatalf("decode: %v", err)
 		}
 	}
-	return resp
+	return result{StatusCode: resp.StatusCode, Header: resp.Header}
 }
 
 var okCheck = service.FuncChecker{CheckName: "database", Fn: func(context.Context) error { return nil }}
@@ -79,7 +84,7 @@ func TestReadyUnavailable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var raw strings.Builder
 	var rep service.Readiness
 	if err := json.NewDecoder(teeReader{resp, &raw}).Decode(&rep); err != nil {
@@ -118,7 +123,7 @@ func TestNotFoundAndMethodNotAllowed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusMethodNotAllowed {
 		t.Fatalf("405: got %d", resp.StatusCode)
 	}
