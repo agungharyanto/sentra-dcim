@@ -38,7 +38,8 @@ cd "$OPS_ROOT"
 git rev-parse -q --verify "$ref^{commit}" >/dev/null || die "unknown git ref '$ref'"
 git show "$ref:cmd/sentra/main.go" 2>/dev/null | grep -q 'runMigrate' || die "'$ref' predates migration support (minimum v0.1.3)"
 
-from="$(app_version)"
+from="$(curl -fsS "http://${CADDY_HTTP_BIND:-127.0.0.1:8080}/api/v1/version" 2>/dev/null | jq -r .version 2>/dev/null || true)"
+from="${from:-$(app_version)}"
 current_schema="$(schema_version "$POSTGRES_DB")"
 [[ "$current_schema" == "none" ]] && current_schema=0
 target_schema="$(git ls-tree --name-only "$ref" migrations/ | sed -nE 's#^migrations/0*([0-9]+)_.*\.up\.sql$#\1#p' | sort -n | tail -1)"

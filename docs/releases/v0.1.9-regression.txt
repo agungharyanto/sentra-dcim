@@ -1,0 +1,94 @@
+# Sentra DCIM full regression — 2026-10-12T12:32:03Z
+git: v0.1.4-1-g32e8b18 (32e8b18)  host: jentre
+
+## 1. Static analysis & secret scan
+  PASS  gitleaks (history + working tree)
+  PASS  golangci-lint
+  PASS  gofmt
+  PASS  go vet
+  PASS  shellcheck
+  PASS  OpenAPI lint (Redocly)
+  PASS  sqlc generated code up to date
+  PASS  docker compose config valid
+  PASS  actionlint (CI workflow)
+  PASS  no .env / keys tracked by git
+  PASS  pre-commit hook active
+
+## 2. Unit tests
+  PASS  go test -race (unit)
+  info  coverage: 47.9%
+
+## 3. Integration tests (TimescaleDB + Redis)
+  PASS  go test -tags=integration
+
+## 4. Containers
+  PASS  db healthy
+  PASS  db non-root user
+  PASS  db read-only rootfs + no-new-privileges + cap_drop ALL
+  PASS  db restart policy unless-stopped + memory limit
+  PASS  db not privileged, no docker.sock mount
+  PASS  redis healthy
+  PASS  redis non-root user
+  PASS  redis read-only rootfs + no-new-privileges + cap_drop ALL
+  PASS  redis restart policy unless-stopped + memory limit
+  PASS  redis not privileged, no docker.sock mount
+  PASS  app healthy
+  PASS  app non-root user
+  PASS  app read-only rootfs + no-new-privileges + cap_drop ALL
+  PASS  app restart policy unless-stopped + memory limit
+  PASS  app not privileged, no docker.sock mount
+  PASS  caddy healthy
+  PASS  caddy non-root user
+  PASS  caddy read-only rootfs + no-new-privileges + cap_drop ALL
+  PASS  caddy restart policy unless-stopped + memory limit
+  PASS  caddy not privileged, no docker.sock mount
+  PASS  published ports bound to 127.0.0.1 only
+
+## 5. API tests
+  PASS  API smoke test (expect v0.1.4)
+
+## 6. Backup & restore (isolated database)
+  PASS  backup
+  info  backup: /var/backups/sentra/20261012T123223Z_regression (48K)
+  PASS  backup checksums
+  PASS  backup files mode 0600, dir 0700
+  PASS  restore into empty database sentra_regress
+  PASS  row count system_info live == restored
+  PASS  row count ops_runs live == restored + 1
+
+## 7. Migrations up/down (restored copy, app binary)
+  PASS  migrate goto 0 (all down)
+  PASS  schema empty after down
+  PASS  migrate up (all 2)
+  PASS  version == latest (2), not dirty
+  PASS  migrate down 1 + up (last migration reversible)
+  PASS  drop regression database
+  PASS  live /ready still 200
+
+## 8. Permissions
+  PASS  .env mode 600
+  PASS  ops scripts not world-writable
+  PASS  DB rejects wrong password
+  PASS  Redis rejects unauthenticated command
+  PASS  app container has no shell (distroless)
+  PASS  DB port not reachable from non-loopback IP
+  PASS  Redis port not reachable from non-loopback IP
+  PASS  Caddy port not reachable from non-loopback IP
+
+## 9. Firewall & host hardening
+  info  sshd ports: 49194
+  PASS  ufw active, default deny incoming
+  PASS  ufw allows only sshd port(s)
+  PASS  80/443 closed in ufw
+  PASS  only sshd listens on non-loopback addresses
+  PASS  fail2ban sshd jail active
+  PASS  sysctl hardening applied
+  PASS  unattended-upgrades enabled
+  PASS  backup timer scheduled
+  PASS  hardening idempotent (no changes on re-run)
+
+## 10. Repository state
+  PASS  git status clean
+  PASS  mandatory docs present
+
+## Result: 67 passed, 0 failed

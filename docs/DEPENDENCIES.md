@@ -37,7 +37,7 @@ ditambah, diubah versinya, atau dihapus.
 | sqlc | 1.31.1 | MIT | Generate kode Go type-safe dari query SQL |
 | Redocly CLI (`redocly/cli:2.62.1`) | 2.62.1 | MIT | Validasi `api/openapi.yaml` |
 | GCC | (paket Ubuntu) | GPL-3.0 | Dibutuhkan race detector (`go test -race`, CGO) |
-| actionlint | 1.7.12 | MIT | Validasi workflow GitHub Actions (lokal) |
+| actionlint | 1.7.12 | MIT | Validasi workflow GitHub Actions (lokal, `/usr/local/bin`) |
 | actions/checkout | v7 | MIT | CI: checkout repo |
 | actions/setup-go | v7 | MIT | CI: instal Go |
 | golangci/golangci-lint-action | v9 | MIT | CI: jalankan golangci-lint |

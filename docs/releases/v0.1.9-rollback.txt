@@ -1,0 +1,89 @@
+== BEFORE: v0.1.4 schema=2 ops_runs=t
+[2026-10-12T12:29:55Z] [rollback] from v0.1.4 (schema 2) -> v0.1.3 [v0.1.3] (schema 1)
+[2026-10-12T12:29:55Z] [backup] dumping database sentra
+pg_dump: warning: there are circular foreign-key constraints on this table:
+pg_dump: detail: continuous_agg
+pg_dump: hint: You might not be able to restore the dump without using --disable-triggers or temporarily dropping the constraints.
+pg_dump: hint: Consider using a full dump instead of a --data-only dump to avoid this problem.
+[2026-10-12T12:29:56Z] [backup] archiving volume sentra_caddy_data
+[2026-10-12T12:29:56Z] [backup] archiving volume sentra_caddy_config
+[2026-10-12T12:29:57Z] [backup] archiving volume sentra_redis_data
+[2026-10-12T12:29:57Z] [backup] backup complete: /var/backups/sentra/20261012T122955Z_rollback (48K, schema 2)
+[2026-10-12T12:29:57Z] [rollback] backup: /var/backups/sentra/20261012T122955Z_rollback
+[2026-10-12T12:29:57Z] [rollback] migrating schema down to 1 with current binary
+{"time":"2026-10-12T12:29:58.100160787Z","level":"INFO","msg":"2/d ops_runs (25.947434ms)\n","service":"sentra","component":"migrate"}
+version=1 dirty=false latest=2
+[2026-10-12T12:29:58Z] [rollback] checked out v0.1.3
+[2026-10-12T12:29:58Z] [rollback] building and starting target version
+ Image sentra-caddy:2.11.7 Building 
+ Image sentra-app:v0.1.3 Building 
+ Image sentra-app:v0.1.3 Built 
+ Image sentra-caddy:2.11.7 Built 
+ Container sentra-db-1 Running 
+ Container sentra-redis-1 Running 
+ Container sentra-caddy-1 Running 
+ Container sentra-app-1 Recreate 
+ Container sentra-app-1 Recreated 
+ Container sentra-db-1 Waiting 
+ Container sentra-redis-1 Waiting 
+ Container sentra-redis-1 Healthy 
+ Container sentra-db-1 Healthy 
+ Container sentra-app-1 Starting 
+ Container sentra-app-1 Started 
+ Container sentra-app-1 Waiting 
+ Container sentra-app-1 Healthy 
+ Container sentra-db-1 Waiting 
+ Container sentra-redis-1 Waiting 
+ Container sentra-app-1 Waiting 
+ Container sentra-caddy-1 Waiting 
+ Container sentra-app-1 Healthy 
+ Container sentra-redis-1 Healthy 
+ Container sentra-db-1 Healthy 
+ Container sentra-caddy-1 Healthy 
+[2026-10-12T12:30:11Z] [rollback] rollback complete: now running v0.1.3 (schema 1)
+duration: 16s
+== AFTER ROLLBACK: v0.1.3 schema=1 ops_runs=f head=v0.1.3 status=[]
+Result: 23 passed, 0 failed
+[2026-10-12T12:30:24Z] [rollback] from v0.1.4 (schema 1) -> main [v0.1.4] (schema 2)
+[2026-10-12T12:30:25Z] [backup] dumping database sentra
+pg_dump: warning: there are circular foreign-key constraints on this table:
+pg_dump: detail: continuous_agg
+pg_dump: hint: You might not be able to restore the dump without using --disable-triggers or temporarily dropping the constraints.
+pg_dump: hint: Consider using a full dump instead of a --data-only dump to avoid this problem.
+[2026-10-12T12:30:26Z] [backup] archiving volume sentra_caddy_data
+[2026-10-12T12:30:26Z] [backup] archiving volume sentra_caddy_config
+[2026-10-12T12:30:26Z] [backup] archiving volume sentra_redis_data
+[2026-10-12T12:30:27Z] [backup] backup complete: /var/backups/sentra/20261012T123024Z_rollback (44K, schema 1)
+[2026-10-12T12:30:27Z] [rollback] backup: /var/backups/sentra/20261012T123024Z_rollback
+[2026-10-12T12:30:27Z] [rollback] checked out v0.1.4
+[2026-10-12T12:30:27Z] [rollback] building and starting target version
+ Image sentra-app:v0.1.4 Building 
+ Image sentra-caddy:2.11.7 Building 
+ Image sentra-app:v0.1.4 Built 
+ Image sentra-caddy:2.11.7 Built 
+ Container sentra-caddy-1 Running 
+ Container sentra-db-1 Running 
+ Container sentra-redis-1 Running 
+ Container sentra-app-1 Recreate 
+ Container sentra-app-1 Recreated 
+ Container sentra-db-1 Waiting 
+ Container sentra-redis-1 Waiting 
+ Container sentra-redis-1 Healthy 
+ Container sentra-db-1 Healthy 
+ Container sentra-app-1 Starting 
+ Container sentra-app-1 Started 
+ Container sentra-app-1 Waiting 
+ Container sentra-app-1 Healthy 
+ Container sentra-redis-1 Waiting 
+ Container sentra-app-1 Waiting 
+ Container sentra-caddy-1 Waiting 
+ Container sentra-db-1 Waiting 
+ Container sentra-app-1 Healthy 
+ Container sentra-caddy-1 Healthy 
+ Container sentra-redis-1 Healthy 
+ Container sentra-db-1 Healthy 
+[2026-10-12T12:30:39Z] [rollback] rollback complete: now running v0.1.4 (schema 2)
+duration: 15s
+== AFTER ROLL-FORWARD: v0.1.4 schema=2 ops_runs=t branch=main status=[]
+1|rollback|success|main|v0.1.4
+Result: 23 passed, 0 failed

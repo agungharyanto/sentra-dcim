@@ -3,7 +3,21 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
-## [v0.1.4] - 2026-10-12 — Ops & DR
+## [v0.1.9] - 2026-10-12 — Full Regression & DoD
+
+### Ditambahkan
+- `scripts/full-regression.sh`: 67 check regresi + DoD (static/secret scan, unit, integration, container, API,
+  backup & restore ke DB kosong, migrasi up/down, permission, firewall & hardening, status repo).
+- Release notes `docs/releases/v0.1.9.md` + log regresi & rollback.
+
+### Diperbaiki
+- `ops/rollback.sh`: versi asal dibaca dari `/api/v1/version` yang sedang berjalan (sebelumnya dari git, bisa salah
+  bila checkout dilakukan manual sebelum skrip).
+
+### Diuji
+- Rollback v0.1.4 → v0.1.3 (16 dtk) dan kembali ke main (15 dtk); restore terisolasi & penuh; firewall dari server.
+
+ - 2026-10-12 — Ops & DR
 
 ### Ditambahkan
 - `ops/backup.sh`: `pg_dump` custom terkompresi + globals + volume `caddy_data`/`caddy_config`/`redis_data`,
