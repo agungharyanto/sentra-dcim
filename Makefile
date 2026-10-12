@@ -46,9 +46,9 @@ build: ## Build backend binary to bin/sentra
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/sentra ./cmd/sentra
 
 ## ---------- Quality ----------
-.PHONY: test test-integration test-api lint gitleaks sqlc fmt
+.PHONY: test test-integration test-api lint gitleaks openapi-lint sqlc fmt
 test: ## Run unit tests with race detector and coverage
-	go test -race -count=1 -coverprofile=coverage.out ./...
+	CGO_ENABLED=1 go test -race -count=1 -coverprofile=coverage.out ./...
 
 test-integration: ## Run integration tests against running DB/Redis (requires `make up`)
 	set -a; source .env; set +a; \
@@ -62,9 +62,14 @@ test-api: ## Run API smoke tests against the running stack (BASE_URL overridable
 lint: ## Run golangci-lint
 	golangci-lint run ./...
 
-gitleaks: ## Scan full git history and working tree for secrets
+gitleaks: ## Scan full git history and all non-ignored working tree files for secrets
 	gitleaks git --redact --no-banner --config .gitleaks.toml .
-	gitleaks dir --redact --no-banner --config .gitleaks.toml .
+	tmp=$$(mktemp -d); trap 'rm -rf "$$tmp"' EXIT; \
+	git ls-files -co --exclude-standard -z | xargs -0 cp --parents -t "$$tmp"; \
+	gitleaks dir --redact --no-banner --config .gitleaks.toml "$$tmp"
+
+openapi-lint: ## Validate api/openapi.yaml with Redocly CLI (docker)
+	docker run --rm -v "$$PWD/api:/spec:ro" redocly/cli:2.62.1 lint /spec/openapi.yaml
 
 sqlc: ## Regenerate sqlc code
 	sqlc generate
