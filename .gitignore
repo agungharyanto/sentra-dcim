@@ -1,0 +1,37 @@
+# --- Secrets (never commit) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+credentials*
+secrets/
+id_rsa*
+id_ed25519*
+
+# --- Backups / dumps ---
+*.dump
+*.sql.gz
+*.tar.gz
+*.tgz
+backups/
+
+# --- Build artifacts ---
+/bin/
+/dist/
+/tmp/
+coverage.out
+coverage.html
+*.test
+
+# --- Editors / OS ---
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# --- Local tooling ---
+.claude/settings.local.json

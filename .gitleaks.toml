@@ -1,0 +1,14 @@
+title = "Sentra DCIM gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholders and example files"
+paths = [
+  '''\.env\.example$''',
+  '''go\.sum$''',
+]
+regexes = [
+  '''CHANGE_ME''',
+]
