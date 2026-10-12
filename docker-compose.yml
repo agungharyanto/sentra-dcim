@@ -121,8 +121,10 @@ services:
       context: deploy/caddy
     image: sentra-caddy:2.11.7
     environment:
-      DOMAIN: ${DOMAIN:-}
-      ACME_EMAIL: ${ACME_EMAIL:-}
+      # Caddy's {$VAR:default} only applies when a variable is unset, not empty, so defaults live here.
+      # localhost = Caddy internal CA, no ACME (dev/CI). `make up` refuses a real DOMAIN without ACME_EMAIL.
+      DOMAIN: ${DOMAIN:-localhost}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@localhost}
     # Lets the non-root Caddy bind 80/443 inside its own network namespace without any capability.
     sysctls:
       net.ipv4.ip_unprivileged_port_start: 0

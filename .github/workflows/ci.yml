@@ -46,6 +46,8 @@ jobs:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
       - name: ShellCheck
         run: shellcheck -x ops/*.sh ops/harden/*.sh scripts/*.sh scripts/hooks/pre-commit test/api/*.sh
+      - name: Caddyfile validation (production-like and empty env)
+        run: make caddy-validate
       - name: OpenAPI lint
         run: docker run --rm -v "$PWD/api:/spec:ro" redocly/cli:2.62.1 lint /spec/openapi.yaml
       - name: sqlc generated code is up to date

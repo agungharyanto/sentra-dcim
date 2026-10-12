@@ -3,7 +3,18 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
-## [v0.1.6] - 2026-10-12 — Domain & HTTPS
+## [v0.1.7] - 2026-10-12 — Caddy Empty Env Fix
+
+### Diperbaiki
+- CI gagal sejak v0.1.6: Caddyfile tidak bisa diparse bila `DOMAIN`/`ACME_EMAIL` kosong, karena default
+  `{$VAR:default}` Caddy hanya berlaku untuk variabel yang tidak di-set (ISS-014). Default kini di
+  `docker-compose.yml` (`localhost`, `admin@localhost`).
+
+### Ditambahkan
+- `make preflight` (dipanggil `make up`): menolak `DOMAIN` asli tanpa `ACME_EMAIL`.
+- `make caddy-validate`: validasi Caddyfile untuk env produksi & kosong; dijalankan di CI dan full regression.
+
+ - 2026-10-12 — Domain & HTTPS
 
 ### Ditambahkan
 - HTTPS publik `https://sentra.bajastu.id` via Caddy dengan sertifikat Let's Encrypt otomatis (HTTP-01/TLS-ALPN-01).
