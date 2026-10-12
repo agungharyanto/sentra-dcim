@@ -125,8 +125,10 @@ func TestMigrationsUpDownUp(t *testing.T) {
 	if err := m.Goto(0); err != nil {
 		t.Fatalf("down to 0: %v", err)
 	}
-	if tableExists(t, pool, "system_info") {
-		t.Fatal("system_info should be dropped after down")
+	for _, tbl := range []string{"system_info", "ops_runs"} {
+		if tableExists(t, pool, tbl) {
+			t.Fatalf("%s should be dropped after down", tbl)
+		}
 	}
 	if err := service.MigrationChecker(store, latest).Check(ctx); err == nil {
 		t.Fatal("migration checker should fail when schema is behind")
@@ -135,8 +137,13 @@ func TestMigrationsUpDownUp(t *testing.T) {
 	if err := m.Up(); err != nil {
 		t.Fatalf("re-up: %v", err)
 	}
-	if !tableExists(t, pool, "system_info") {
-		t.Fatal("system_info missing after re-up")
+	for _, tbl := range []string{"system_info", "ops_runs"} {
+		if !tableExists(t, pool, tbl) {
+			t.Fatalf("%s missing after re-up", tbl)
+		}
+	}
+	if _, err := pool.Exec(ctx, "INSERT INTO ops_runs(kind,status) VALUES ($1,$2)", "delete-everything", "success"); err == nil {
+		t.Fatal("ops_runs.kind CHECK constraint not enforced")
 	}
 }
 
