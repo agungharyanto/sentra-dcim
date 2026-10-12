@@ -20,6 +20,12 @@ ditambah, diubah versinya, atau dihapus.
 | Nama | Versi | Lisensi | Fungsi |
 |---|---|---|---|
 | Go | 1.27.2 | BSD-3-Clause | Bahasa & toolchain backend |
+| github.com/go-chi/chi/v5 | 5.4.0 | MIT | HTTP router & middleware (RequestID, WrapResponseWriter, Timeout) |
+| github.com/jackc/pgx/v5 | 5.11.0 | MIT | Driver PostgreSQL + connection pool (`pgxpool`) |
+| github.com/redis/go-redis/v9 | 9.23.0 | BSD-2-Clause | Klien Redis |
+| github.com/golang-migrate/migrate/v4 | 4.20.1 | MIT | Migrasi skema (library, driver `pgx/v5`, source `iofs`) |
+| golang.org/x/time | 0.16.0 | BSD-3-Clause | Token bucket rate limiter |
+| Dependensi tidak langsung (pgpassfile, pgservicefile, puddle, xxhash, x/sys, x/text, x/sync, atomic) | lihat `go.sum` | MIT / BSD | Dipakai oleh pgx, go-redis, migrate |
 
 ## Tools pengembangan & CI
 
@@ -29,6 +35,8 @@ ditambah, diubah versinya, atau dihapus.
 | golangci-lint | 2.14.0 | GPL-3.0 | Linter Go (meta-linter) |
 | golang-migrate CLI | 4.20.1 | MIT | Migrasi skema DB (CLI opsional; app memakai library yang sama) |
 | sqlc | 1.31.1 | MIT | Generate kode Go type-safe dari query SQL |
+| Redocly CLI (`redocly/cli:2.62.1`) | 2.62.1 | MIT | Validasi `api/openapi.yaml` |
+| GCC | (paket Ubuntu) | GPL-3.0 | Dibutuhkan race detector (`go test -race`, CGO) |
 | GNU Make | 4.3 | GPL-3.0 | Task runner (`Makefile`) |
 | ufw | 0.36.2 | GPL-3.0 | Firewall host |
 | fail2ban | 1.0.2 | GPL-2.0 | Proteksi brute-force SSH |
