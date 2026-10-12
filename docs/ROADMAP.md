@@ -8,7 +8,7 @@ Sprint = 1 minggu.
 
 | Versi | Judul | Ruang lingkup | Status |
 |---|---|---|---|
-| v0.1 | Foundation | Scaffold repo, infra Docker, hardening server, backend skeleton (health/ready/version), Ops & DR (backup/restore/rollback/bootstrap), CI | Berjalan |
+| v0.1 | Foundation | Scaffold repo, infra Docker, hardening server, backend skeleton (health/ready/version), Ops & DR (backup/restore/rollback/bootstrap), CI | Selesai (lihat docs/releases/v0.1.9.md) |
 | v0.2 | UI Shell & Design System | Shell UI, design system, kerangka Pusat Bantuan; status menu *Available / Coming Soon / Not Connected*; warna status *Normal / Warning / Critical / Offline / Maintenance*; keputusan framework frontend | Rencana |
 | v0.3 | Auth, RBAC & Audit Log | Login, sesi, RBAC (Admin, NOC, Security, Viewer, dll), audit log | Rencana |
 | v0.4 | Facility, Tenant & Asset | Hierarki Site > Gedung > Lantai > Ruang > Rack, tenant, aset | Rencana |
@@ -32,4 +32,4 @@ Sprint = 1 minggu.
 | v0.1.3 | Backend Skeleton | `/api/v1/health`, `/ready`, `/version`, config env, graceful shutdown, migrasi pertama, OpenAPI, test, lint | Selesai |
 | v0.1.4 | Ops & DR | backup/restore/rollback/bootstrap, GitHub Actions CI | Selesai |
 | v0.1.5–v0.1.8 | (cadangan) | — | Kosong |
-| v0.1.9 | Full Regression & DoD | Semua test, uji restore, uji rollback, uji firewall, release notes, GitHub Release | Rencana |
+| v0.1.9 | Full Regression & DoD | Semua test, uji restore, uji rollback, uji firewall, release notes, GitHub Release | Selesai (push & GitHub Release menunggu ISS-001) |
