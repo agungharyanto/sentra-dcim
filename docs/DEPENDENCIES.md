@@ -32,4 +32,7 @@ ditambah, diubah versinya, atau dihapus.
 | GNU Make | 4.3 | GPL-3.0 | Task runner (`Makefile`) |
 | ufw | 0.36.2 | GPL-3.0 | Firewall host |
 | fail2ban | 1.0.2 | GPL-2.0 | Proteksi brute-force SSH |
-| unattended-upgrades | (paket Ubuntu) | GPL-2.0 | Update keamanan otomatis |
+| unattended-upgrades | 2.9.1 (paket Ubuntu) | GPL-2.0 | Update keamanan otomatis |
+| apt-listchanges | 3.27 | GPL-2.0 | Ringkasan changelog paket saat upgrade |
+| ShellCheck | 0.9.0 | GPL-3.0 | Linter skrip shell (`ops/`, `scripts/`) |
+| Golang builder image (`golang:1.27.2-bookworm`) | 1.27.2 | BSD-3-Clause | Stage build image backend |
