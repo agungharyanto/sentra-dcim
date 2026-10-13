@@ -48,5 +48,5 @@ Aturan di bawah **wajib dipatuhi di setiap sesi**. Bila ada konflik, aturan ini 
   repo di `/opt/sentra-dcim`, backup di `/var/backups/sentra`; port sshd dibaca otomatis oleh `ops/harden/ufw.sh`.
   Akses darurat (serial console, key cadangan, unban): `docs/DISASTER_RECOVERY.md`. **Jangan ubah
   `PasswordAuthentication` tanpa konfirmasi pemilik.** Domain publik `https://sentra.bajastu.id` (Caddy + Let's Encrypt;
-  mode lokal sampai DNS dipindah, ISS-015); hanya `/api/v1/health` & `/api/v1/version` (`{version}` saja) publik,
+  publik sejak 2026-10-13; butuh ufw + OCI Security List 80/443); hanya `/api/v1/health` & `/api/v1/version` (`{version}` saja) publik,
   API lengkap via `http://127.0.0.1:8080`.
