@@ -43,10 +43,11 @@ Sprint = 1 minggu.
 | Versi | Judul | Isi | Status |
 |---|---|---|---|
 | v0.2.1 | Frontend Scaffold & i18n Foundation | `web/` (React 19, Vite, TS strict, Tailwind v4 + dasar shadcn, Router 7, TanStack Query; D-042/ADR-001), i18n ID/EN + lint `no-literal-string` + `i18n:check`, `GET /api/v1/ui/bootstrap` (registry menu backend), halaman sementara + ganti bahasa, Caddy SPA + CSP ketat, basic_auth sementara (D-043, ISS-026), e2e Playwright, kerangka `docs/help/{id,en}` | Selesai |
-| v0.2.2 | Design System & Komponen | Komponen shadcn/Radix, warna status, uji CSP Radix (ISS-027), font self-hosted | Usulan (perlu konfirmasi pemilik) |
-| v0.2.3 | UI Shell | Layout, sidebar dari registry menu (status Available/Coming Soon/Not Connected) | Usulan (perlu konfirmasi pemilik) |
-| v0.2.4 | Pusat Bantuan di UI | Render `docs/help/{id,en}`, migrasi halaman lama ke `id/`, revisi CLAUDE.md aturan 7, render OpenAPI | Usulan (perlu konfirmasi pemilik) |
-| v0.2.9 | Penutup Sprint | Full regression (termasuk `test/e2e`) + DoD | Usulan (perlu konfirmasi pemilik) |
+| v0.2.2 | Design System & Komponen | Komponen shadcn/Radix, warna status, uji CSP Radix (ISS-027), font self-hosted | Rencana |
+| v0.2.3 | UI Shell | Layout, sidebar dari registry menu (status Available/Coming Soon/Not Connected) | Rencana |
+| v0.2.4 | Pusat Bantuan di UI | Render `docs/help/{id,en}`, migrasi halaman lama ke `id/`, revisi CLAUDE.md aturan 7, render OpenAPI | Rencana |
+| v0.2.5 | fail2ban basic_auth (cadangan) | Jail fail2ban untuk 401 berulang di log Caddy: mitigasi DoS CPU bcrypt dari percobaan login basic_auth (ISS-026) | Rencana |
+| v0.2.9 | Penutup Sprint | Full regression (termasuk `test/e2e`) + DoD | Rencana |
 
 ## Rincian v0.2 — wajib i18n sejak awal
 
