@@ -6,14 +6,14 @@ Format: ID, judul, prioritas (P1 kritis – P4 rendah), versi ditemukan, versi d
 
 | ID | Judul | Prioritas | Ditemukan | Diperbaiki | Catatan |
 |---|---|---|---|---|---|
-| ISS-010 | GitHub Release v0.1.9 belum dibuat: deploy key tidak bisa membuat Release, perlu `gh auth login` (token akun) | P3 | v0.1.9 | — | Lihat perintah di `docs/releases/v0.1.9.md` |
 | ISS-025 | `make up` sekali gagal di `version-check` tepat setelah container app dibuat ulang; diulang langsung lulus, belum bisa direproduksi | P3 | v0.1.9 (putaran 2) | — | Dugaan: Caddy internal belum terhubung ke app baru saat `curl -f`. Pantau; bila terulang tambahkan retry singkat di `version-check` |
-| ISS-005 | Uji firewall dari luar (nmap) belum dijalankan | P3 | v0.1.9 | — | Perintah di `docs/releases/v0.1.9.md`. Mode publik sejak 2026-10-13: harapan hanya 22, 80, 443 open. Menunggu hasil dari pemilik |
 
 ## Solved
 
 | ID | Judul | Prioritas | Ditemukan | Diperbaiki | Catatan |
 |---|---|---|---|---|---|
+| ISS-005 | Uji firewall dari luar (nmap) belum dijalankan | P3 | v0.1.9 | v0.1.9 (putaran 2) | nmap pemilik dari luar Oracle: hanya 22, 80, 443 open. `53/tcp open` yang muncul adalah false positive ISP (Telkom mencegat port 53): uji ke `203.0.113.10` (alamat dokumentasi, tanpa server) juga menampilkan `53/tcp open syn-ack`. Di server port 53 hanya `systemd-resolved` di loopback (`127.0.0.53`, `127.0.0.54`) |
+| ISS-010 | GitHub Release v0.1.9 belum dibuat: deploy key tidak bisa membuat Release, perlu `gh auth login` (token akun) | P3 | v0.1.9 | v0.1.9 (putaran 2) | Release dibuat pemilik: `releases/tag/v0.1.9`, menempel pada tag lama (objek `8aeaf87` → commit `6434b76`); tag tidak diubah |
 | ISS-016 | Hanya satu key SSH terpasang, password `ubuntu` terkunci: serial console OCI belum bisa login | P1 | v0.1.8 | v0.1.9 (putaran 2) | Pemilik memasang key SSH cadangan dan menyetel password konsol `ubuntu` (2026-10-13). `PasswordAuthentication` tetap `no`. Checklist pemulihan ditambahkan di `docs/DISASTER_RECOVERY.md` → Akses darurat |
 | ISS-019 | Server baru (Oracle) belum punya kredensial push ke GitHub | P1 | v0.1.8 | v0.1.9 (putaran 2) | Deploy key `sentra-oracle-deploy` (write, `~ubuntu/.ssh/github_deploy`) terdaftar 2026-10-13; remote `origin` kini SSH. Penolakan pertama = key belum aktif sesaat setelah didaftarkan. `main` (16 commit) + tag `v0.1.8` ter-push tanpa force; tag `v0.1.9` lama tidak berubah (D-041) |
 | ISS-024 | `ops/backup.sh` yang dijalankan user lain (mis. `ubuntu`) diam-diam meng-`chown` `/var/backups/sentra` ke user tsb (`install -d` pada direktori yang sudah ada), lalu gagal di `.lock` milik `sentra`. Pemicu: `.env` sempat menjadi milik `ubuntu` setelah diedit dengan `sed -i` (mengganti file), sehingga full regression menjalankan backup sebagai `ubuntu` | P2 | v0.1.9 (putaran 2) | v0.1.9 (putaran 2) | `.env` & direktori backup dikembalikan ke `sentra` (ACL `ubuntu:r` sesuai bootstrap); `backup.sh` kini hanya membuat direktori bila belum ada dan menolak (dengan petunjuk `sudo -u <owner>`) bila tidak bisa ditulis. Pelajaran: jangan edit `.env` dengan `sed -i` sebagai admin — gunakan `sudo -u sentra` |
