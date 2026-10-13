@@ -4,6 +4,7 @@
 > wajib dicatat di dokumen ini lebih dulu (CLAUDE.md aturan 10).
 
 Konvensi versi: `v0.<sprint>.<sub>` — `.1–.4` kerja utama, `.5–.8` cadangan, `.9` penutup sprint (full regression + DoD).
+Full regression **hanya** di `.9`; sub-versi `.1–.8` cukup regresi modul terkait (CLAUDE.md aturan 2–3, D-038).
 Sprint = 1 minggu.
 
 | Versi | Judul | Ruang lingkup | Status |
@@ -34,8 +35,8 @@ Sprint = 1 minggu.
 | v0.1.5 | CI Redis Auth (hotfix) | Perbaikan CI pertama di GitHub | Selesai |
 | v0.1.6 | Domain & HTTPS (tambahan scope) | `sentra.bajastu.id`, Let's Encrypt, ufw 80/443, redirect, HSTS & security headers, allowlist endpoint publik | Selesai |
 | v0.1.7 | Caddy Empty Env Fix (hotfix) | Perbaikan CI v0.1.6 (DOMAIN/ACME_EMAIL kosong) | Selesai |
-| v0.1.8 | Timezone & Version Fix | Zona tampilan `DISPLAY_TIMEZONE` (default Asia/Jakarta, DB tetap UTC), timer backup 02:00 Asia/Jakarta; `/api/v1/version` == `git describe` (`make up` selalu rebuild + `version-check`, test di full regression); `/version` publik hanya `{version}`, detail via listener internal. Termasuk pekerjaan migrasi server Oracle (akses darurat, bootstrap nyata — D-031) | Selesai |
-| v0.1.9 | Full Regression & DoD | Semua test, uji restore, uji rollback, uji firewall, release notes, GitHub Release | Selesai (push & GitHub Release menunggu ISS-001) |
+| v0.1.8 | Timezone & Version Fix | Zona tampilan `DISPLAY_TIMEZONE` (default Asia/Jakarta, DB tetap UTC), timer backup 02:00 Asia/Jakarta; `/api/v1/version` == `git describe` (`make up` selalu rebuild + `version-check`, dicek di full regression .9); `/version` publik hanya `{version}`, detail via listener internal. Termasuk pekerjaan migrasi server Oracle (akses darurat, bootstrap nyata — D-031) | Selesai |
+| v0.1.9 | Foundation Close (Full Regression & DoD) | Semua test, uji restore, uji rollback, uji firewall, release notes, GitHub Release. Putaran 1 (2026-10-12, server lama). Putaran 2 (server Oracle): **go public** `sentra.bajastu.id` (Let's Encrypt, ufw + OCI Security List 80/443) + full regression & DoD lengkap — D-039 | Putaran 2 berjalan (menunggu OCI Security List; push menunggu ISS-019) |
 
 ## Rincian v0.2 — wajib i18n sejak awal
 

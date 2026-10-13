@@ -8,7 +8,7 @@ Format: ID, judul, prioritas (P1 kritis – P4 rendah), versi ditemukan, versi d
 |---|---|---|---|---|---|
 | ISS-019 | Server baru (Oracle) belum punya kredensial push ke GitHub: remote HTTPS tanpa token/deploy key, `git push` gagal | P1 | v0.1.8 | — | Commit & tag tersimpan lokal; push menunggu deploy key (write) atau token dari pemilik. Lihat laporan v0.1.8 |
 | ISS-016 | Hanya satu key SSH terpasang, password `ubuntu` terkunci: serial console OCI belum bisa login | P1 | v0.1.8 | — | Keputusan pemilik: pasang key cadangan + set password konsol (prosedur di `docs/DISASTER_RECOVERY.md` → Akses darurat). `PasswordAuthentication` sudah `no` bawaan image Oracle — tidak diubah |
-| ISS-015 | Sertifikat Let's Encrypt belum diterbitkan di server baru: DNS `sentra.bajastu.id` belum diarahkan ke IP Oracle | P2 | v0.1.8 | — | Sementara mode lokal (`DOMAIN=localhost`, CA internal, 80/443 tertutup). Menunggu kabar pemilik soal DNS; langkah pindah di DR "Server baru" |
+| ISS-015 | Sertifikat Let's Encrypt belum diterbitkan di server baru | P2 | v0.1.8 | — | DNS sudah → `132.226.106.158` (2026-10-13), ufw 80/443 terbuka. Menunggu pemilik membuka Ingress TCP 80 & 443 (0.0.0.0/0) di OCI Security List, lalu mode publik di v0.1.9 putaran 2 |
 | ISS-010 | GitHub Release v0.1.9 belum dibuat: deploy key tidak bisa membuat Release, perlu `gh auth login` (token akun) | P3 | v0.1.9 | — | Lihat perintah di `docs/releases/v0.1.9.md` |
 | ISS-005 | Uji firewall dari luar (nmap) belum dijalankan | P3 | v0.1.9 | — | Perintah di `docs/releases/v0.1.9.md`. Server Oracle (mode lokal): harapan hanya 22 open; setelah DNS: 22, 80, 443 |
 
@@ -16,6 +16,7 @@ Format: ID, judul, prioritas (P1 kritis – P4 rendah), versi ditemukan, versi d
 
 | ID | Judul | Prioritas | Ditemukan | Diperbaiki | Catatan |
 |---|---|---|---|---|---|
+| ISS-023 | v0.1.8 (sub-versi) menjalankan full regression 72/72 — menyalahi aturan: full regression hanya di `.9` | P3 | v0.1.8 | v0.1.9 | Aturan dipertegas di CLAUDE.md (D-038); catatan v0.1.8 dikoreksi; verifikasi penuh server Oracle dipindah ke v0.1.9 Foundation Close putaran 2 |
 | ISS-022 | `/api/v1/version` bisa berbeda dari `git describe` HEAD: (a) `VERSION ?=` di Makefile tertimpa env `VERSION` (mis. setelah `. /etc/os-release` → `24.04.5 LTS (Noble Numbat)`); (b) setelah commit/tag container tidak di-rebuild | P2 | v0.1.7 | v0.1.8 | `VERSION :=`, `make up` = `build` + `up` + `version-check`; `release.sh` redeploy setelah tag; cek di full regression (internal, public, tag image) |
 | ISS-003 | `bootstrap-new-server.sh` belum pernah dijalankan pada server Ubuntu 24.04 benar-benar kosong | P2 | v0.1.4 | v0.1.8 | Dijalankan nyata di VM Oracle baru (2 m 19 d): 4 container healthy, smoke 22/22, full regression baseline 69/70 (gagal = ISS-018). Temuan: ISS-017, ISS-018, ISS-020, ISS-021 |
 | ISS-017 | Firewall host tidak efektif di Oracle: iptables bawaan image (`REJECT` di INPUT) dievaluasi sebelum chain ufw, jadi `ufw allow` selain 22 tidak berlaku | P2 | v0.1.8 | v0.1.8 | `ufw.sh` menghapus aturan itu (runtime + `/etc/iptables/rules.v4`, salinan `.sentra-orig`) |

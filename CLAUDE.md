@@ -12,7 +12,9 @@ Aturan di bawah **wajib dipatuhi di setiap sesi**. Bila ada konflik, aturan ini 
 2. **Alur tiap sub-versi.** Branch `feat/vX.Y.Z-<slug>` → commit (Conventional Commits) → regresi modul terkait →
    `merge --no-ff` ke `main` → tag annotated `vX.Y.Z "<Judul>"` → push `main` + tag.
    GitHub selalu sama/lebih maju dari server; `git status` bersih di akhir.
-3. **Penutup sprint (.9).** FULL regression (unit + integrasi + API + smoke) + Definition of Done:
+   Sub-versi `.1–.8` **hanya** regresi modul terkait — **tidak pernah** full regression (`scripts/full-regression.sh`).
+   Bila verifikasi penuh dibutuhkan (mis. pindah server), kerjakan sebagai penutup sprint `.9`, bukan di sub-versi.
+3. **Penutup sprint (.9) — satu-satunya tempat full regression.** FULL regression (unit + integrasi + API + smoke) + Definition of Done:
    semua file di GitHub, gitleaks lulus (tanpa secret), container healthy, API test lulus, migrasi up/down lulus,
    permission diuji, firewall diuji, backup + restore diuji, dokumentasi diperbarui, git status bersih,
    push & tag sukses. Hasil ditulis di `docs/releases/vX.Y.9.md` + GitHub Release.
