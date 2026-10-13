@@ -16,6 +16,13 @@
 # Note: RESTART=docker restarts every container (short outage of the site). Requires curl and iproute2 on the host.
 set -euo pipefail
 
+# Whole body in main(): bash parses the entire file before running, so editing the script mid-run cannot make it
+# re-execute or skip parts (CLAUDE.md rule 13; the 43-vs-41 checks incident of v0.2.5, ISS-035).
+main() {
+# shellcheck source=/dev/null
+source "$(dirname "$0")/lib/source-rev.sh"
+source_rev_line "$0"
+
 root="$(cd "$(dirname "$0")/.." && pwd)"
 JAIL=sentra-web
 NS=sentra-f2b VETH_HOST=f2b-host VETH_NS=f2b-ns GW_IP=198.51.100.9 TESTER_IP=198.51.100.10
@@ -95,3 +102,6 @@ r="$(probe)"; check "after unban the tester reaches the site again (got ${r})" "
 
 echo "fail2ban ban test: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]
+}
+
+main "$@"

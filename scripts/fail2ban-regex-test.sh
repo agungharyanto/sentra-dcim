@@ -5,6 +5,13 @@
 # Expected: exactly 203.0.113.10, .11 and .12 match (3 lines); everything else is missed.
 set -euo pipefail
 
+# Whole body in main(): bash parses the entire file before running, so editing the script mid-run cannot make it
+# re-execute or skip parts (CLAUDE.md rule 13; the 43-vs-41 checks incident of v0.2.5, ISS-035).
+main() {
+# shellcheck source=/dev/null
+source "$(dirname "$0")/lib/source-rev.sh"
+source_rev_line "$0"
+
 root="$(cd "$(dirname "$0")/.." && pwd)"
 sample="deploy/fail2ban/tests/caddy-access.sample.log"
 host_re='sentra\.example\.go\.id'
@@ -41,3 +48,6 @@ else
   echo "$out" >&2
   exit 1
 fi
+}
+
+main "$@"

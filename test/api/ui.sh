@@ -7,6 +7,13 @@
 #   3. interactive prompt (TTY only)
 set -uo pipefail
 
+# Whole body in main(): bash parses the entire file before running, so editing the script mid-run cannot make it
+# re-execute or skip parts (CLAUDE.md rule 13; the 43-vs-41 checks incident of v0.2.5, ISS-035).
+main() {
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../../scripts/lib/source-rev.sh"
+source_rev_line "$0"
+
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 if [[ -z "${BASE_URL:-}" ]]; then
   domain="$(sed -n 's/^DOMAIN=//p' "$root/.env" 2>/dev/null | tail -1)"
@@ -145,3 +152,6 @@ check "POST /api/v1/help/index rejected (403)" "$([[ $code == 403 ]]; echo $?)"
 
 echo "UI edge: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]
+}
+
+main "$@"
