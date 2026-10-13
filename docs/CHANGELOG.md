@@ -24,6 +24,12 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
   CSP), `make web-check`, `make test-ui`, `make test-e2e`; job CI `web` + uji UI & e2e di job build.
 - Kerangka Pusat Bantuan dua bahasa `docs/help/{id,en}/` (diisi di v0.2.4).
 
+### Regresi modul v0.2.1
+- Web: lint, typecheck, `i18n:check`, Vitest 10/10 (+ uji negatif lint & katalog); Go unit test + golangci-lint 0 issue.
+- Server produksi: 4 container healthy; smoke internal 27/27; edge publik 30/30; `test-ui` 32/32 dan `test-e2e`
+  Playwright 2/2 (dijalankan pemilik); browser: login, ID↔EN, deep link, console bersih, jam WIB benar.
+- CI GitHub (run `38390860588`): semua job lulus, termasuk UI edge 32/32 dan Playwright 2/2.
+
 ### Diperbaiki
 - Respons error dari handler Caddy (401 basic_auth, 404/405 statis) kini tetap membawa header keamanan (HSTS,
   nosniff, tanpa `Server`) dan body `ErrorBody` JSON (`handle_errors`) — ditemukan saat uji `curl -I` v0.2.1.
