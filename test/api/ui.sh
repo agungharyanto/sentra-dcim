@@ -110,7 +110,8 @@ check "GET /api/v1/help/index with auth = 200, en, pages" "$([[ $code == 200 ]] 
 areq "$BASE/api/v1/help/pages/dashboard?locale=id"
 check "GET /api/v1/help/pages/dashboard = 200 markdown" "$([[ $code == 200 ]] && jq -e '.slug=="dashboard" and (.markdown|length>0)' "$tmp/b" >/dev/null; echo $?)"
 areq --path-as-is "$BASE/api/v1/help/pages/..%2f..%2fREADME"
-check "help page traversal → 404" "$([[ $code == 404 ]]; echo $?)"
+# Caddy cleans the path before matching (…/pages/../../README → /api/v1/README → 403); the app itself answers 404.
+check "help page traversal rejected (403 at proxy or 404)" "$([[ $code == 403 || $code == 404 ]]; echo $?)"
 areq "$BASE/api/v1/help/index?locale=fr"
 check "help unknown locale → 400 invalid_locale" "$([[ $code == 400 ]] && jq -e '.error.code=="invalid_locale"' "$tmp/b" >/dev/null; echo $?)"
 areq "$BASE/api/v1/help/openapi"
