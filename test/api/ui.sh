@@ -17,7 +17,9 @@ pass=0 fail=0
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 
 curl_ca=()
-if [[ "$BASE" == https://localhost* ]]; then
+if [[ -n "${SENTRA_CA_FILE:-}" ]]; then
+  curl_ca=(--cacert "$SENTRA_CA_FILE")   # e.g. the internal CA of a separate test stack
+elif [[ "$BASE" == https://localhost* ]]; then
   docker compose -f "$root/docker-compose.yml" exec -T caddy cat /data/caddy/pki/authorities/local/root.crt >"$tmp/ca.crt" ||
     { echo "cannot read Caddy internal CA root"; exit 1; }
   curl_ca=(--cacert "$tmp/ca.crt")
@@ -32,8 +34,10 @@ if [[ -z "$user" || -z "$pw" ]] && [[ -t 0 ]]; then
   read -rp "basic_auth user: " user; read -rsp "basic_auth password: " pw; echo
 fi
 [[ -n "$user" && -n "$pw" ]] || { echo "no basic_auth credentials (see header of $0)"; exit 2; }
+# curl config strings treat \ as an escape: escape backslashes first, then double quotes.
+curl_quote() { local v="${1//\\/\\\\}"; printf '%s' "${v//\"/\\\"}"; }
 # Credentials go through a curl config file (mode 600), never the process list.
-umask 077; printf 'user = "%s:%s"\n' "${user//\"/\\\"}" "${pw//\"/\\\"}" >"$tmp/auth.cfg"
+umask 077; printf 'user = "%s"\n' "$(curl_quote "$user:$pw")" >"$tmp/auth.cfg"
 
 check() { if [[ "$2" == "0" ]]; then printf '  PASS  %s\n' "$1"; pass=$((pass+1)); else printf '  FAIL  %s\n' "$1"; fail=$((fail+1)); fi; }
 req() { code="$(curl -sS "${curl_ca[@]}" -o "$tmp/b" -D "$tmp/h" -w '%{http_code}' "$@")"; }
@@ -48,11 +52,31 @@ for p in /api/v1/health /api/v1/version; do
   check "GET $p without auth = 200" "$([[ $code == 200 ]]; echo $?)"
 done
 
+# Credential probe FIRST, exactly one authenticated request. Every request with wrong credentials counts towards
+# the fail2ban jail sentra-web (10 per 10 min → ban of this server's public IP, ISS-034): stop immediately on 401.
+areq "$BASE/api/v1/ui/bootstrap"
+case "$code" in
+  200) ;;
+  401) echo "STOP: kredensial salah (401) untuk user '$user' — tidak ada percobaan lain dikirim (fail2ban, ISS-034)." >&2
+       echo "      Cek login di browser (incognito) dulu; lihat docs/ops/runbooks/fail2ban.md." >&2
+       exit 3 ;;
+  000) # Distinguish a refused connection (fail2ban REJECT) from TLS/DNS problems.
+       rc=0; curl -s "${curl_ca[@]}" -o /dev/null --max-time 5 "$BASE/api/v1/health" || rc=$?
+       if [[ $rc == 7 ]]; then
+         echo "STOP: koneksi ke $BASE ditolak — IP ini kemungkinan di-ban jail sentra-web (sudo fail2ban-client status sentra-web)." >&2
+       else
+         echo "STOP: $BASE tidak bisa dihubungi (curl exit $rc: TLS/DNS/timeout), bukan masalah kredensial." >&2
+       fi
+       exit 3 ;;
+  *)   echo "STOP: probe kredensial mendapat HTTP $code (diharapkan 200)." >&2; exit 3 ;;
+esac
+
 # Without (or with wrong) credentials: 401 + Basic challenge.
 for p in / /index.html /some/deep/link /api/v1/ui/bootstrap /api/v1/help/index /api/v1/help/openapi; do
   req "$BASE$p"
   check "GET $p without auth = 401" "$([[ $code == 401 && $(hdr WWW-Authenticate) == Basic* ]]; echo $?)"
 done
+# The only intentionally wrong login of a run (1 of maxretry 10).
 req -u "$user:wrong-$RANDOM" "$BASE/"
 check "GET / with wrong password = 401" "$([[ $code == 401 ]]; echo $?)"
 
