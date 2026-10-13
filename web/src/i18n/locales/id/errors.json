@@ -1,0 +1,15 @@
+{
+  "bootstrap": {
+    "title": "Konfigurasi aplikasi gagal dimuat",
+    "description": "Server tidak dapat dihubungi atau menolak permintaan. Coba lagi beberapa saat lagi."
+  },
+  "code": {
+    "unknown": "Terjadi kesalahan yang tidak dikenal.",
+    "network": "Tidak dapat terhubung ke server.",
+    "forbidden": "Akses ditolak.",
+    "not_found": "Data tidak ditemukan.",
+    "method_not_allowed": "Metode permintaan tidak diizinkan.",
+    "rate_limited": "Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.",
+    "internal_error": "Terjadi kesalahan pada server."
+  }
+}

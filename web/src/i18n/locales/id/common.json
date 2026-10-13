@@ -1,0 +1,18 @@
+{
+  "app": {
+    "name": "Sentra DCIM",
+    "tagline": "Data Center Infrastructure Management — Diskominfo Provinsi Bali",
+    "loading": "Memuat…",
+    "retry": "Coba lagi"
+  },
+  "language": {
+    "label": "Bahasa",
+    "switchTo": "Ganti bahasa ke {{language}}",
+    "id": "Bahasa Indonesia",
+    "en": "English",
+    "short": {
+      "id": "ID",
+      "en": "EN"
+    }
+  }
+}

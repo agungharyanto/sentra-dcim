@@ -1,0 +1,15 @@
+{
+  "bootstrap": {
+    "title": "Application settings could not be loaded",
+    "description": "The server could not be reached or rejected the request. Please try again shortly."
+  },
+  "code": {
+    "unknown": "An unknown error occurred.",
+    "network": "Unable to reach the server.",
+    "forbidden": "Access denied.",
+    "not_found": "Data not found.",
+    "method_not_allowed": "Request method not allowed.",
+    "rate_limited": "Too many requests. Please wait a moment and try again.",
+    "internal_error": "A server error occurred."
+  }
+}
