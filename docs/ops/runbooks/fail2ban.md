@@ -49,7 +49,9 @@ sudo tail -f /var/log/fail2ban.log | grep sentra-web
 
 ### Unban (termasuk bila Anda sendiri terkena)
 Gejala: browser tidak bisa terhubung sama sekali ke `https://sentra.bajastu.id` (bukan 401), sementara dari jaringan
-lain (mis. hotspot HP) bisa. SSH tetap bisa dipakai (jail ini hanya memblokir 80/443).
+lain (mis. hotspot HP) bisa. SSH tetap bisa dipakai (jail ini hanya memblokir 80/443). Bila yang gagal adalah test
+atau `curl` **dari server**, yang terban kemungkinan IP publik server sendiri (lihat *Test otomatis* di bawah).
+**Jangan** memakai `unban --all` dan jangan menyentuh jail `sshd`.
 ```
 sudo fail2ban-client status sentra-web           # temukan IP Anda di "Banned IP list"
 sudo fail2ban-client set sentra-web unbanip <IP>
@@ -69,9 +71,26 @@ Caddyfile) dan maksimal ~220 MB (`roll_size 20MiB`, `roll_keep 10`), mana yang l
 ikut backup (`BACKUP_VOLUMES`). Nilai header `Authorization` tidak pernah tercatat (Caddy menulis `REDACTED`).
 
 ### Test otomatis & kredensial salah
-- `test/api/ui.sh` mengirim **1** percobaan password salah per run; `test/api/public.sh` **1** (cek log) per run;
-  `test/e2e` **0**. Semuanya jauh di bawah `maxretry` (10 per 10 menit). Trafik test dari server sendiri tercatat
-  dengan IP publik server dan lewat chain OUTPUT, sehingga tidak pernah terblokir oleh `DOCKER-USER`.
+- **Setiap request dengan kredensial salah dihitung**, bukan hanya satu per run. Karena itu `test/api/ui.sh` dan
+  `test/e2e/run.sh` melakukan **satu probe kredensial di awal** (`GET /api/v1/ui/bootstrap`); bila 401 keduanya
+  berhenti dengan pesan *"kredensial salah"* tanpa mengirim percobaan lain (exit 3). Bila koneksi ditolak (curl
+  exit 7) pesannya mengarah ke ban; TLS/DNS/timeout dilaporkan terpisah.
+- Jumlah percobaan salah per run: `ui.sh` **1** (probe gagal) atau **1** (cek "password salah" yang disengaja, bila
+  kredensial benar); `run.sh` **1** (probe gagal) atau **0**; `public.sh` **1** (cek log). Skenario terburuk —
+  password salah, lalu `test-ui` dan `test-e2e` — = 2, jauh di bawah `maxretry` 10 per 10 menit.
+- **Trafik dari server ini ke domain publiknya BISA di-ban.** Server tidak memegang IP publiknya secara lokal (IP
+  publik di-NAT gateway OCI), sehingga request ke `https://sentra.bajastu.id` dari server keluar lalu masuk lagi
+  lewat DNAT → FORWARD → `DOCKER-USER` dan tercatat dengan **IP publik server**. Bila IP itu terkena ban, semua
+  test dan `curl` dari server ke domain gagal dengan *connection refused*; pengguna lain tidak terdampak. Pulihkan:
+  `sudo fail2ban-client set sentra-web unbanip <IP publik server>` (hanya jail `sentra-web`).
+- `make test-e2e` menjalankan Playwright dengan `--network host`: sumbernya host (IP publik server via hairpin OCI),
+  **bukan** jaringan bridge Docker, jadi tidak pernah mem-ban IP gateway Docker. Gateway hanya tercatat untuk
+  container di jaringan bridge yang memanggil port publik (MASQUERADE, ISS-034) — tidak ada test yang melakukannya.
+- **Kenapa tidak menambah pengecualian `ignoreip`:**
+  - *Subnet Docker (172.16.0.0/12)*: bila kelak ada proxy/tunnel di dalam Docker yang meneruskan trafik luar
+    (ter-MASQUERADE), semua penyerang akan tampil sebagai gateway dan **perlindungan hilang total**. Tidak dipakai.
+  - *IP publik server*: tidak bisa dipalsukan (handshake TCP), risikonya rendah, tetapi dengan probe fail-fast tidak
+    diperlukan. Opsi ini dicatat bila test dari server kelak sering terkena ban.
 - CI tidak memakai fail2ban (hanya `fail2ban-regex` di container).
 - Uji ban nyata memakai **network namespace** (bukan container): Docker me-MASQUERADE trafik dari jaringan
   container ke port publik, sehingga yang tercatat & terban adalah IP gateway bridge, bukan sumber uji.

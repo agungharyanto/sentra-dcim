@@ -27,6 +27,10 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
 - IPv6 tidak berlaku (tanpa alamat IPv6 publik, tanpa AAAA, Docker tidak publish v6) — dicatat di runbook & ISS-026.
 - Uji ban dari container Docker mem-ban IP gateway bridge karena MASQUERADE (ISS-034); uji memakai network namespace.
 - Uji reboot sungguhan dijadwalkan di full regression v0.2.9.
+- **Diperbaiki sebelum rilis (uji pemilik):** `make test-ui` dengan password salah mem-ban IP publik server (semua cek
+  ber-auth terhitung). `test/api/ui.sh` dan `test/e2e/run.sh` kini probe kredensial **sekali** dan berhenti pada 401;
+  pesan membedakan kredensial salah, koneksi ditolak (ban), dan TLS/DNS. Kutipan konfigurasi curl meng-escape `\`.
+  Koreksi runbook: trafik dari server ke domain publiknya lewat hairpin NAT OCI dan **bisa** terkena ban (ISS-034).
 
 ## [v0.2.4] - 2026-10-13 — Pusat Bantuan di UI
 
