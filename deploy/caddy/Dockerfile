@@ -5,8 +5,8 @@ FROM caddy:2.11.7-alpine
 RUN apk add --no-cache libcap \
  && setcap -r /usr/bin/caddy \
  && apk del libcap \
- && mkdir -p /data/caddy /config/caddy \
- && chown -R 65532:65532 /data /config
+ && mkdir -p /data/caddy /config/caddy /var/log/caddy \
+ && chown -R 65532:65532 /data /config /var/log/caddy
 COPY Caddyfile /etc/caddy/Caddyfile
 # Static web UI built by web/Dockerfile (target dist); docker-compose.yml supplies it as the "web" build context.
 COPY --from=web /dist /srv/web

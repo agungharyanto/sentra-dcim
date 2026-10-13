@@ -86,7 +86,18 @@
 {$DOMAIN:localhost} {
 	import security_headers
 	encode zstd gzip
+	# Access log to stdout (docker logs) ...
 	log
+	# ... and to a rotated file for fail2ban (jail sentra-web, ISS-026). The file holds client IPs: kept at most 30 days
+	# (roll_keep_for), ~220 MB max. Authorization values are always logged as "REDACTED" (never log_credentials).
+	log access_file {
+		output file /var/log/caddy/access.log {
+			roll_size 20MiB
+			roll_keep 10
+			roll_keep_for 720h
+		}
+		format json
+	}
 
 	request_body {
 		max_size 1MB
