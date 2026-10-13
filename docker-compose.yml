@@ -152,6 +152,8 @@ services:
     volumes:
       - caddy_data:/data
       - caddy_config:/config
+      # Access log for fail2ban on the host (path: docker volume inspect <project>_caddy_logs). Not backed up.
+      - caddy_logs:/var/log/caddy
     tmpfs:
       - /tmp
     read_only: true
@@ -178,6 +180,7 @@ volumes:
   redis_data:
   caddy_data:
   caddy_config:
+  caddy_logs:
 
 networks:
   data:

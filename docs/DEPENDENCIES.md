@@ -10,6 +10,9 @@ ditambah, diubah versinya, atau dihapus.
 | Ubuntu Server | 24.04 LTS (aarch64, Oracle Cloud) | Berbagai (GPL dll.) | Sistem operasi server |
 | Oracle Cloud Agent (`snap oracle-cloud-agent`) | 1.61.0 (bawaan image) | Oracle (UPL/proprietary) | Agent OCI: monitoring, Run Command (jalur pemulihan darurat) |
 | Docker Engine | 29.9.0 | Apache-2.0 | Runtime container |
+| fail2ban (paket Ubuntu) | 1.0.2-3ubuntu0.1 | GPL-2.0 | Ban IP: jail `sshd` (v0.1) dan `sentra-web` (login basic_auth salah, v0.2.5) |
+| iptables (nf_tables) | 1.8.10-3ubuntu2 | GPL-2.0 | Aturan Docker & ban fail2ban di chain `DOCKER-USER` |
+| iproute2, curl (paket Ubuntu) | 6.1.0-1ubuntu6.4, 8.5.0-2ubuntu10.15 | GPL-2.0, curl | Uji ban nyata (`scripts/fail2ban-ban-test.sh`: network namespace + permintaan HTTPS) |
 | Docker Compose | 5.6.0 (plugin) | Apache-2.0 | Orkestrasi container lokal/server |
 | TimescaleDB (`timescale/timescaledb:2.30.2-pg16`) | 2.30.2 / PostgreSQL 16 | Timescale License (TSL) + Apache-2.0 (core); PostgreSQL License | Database relasional + time-series |
 | Redis (`redis:8.10.2-alpine`) | 8.10.2 | AGPLv3 / RSALv2 / SSPLv1 (tri-license) | Cache, rate-limit store, queue ringan (lihat D-011) |
@@ -85,6 +88,7 @@ pilih versi terbaru yang sudah melewati jendela itu.
 | golang-migrate CLI | 4.20.1 | MIT | Migrasi skema DB (CLI opsional; app memakai library yang sama) |
 | sqlc | 1.31.1 | MIT | Generate kode Go type-safe dari query SQL |
 | Redocly CLI (`redocly/cli:2.62.1`) | 2.62.1 | MIT | Validasi `api/openapi.yaml` |
+| Ubuntu 24.04 (`ubuntu:24.04`, CI) + fail2ban 1.0.2 | 24.04 | Berbagai / GPL-2.0 | `fail2ban-regex` untuk uji filter di CI, versi sama dengan produksi |
 | govulncheck (`golang.org/x/vuln`) | 1.9.0 | BSD-3-Clause | Pemindaian kerentanan dependensi Go yang benar-benar terpanggil (CI job Lint, `make vulncheck`, v0.2.4) |
 | GCC | (paket Ubuntu) | GPL-3.0 | Dibutuhkan race detector (`go test -race`, CGO) |
 | actionlint | 1.7.12 | MIT | Validasi workflow GitHub Actions (lokal, `/usr/local/bin`) |

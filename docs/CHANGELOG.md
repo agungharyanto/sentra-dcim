@@ -3,6 +3,35 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [v0.2.5] - 2026-10-13 — Mitigasi DoS basic_auth
+
+### Ditambahkan
+- **fail2ban jail `sentra-web`** (D-045, ISS-026): filter `sentra-caddy-auth` hanya menghitung 401 **dengan** header
+  `Authorization` (kredensial salah) pada host publik, tidak bergantung urutan key JSON; 10 salah/10 menit → ban 1 jam
+  (bertambah sampai 24 jam); blokir `REJECT` di iptables **`DOCKER-USER`** port 80/443; `ignoreip` hanya localhost.
+  Dipasang `make fail2ban-web` (idempoten; path log via `docker volume inspect`; gagal jelas bila log tidak ada),
+  dicabut `make fail2ban-web-remove`. Drop-in systemd: fail2ban `After=`/`Requires=docker.service`.
+- **Access log Caddy ke file** (volume `caddy_logs`) dengan rotasi 20 MiB × 10 dan retensi **30 hari** (berisi IP
+  klien); `Authorization` selalu `REDACTED`. Logger stdout tetap.
+- `make preflight` **memperingatkan** bila bcrypt cost > 12.
+- Test: `make fail2ban-test` (`fail2ban-regex` pada 9 baris log sintetis, termasuk urutan key berbeda & header palsu;
+  juga di CI), `make fail2ban-ban-test` (ban nyata dari network namespace → ditolak → unban; varian
+  `RESTART=fail2ban|docker`), cek log di `test/api/public.sh` (tumbuh, IP klien, kredensial tidak tercatat).
+- Runbook `docs/ops/runbooks/fail2ban.md`; `web-basic-auth.md` diperbarui (hash cost 10).
+
+### Diubah
+- Rekomendasi hash basic_auth: `caddy hash-password --bcrypt-cost 10`. Benchmark di server (ARM, 4 vCPU): cost 14 ≈
+  **1 030 ms** CPU per percobaan salah, cost 10 ≈ **65 ms** (~16× lebih ringan).
+
+### Catatan
+- IPv6 tidak berlaku (tanpa alamat IPv6 publik, tanpa AAAA, Docker tidak publish v6) — dicatat di runbook & ISS-026.
+- Uji ban dari container Docker mem-ban IP gateway bridge karena MASQUERADE (ISS-034); uji memakai network namespace.
+- Uji reboot sungguhan dijadwalkan di full regression v0.2.9.
+- **Diperbaiki sebelum rilis (uji pemilik):** `make test-ui` dengan password salah mem-ban IP publik server (semua cek
+  ber-auth terhitung). `test/api/ui.sh` dan `test/e2e/run.sh` kini probe kredensial **sekali** dan berhenti pada 401;
+  pesan membedakan kredensial salah, koneksi ditolak (ban), dan TLS/DNS. Kutipan konfigurasi curl meng-escape `\`.
+  Koreksi runbook: trafik dari server ke domain publiknya lewat hairpin NAT OCI dan **bisa** terkena ban (ISS-034).
+
 ## [v0.2.4] - 2026-10-13 — Pusat Bantuan di UI
 
 ### Ditambahkan

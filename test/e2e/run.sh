@@ -25,6 +25,23 @@ fi
 artifacts="${E2E_ARTIFACTS:-$root/test/e2e/artifacts}"
 mkdir -p "$artifacts"
 
+# Credential probe from the host BEFORE starting Playwright: exactly one authenticated request. Many specs would
+# otherwise each send the wrong password, and every 401 with credentials counts towards the fail2ban jail sentra-web
+# (10 per 10 min → this server's public IP is banned, ISS-034). Stop at the first 401.
+# curl config strings treat \ as an escape: escape backslashes first, then double quotes.
+curl_quote() { local v="${1//\\/\\\\}"; printf '%s' "${v//\"/\\\"}"; }
+probe_cfg="$(mktemp)"; chmod 600 "$probe_cfg"
+printf 'user = "%s"\n' "$(curl_quote "$user:$pw")" >"$probe_cfg"
+insecure=(); [[ "$BASE_URL" == https://localhost* ]] && insecure=(-k)
+code="$(curl -s "${insecure[@]}" -K "$probe_cfg" -o /dev/null -w '%{http_code}' --max-time 10 "${BASE_URL%/}/api/v1/ui/bootstrap" || true)"
+rm -f "$probe_cfg"
+case "$code" in
+  200) ;;
+  401) echo "STOP: kredensial salah (401) untuk user '$user' — Playwright tidak dijalankan (fail2ban, ISS-034)." >&2; exit 3 ;;
+  000) echo "STOP: ${BASE_URL%/} tidak bisa dihubungi — IP ini mungkin di-ban jail sentra-web." >&2; exit 3 ;;
+  *)   echo "STOP: probe kredensial mendapat HTTP $code (diharapkan 200)." >&2; exit 3 ;;
+esac
+
 # Credentials reach the container through a mode-600 env file, never the process list.
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 umask 077
