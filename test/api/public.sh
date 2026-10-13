@@ -35,6 +35,7 @@ for h in Strict-Transport-Security Content-Security-Policy X-Frame-Options X-Con
 done
 check "HSTS max-age >= 1 year" "$([[ $(hdr Strict-Transport-Security) =~ max-age=([0-9]+) ]] && ((BASH_REMATCH[1] >= 31536000)); echo $?)"
 check "no Server header" "$([[ -z $(hdr Server) ]]; echo $?)"
+check "exactly one Content-Security-Policy" "$([[ $(grep -ci '^Content-Security-Policy:' "$tmp/h") == 1 ]]; echo $?)"
 check "no Via header" "$([[ -z $(hdr Via) ]]; echo $?)"
 check "request ID does not leak container ID" "$([[ $(hdr X-Request-Id) == sentra-app/* ]]; echo $?)"
 
@@ -54,6 +55,8 @@ for p in / /admin /api/v1/ui/bootstrap; do
   req "$BASE$p"
   check "GET $p requires basic auth (401)" "$([[ $code == 401 && $(hdr WWW-Authenticate) == Basic* ]]; echo $?)"
 done
+check "401 keeps security headers (HSTS, nosniff, no Server)" "$([[ -n $(hdr Strict-Transport-Security) && $(hdr X-Content-Type-Options) == nosniff && -z $(hdr Server) ]]; echo $?)"
+check "401 body is the JSON error envelope" "$(jq -e '.error.code=="unauthorized"' "$tmp/b" >/dev/null; echo $?)"
 req -X POST "$BASE/api/v1/health"
 check "POST /api/v1/health rejected (403)" "$([[ $code == 403 ]]; echo $?)"
 

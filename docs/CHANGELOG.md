@@ -24,6 +24,11 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
   CSP), `make web-check`, `make test-ui`, `make test-e2e`; job CI `web` + uji UI & e2e di job build.
 - Kerangka Pusat Bantuan dua bahasa `docs/help/{id,en}/` (diisi di v0.2.4).
 
+### Diperbaiki
+- Respons error dari handler Caddy (401 basic_auth, 404/405 statis) kini tetap membawa header keamanan (HSTS,
+  nosniff, tanpa `Server`) dan body `ErrorBody` JSON (`handle_errors`) — ditemukan saat uji `curl -I` v0.2.1.
+- Header CSP ganda (Caddy + app) pada respons API: CSP dari app dibuang di proxy, tinggal satu kebijakan.
+
 ### Diubah
 - `test/api/public.sh`: `/` dan `/admin` kini 401 (basic_auth), bukan 403. API selain health/version tetap 403.
 - Image Caddy kini ditag per versi (`sentra-caddy:<git describe>`), sama seperti app.

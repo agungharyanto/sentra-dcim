@@ -76,6 +76,7 @@ check "X-Content-Type-Options nosniff" "$([[ $(hdr X-Content-Type-Options) == no
 check "Referrer-Policy set" "$([[ -n $(hdr Referrer-Policy) ]]; echo $?)"
 check "HSTS set" "$([[ $(hdr Strict-Transport-Security) == max-age=* ]]; echo $?)"
 check "no Server header" "$([[ -z $(hdr Server) ]]; echo $?)"
+check "exactly one Content-Security-Policy" "$([[ $(grep -ci '^Content-Security-Policy:' "$tmp/h") == 1 ]]; echo $?)"
 
 areq "$BASE/apa-saja/deep/link?x=1"
 check "deep link /apa-saja/... returns index.html" "$([[ $code == 200 ]] && cmp -s "$tmp/b" "$tmp/index.html"; echo $?)"

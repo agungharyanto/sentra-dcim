@@ -72,6 +72,8 @@
 		header_up -True-Client-IP
 		header_down -Server
 		header_down -Via
+		# Caddy already set the edge CSP; drop the app's copy so responses carry exactly one policy.
+		header_down -Content-Security-Policy
 		health_uri /api/v1/health
 		health_interval 15s
 	}
@@ -117,6 +119,20 @@
 	handle {
 		import web_auth
 		import web_static
+	}
+
+	# Errors raised by handlers (basic_auth 401, file_server 404/405) bypass the deferred header block above;
+	# re-apply the security headers and answer with the standard JSON error envelope.
+	handle_errors {
+		import security_headers
+		map {err.status_code} {err_code} {
+			401 unauthorized
+			404 not_found
+			405 method_not_allowed
+			default error
+		}
+		header Content-Type "application/json; charset=utf-8"
+		respond `{"error":{"code":"{err_code}","message":"{err.status_text}"}}` {err.status_code}
 	}
 }
 
