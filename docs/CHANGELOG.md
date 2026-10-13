@@ -3,7 +3,18 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
-## [Unreleased] — v0.2.9 Penutup Sprint v0.2 (bagian 1: sebelum reboot)
+## [v0.2.9] - 2026-10-14 — UI Shell & Design System Close (penutup sprint v0.2)
+
+Ringkasan sprint, DoD & bukti: `docs/releases/v0.2.9.md`.
+
+### Bagian 2 (setelah reboot)
+- Reboot ke kernel **7.0.0-1013-oracle** (6.17 tetap sebagai target rollback, ISS-036); downtime **± 37 detik**
+  (perintah reboot 00:19:30 → layanan melayani 00:20:07 WIB), stack hidup sendiri.
+- `make post-reboot-check` 17/17; full regression di kernel 7.0 **87/87**; recovery drill **tanpa cache** 8/8
+  (build + start 92 s).
+- ROADMAP: sprint v0.2 selesai.
+
+### Bagian 1 (sebelum reboot)
 
 ### Ditambahkan
 - `make boot-menu` (`scripts/host-boot-setup.sh`, idempoten): menu GRUB 10 detik di serial console
