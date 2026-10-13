@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sentra DCIM API
-  version: 0.2.3
+  version: 0.2.4
   summary: REST API Sentra DCIM — Diskominfo Provinsi Bali
   description: |
     Semua endpoint berada di bawah `/api/v1`. Waktu dikirim dalam UTC (RFC 3339);
@@ -12,7 +12,7 @@ info:
     Endpoint `GET` juga melayani `HEAD`.
 
     **Akses publik:** lewat `https://sentra.bajastu.id` hanya `/api/v1/health` dan `/api/v1/version` yang
-    diteruskan tanpa autentikasi. `/api/v1/ui/bootstrap` (dan UI web di `/`) dilindungi **basic_auth sementara** di
+    diteruskan tanpa autentikasi. `/api/v1/ui/bootstrap`, `/api/v1/help/*` (dan UI web di `/`) dilindungi **basic_auth sementara** di
     proxy sampai Auth v0.3 (ISS-026); permintaan API lain ditolak proxy dengan `403`. API lengkap tersedia di listener internal server
     (`127.0.0.1:8080`, hanya dari server itu sendiri). Detail operasional (mis. commit & waktu server pada
     `/api/v1/version`) hanya dikirim oleh listener internal; mulai v0.3 juga mensyaratkan role Admin.
@@ -29,6 +29,8 @@ tags:
     description: Status layanan dan informasi build
   - name: ui
     description: Data pendukung UI web (bootstrap, registry menu)
+  - name: help
+    description: Pusat Bantuan — halaman Markdown (ID/EN) dan spesifikasi OpenAPI untuk viewer read-only
 paths:
   /api/v1/health:
     get:
@@ -151,7 +153,93 @@ paths:
         "401":
           description: Kredensial basic_auth tidak ada/salah (dari proxy, hanya lewat domain publik)
         "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/help/index:
+    get:
+      tags: [help]
+      operationId: getHelpIndex
+      summary: Daftar halaman Pusat Bantuan (tanpa isi)
+      description: |
+        Metadata semua halaman untuk satu bahasa, terurut `order` lalu `slug`, termasuk subjudul H2/H3 untuk
+        pencarian di klien. Mulai v0.3 disaring menurut role pemanggil berdasarkan `audience` (ISS-032).
+      security:
+        - basicAuth: []
+      parameters:
+        - $ref: "#/components/parameters/HelpLocale"
+      responses:
+        "200":
+          description: Indeks halaman
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-cache] }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HelpIndex" }
+        "400": { $ref: "#/components/responses/InvalidLocale" }
+        "401":
+          description: Kredensial basic_auth tidak ada/salah (dari proxy, hanya lewat domain publik)
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/HelpUnavailable" }
+  /api/v1/help/pages/{slug}:
+    get:
+      tags: [help]
+      operationId: getHelpPage
+      summary: Satu halaman Pusat Bantuan (Markdown)
+      description: |
+        `slug` boleh mengandung `/` (mis. `dashboard` atau `dashboard/extra`). Slug hanya dicocokkan dengan daftar
+        halaman yang tervalidasi (whitelist), tidak pernah dipakai sebagai path file. Markdown tanpa front matter
+        dan tanpa HTML mentah.
+      security:
+        - basicAuth: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*(?:/[a-z0-9]+(?:-[a-z0-9]+)*)*$", example: dashboard }
+        - $ref: "#/components/parameters/HelpLocale"
+      responses:
+        "200":
+          description: Halaman
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-cache] }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HelpPage" }
+        "400": { $ref: "#/components/responses/InvalidLocale" }
+        "401":
+          description: Kredensial basic_auth tidak ada/salah (dari proxy, hanya lewat domain publik)
+        "404":
+          description: Halaman tidak ada untuk slug/bahasa ini
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorBody" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/HelpUnavailable" }
+  /api/v1/help/openapi:
+    get:
+      tags: [help]
+      operationId: getHelpOpenAPI
+      summary: Spesifikasi OpenAPI ini dalam JSON (untuk viewer read-only)
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: Dokumen OpenAPI 3.1
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401":
+          description: Kredensial basic_auth tidak ada/salah (dari proxy, hanya lewat domain publik)
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/HelpUnavailable" }
 components:
+  parameters:
+    HelpLocale:
+      name: locale
+      in: query
+      required: false
+      description: Bahasa halaman; default `DEFAULT_LOCALE` server
+      schema: { type: string, enum: [id, en] }
   securitySchemes:
     basicAuth:
       type: http
@@ -162,6 +250,16 @@ components:
       description: ID unik request untuk penelusuran log
       schema: { type: string }
   responses:
+    InvalidLocale:
+      description: Parameter `locale` tidak didukung (`invalid_locale`)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+    HelpUnavailable:
+      description: Konten Pusat Bantuan gagal validasi saat startup; hanya modul help yang nonaktif (`help_unavailable`)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
     TooManyRequests:
       description: Rate limit terlampaui
       headers:
@@ -254,6 +352,45 @@ components:
           enum: [available, coming_soon, not_connected]
         group: { type: string, description: "`key` salah satu `menu_groups`", example: monitoring }
         order: { type: integer, description: Urutan di dalam grup, example: 10 }
+    HelpHeading:
+      type: object
+      additionalProperties: false
+      required: [level, text]
+      properties:
+        level: { type: integer, enum: [2, 3] }
+        text: { type: string, example: Langkah }
+    HelpMeta:
+      type: object
+      required: [slug, title, audience, order, headings]
+      properties:
+        slug: { type: string, example: dashboard }
+        title: { type: string, example: Dasbor }
+        audience:
+          type: string
+          enum: [user, admin]
+          description: Sasaran pembaca; dipakai menyaring per role mulai v0.3 (ISS-032)
+        menu: { type: string, description: "Key registry menu; tombol \"?\" pada menu itu membuka halaman ini", example: dashboard }
+        order: { type: integer, example: 30 }
+        headings:
+          type: array
+          items: { $ref: "#/components/schemas/HelpHeading" }
+    HelpIndex:
+      type: object
+      additionalProperties: false
+      required: [locale, pages]
+      properties:
+        locale: { type: string, enum: [id, en] }
+        pages:
+          type: array
+          items: { $ref: "#/components/schemas/HelpMeta" }
+    HelpPage:
+      allOf:
+        - $ref: "#/components/schemas/HelpMeta"
+        - type: object
+          required: [locale, markdown]
+          properties:
+            locale: { type: string, enum: [id, en] }
+            markdown: { type: string, description: Isi Markdown (GFM) tanpa front matter }
     ErrorBody:
       type: object
       required: [error]

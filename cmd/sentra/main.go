@@ -26,6 +26,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	apispec "github.com/agungharyanto/sentra-dcim/api"
+	helpdocs "github.com/agungharyanto/sentra-dcim/docs/help"
+	helphandler "github.com/agungharyanto/sentra-dcim/internal/help/handler"
+	helpservice "github.com/agungharyanto/sentra-dcim/internal/help/service"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/buildinfo"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/cache"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/config"
@@ -102,6 +106,14 @@ func serve() error {
 
 	ui := uiservice.New(cfg.DefaultLocale, config.SupportedLocales, cfg.DisplayTZ)
 
+	// Help content is validated by `go test` (the blocking gate). Should an invalid catalog still ship, only the
+	// help module is disabled (503); the rest of the API and the healthcheck keep running.
+	helpCat, err := helpservice.Load(helpdocs.FS, config.SupportedLocales, helpMenus(), apispec.OpenAPI)
+	if err != nil {
+		log.Error("help content invalid, help module disabled", "error", err)
+	}
+	help := helphandler.New(helpCat, cfg.DefaultLocale, config.SupportedLocales)
+
 	rl := httpserver.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
 	go rl.Janitor(ctx)
 
@@ -111,10 +123,12 @@ func serve() error {
 		httpserver.NewServer(cfg.HTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, func(r chi.Router) {
 			systemhandler.New(sys).Routes(r)
 			uihandler.New(ui).Routes(r)
+			help.Routes(r)
 		}), log),
 		httpserver.NewServer(cfg.InternalHTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, func(r chi.Router) {
 			systemhandler.NewInternal(sys).Routes(r)
 			uihandler.New(ui).Routes(r)
+			help.Routes(r)
 		}), log),
 	}
 
@@ -154,6 +168,16 @@ func serve() error {
 	}
 	log.Info("server stopped cleanly")
 	return nil
+}
+
+// helpMenus adapts the UI menu registry for help validation (menu keys, app routes, available menus).
+func helpMenus() []helpservice.Menu {
+	_, menus := uiservice.Registry()
+	out := make([]helpservice.Menu, 0, len(menus))
+	for _, m := range menus {
+		out = append(out, helpservice.Menu{Key: m.Key, Path: m.Path, Available: m.Status == uiservice.StatusAvailable})
+	}
+	return out
 }
 
 func runMigrate(args []string) error {
