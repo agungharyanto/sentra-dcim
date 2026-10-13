@@ -1,0 +1,8 @@
+// Sentra DCIM (v0.2.9) — keep the previous kernel 6.17.0-1020-oracle as a rollback target after the 7.0 upgrade.
+// unattended-upgrades runs with Remove-Unused-Kernel-Packages "true" (52sentra-unattended-upgrades); this pins the
+// old kernel out of autoremove. Keep until the v0.3 sprint close decides (ISS-036). Installed by `make boot-menu`.
+APT::NeverAutoRemove {
+  "^linux-image-6\.17\.0-1020-oracle$";
+  "^linux-modules-6\.17\.0-1020-oracle$";
+  "^linux-modules-extra-6\.17\.0-1020-oracle$";
+};
