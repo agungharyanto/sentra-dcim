@@ -1,11 +1,11 @@
 # Akses UI Web Sementara (basic_auth)
 
-**Modul:** admin · **Tersedia sejak:** v0.2.1 · **Status:** Available (sementara, dicabut di v0.3)
+**Modul:** ops · **Tersedia sejak:** v0.2.1 · **Diperbarui:** v0.2.5 · **Status:** Available (sementara, dicabut di v0.3)
 
 ## Tujuan
 Sampai fitur login (Auth, v0.3) tersedia, UI web di `https://sentra.bajastu.id/` dan `GET /api/v1/ui/bootstrap`
 dilindungi **basic_auth** di Caddy (D-043, ISS-026). `/api/v1/health` dan `/api/v1/version` tetap publik; API lain
-tetap ditolak `403`.
+tetap ditolak `403`. Login salah berulang di-ban oleh fail2ban — lihat [fail2ban.md](fail2ban.md) (v0.2.5).
 
 ## Role yang dibutuhkan
 | Aksi | Role |
@@ -14,9 +14,17 @@ tetap ditolak `403`.
 | Mengatur/mengganti password | Admin OS server (`sudo -u sentra`) |
 
 ## Langkah-langkah
-1. Buat hash password **di server** (password diketik, tidak tampil, tidak masuk history):
-   `docker run --rm -it caddy:2.11.7-alpine caddy hash-password`
-   Gunakan password panjang acak (≥ 20 karakter) — basic_auth tidak punya batas percobaan login.
+1. Buat hash password **di server** dengan **bcrypt cost 10** (password diketik dua kali di prompt, tidak tampil,
+   tidak masuk command line/history):
+   ```
+   docker run --rm -it caddy:2.11.7-alpine caddy hash-password --bcrypt-cost 10
+   ```
+   Gunakan password acak panjang (mis. 24 byte: `openssl rand -base64 24`, simpan di password manager).
+   **Kenapa cost 10, bukan default 14:** setiap login dengan password salah memaksa Caddy menghitung bcrypt. Diukur
+   di server ini (ARM, 4 vCPU, v0.2.5): cost 14 ≈ **1 030 ms CPU** per percobaan (≈ 4 percobaan/detik sudah
+   menghabiskan semua core), cost 10 ≈ **65 ms** (≈ 16× lebih ringan). Dengan password acak 24 byte, cost 10 tetap
+   jauh di luar jangkauan brute force; yang dimitigasi adalah beban CPU (DoS). `make preflight` memperingatkan bila
+   cost > 12.
 2. Edit `.env` sebagai pemiliknya: `sudo -u sentra -H nano /opt/sentra-dcim/.env`, isi:
    ```
    WEB_BASIC_AUTH_USER=<nama-user>
@@ -42,3 +50,7 @@ tetap ditolak `403`.
 - **Selalu 401 walau password benar**: hash tidak dikutip tunggal sehingga `$` terpotong — cek `make preflight`.
 - **Tanpa isi `.env`**: UI terkunci (hash pengunci bawaan), bukan terbuka.
 - **Lupa password**: buat hash baru (langkah 1–3); password lama tidak bisa dipulihkan dari hash.
+- **Diblokir setelah salah password berkali-kali** (koneksi ditolak, bukan 401): IP Anda di-ban fail2ban —
+  [fail2ban.md](fail2ban.md) → *Unban*.
+- **Cek cost hash tanpa menampilkan hash:**
+  `grep '^WEB_BASIC_AUTH_HASH=' .env | cut -c1-28 | sed -E 's/.*(\$2[aby]\$[0-9]{2}\$).*/\1/'` → mis. `$2a$10$`.
