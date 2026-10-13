@@ -3,7 +3,7 @@
 # Clones the repository fresh into a temporary directory, generates a throwaway .env (random secrets, no domain,
 # loopback ports 28xxx), builds every image (app, web, caddy) as compose project "sentradrill" with its own image
 # names (sentra-drill-*, never touching production images), verifies the version baked into the image equals
-# `git describe` of the clone, starts the stack WITHOUT building, runs migrations, the smoke test and UI/help checks,
+# `git describe` of the clone, starts the stack WITHOUT building, runs migrations, the smoke test, UI and login/help checks,
 # then removes containers, volumes, images and the clone.
 #
 # Fails hard: the first failing step stops the drill with a non-zero exit, prints the log tail and keeps the logs.
@@ -60,6 +60,34 @@ step() {
   fi
 }
 
+# drill_login proves the auth path end to end on the throwaway stack: `sentra user create-admin` (password on
+# stdin), login through Caddy (basic_auth + session cookie + CSRF), the forced password change, then the help API.
+# Passwords are random, exist only in this drill and are never printed.
+drill_login() {
+  local apw npw base=https://localhost:28443 jar="$dir/cookies" code csrf
+  apw="admin-$(gen)"; npw="admin-new-$(gen)"
+  printf '%s\n' "$apw" | compose exec -T app /sentra user create-admin --username drill.admin
+  local c=(curl -sk -u "drill:$pw" -b "$jar" -c "$jar" -H "Origin: $base" -H 'Content-Type: application/json'
+    -o "$dir/body" -w '%{http_code}')
+  code="$("${c[@]}" -H 'X-Sentra-CSRF: login' -d "{\"username\":\"drill.admin\",\"password\":\"$apw\"}" \
+    "$base/api/v1/auth/login")"
+  echo "login: $code"; [[ $code == 200 ]] || return 1
+  csrf="$(awk '$6=="__Host-sentra_csrf"{print $7}' "$jar")"
+  code="$("${c[@]}" "$base/api/v1/help/index")"
+  echo "help before password change: $code $(jq -r .error.code "$dir/body")"
+  [[ $code == 403 ]] && jq -e '.error.code=="password_change_required"' "$dir/body" >/dev/null || return 1
+  code="$("${c[@]}" -H "X-Sentra-CSRF: $csrf" \
+    -d "{\"current_password\":\"$apw\",\"new_password\":\"$npw\"}" "$base/api/v1/auth/password")"
+  echo "password change: $code"; [[ $code == 204 ]] || return 1
+  code="$("${c[@]}" "$base/api/v1/help/index")"
+  echo "help after password change: $code"
+  [[ $code == 200 ]] && jq -e '.pages|length>0' "$dir/body" >/dev/null || return 1
+  code="$("${c[@]}" -X POST -H "X-Sentra-CSRF: $csrf" "$base/api/v1/auth/logout")"
+  echo "logout: $code"; [[ $code == 204 ]] || return 1
+  code="$("${c[@]}" "$base/api/v1/auth/me")"
+  echo "me after logout: $code"; [[ $code == 401 ]]
+}
+
 echo "recovery drill: $remote ($ref) → $dir, project $project"
 step "clone $ref from GitHub (full history for tags)" "$dir/clone.log" \
   git clone -q --filter=blob:none --branch "$ref" "$remote" "$dir/repo"
@@ -82,6 +110,7 @@ sed -e "s/^POSTGRES_PASSWORD=CHANGE_ME/POSTGRES_PASSWORD=$(gen)/" -e "s/^REDIS_P
     -e "s/^POSTGRES_HOST_PORT=.*/POSTGRES_HOST_PORT=25432/" -e "s/^REDIS_HOST_PORT=.*/REDIS_HOST_PORT=26379/" \
     -e "s/^WEB_BASIC_AUTH_USER=.*/WEB_BASIC_AUTH_USER=drill/" -e "s|^WEB_BASIC_AUTH_HASH=.*|WEB_BASIC_AUTH_HASH='$hash'|" \
     .env.example > .env
+echo "APP_ALLOWED_ORIGINS=https://localhost:28443" >> .env
 umask 022
 # Own image names: the drill must never overwrite or delete production images (same version tag possible).
 cat > "$dir/drill.override.yml" <<YAML
@@ -110,8 +139,7 @@ tail -n 1 "$dir/smoke.log" | sed 's/^/        | /'
 step "web UI behind basic_auth (401 without, 200 with credentials)" "$dir/ui.log" bash -c \
   "[[ \$(curl -sk -o /dev/null -w '%{http_code}' https://localhost:28443/) == 401 &&
      \$(curl -sk -u 'drill:$pw' -o /dev/null -w '%{http_code}' https://localhost:28443/dashboard) == 200 ]]"
-step "help API serves embedded pages" "$dir/help.log" \
-  bash -c "curl -sf http://127.0.0.1:28081/api/v1/help/index | jq -e '.pages|length>0'"
+step "admin via CLI, login, forced password change, help API (session)" "$dir/login.log" drill_login
 # shellcheck disable=SC2016 # evaluated by the inner bash
 step "production stack untouched (project sentra still 4 healthy)" "$dir/prod.log" \
   bash -c '[[ $(docker ps --filter label=com.docker.compose.project=sentra --filter health=healthy -q | wc -l) -eq 4 ]]'

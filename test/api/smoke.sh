@@ -57,13 +57,18 @@ if [[ -n "$EXPECT_VERSION" ]]; then
 fi
 echo "  info  version=$(jq -r .version "$tmp/b") commit=$(jq -r .commit "$tmp/b")"
 
-req GET /api/v1/ui/bootstrap
-check "GET /ui/bootstrap = 200" "$([[ $code == 200 ]]; echo $?)"
-check "bootstrap timezone = $EXPECT_TZ, locale supported" "$(jq -e --arg tz "$EXPECT_TZ" '.timezone==$tz and (.default_locale as $l | .supported_locales|index($l))!=null' "$tmp/b" >/dev/null; echo $?)"
-check "bootstrap menus have no labels" "$(jq -e 'all(.menus[]; keys==["group","icon","key","order","path","status"])' "$tmp/b" >/dev/null; echo $?)"
-
-req GET /api/v1/help/index
-check "GET /help/index = 200 (help module enabled)" "$([[ $code == 200 ]] && jq -e '.pages|length>0' "$tmp/b" >/dev/null; echo $?)"
+# Default-deny (v0.3.1): everything except health/ready/version/login needs a session.
+for p in /api/v1/ui/bootstrap /api/v1/help/index /api/v1/auth/me /api/v1/auth/sessions; do
+  req GET "$p"
+  check "GET $p without session = 401 unauthenticated" "$([[ $code == 401 ]] && jq -e '.error.code=="unauthenticated"' "$tmp/b" >/dev/null; echo $?)"
+done
+# CSRF is checked before credentials, so these never reach the login logic (no audit/rate-limit noise).
+code="$(curl -sS -o "$tmp/b" -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
+  -d '{"username":"smoke.test","password":"x"}' "$BASE_URL/api/v1/auth/login")"
+check "POST /auth/login without CSRF header = 403 csrf_failed" "$([[ $code == 403 ]] && jq -e '.error.code=="csrf_failed"' "$tmp/b" >/dev/null; echo $?)"
+code="$(curl -sS -o "$tmp/b" -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'Origin: https://evil.example' \
+  -H 'X-Sentra-CSRF: x' -d '{"username":"smoke.test","password":"x"}' "$BASE_URL/api/v1/auth/login")"
+check "POST /auth/login from foreign Origin = 403 csrf_failed" "$([[ $code == 403 ]] && jq -e '.error.code=="csrf_failed"' "$tmp/b" >/dev/null; echo $?)"
 
 req GET /api/v1/does-not-exist
 check "unknown path = 404 JSON error" "$([[ $code == 404 ]] && jq -e '.error.code=="not_found" and (.error.request_id|length>0)' "$tmp/b" >/dev/null; echo $?)"

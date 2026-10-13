@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
-# Web UI edge tests (v0.2.1): temporary basic_auth (ISS-026), SPA fallback, security & cache headers, bootstrap API.
+# Web UI edge tests (v0.2.1, v0.3.1): temporary basic_auth (ISS-026), SPA fallback, security & cache headers, app
+# login (session cookie + CSRF), bootstrap and help API.
 # Usage: test/api/ui.sh            (DOMAIN from .env; BASE_URL overrides, e.g. https://localhost)
-# Credentials for the authenticated checks, never stored in the repo — first match wins:
+# basic_auth credentials, never stored in the repo — first match wins:
 #   1. SENTRA_WEB_USER + SENTRA_WEB_PASS environment variables
 #   2. file $SENTRA_WEB_AUTH_FILE (default ~/.config/sentra/web-auth, mode 600, one line "user:password")
 #   3. interactive prompt (TTY only)
+# Application account for the session checks (an active account that already changed its first password), same
+# order: SENTRA_APP_USER + SENTRA_APP_PASS, file $SENTRA_APP_AUTH_FILE (default ~/.config/sentra/app-auth), prompt.
+# Without it the session checks are skipped (reported as SKIP, the run is then not a complete regression).
 set -uo pipefail
 
 # Whole body in main(): bash parses the entire file before running, so editing the script mid-run cannot make it
@@ -20,7 +24,7 @@ if [[ -z "${BASE_URL:-}" ]]; then
   BASE_URL="https://${domain:-localhost}"
 fi
 BASE="${BASE_URL%/}"
-pass=0 fail=0
+pass=0 fail=0 skipped=
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 
 curl_ca=()
@@ -46,6 +50,16 @@ curl_quote() { local v="${1//\\/\\\\}"; printf '%s' "${v//\"/\\\"}"; }
 # Credentials go through a curl config file (mode 600), never the process list.
 umask 077; printf 'user = "%s"\n' "$(curl_quote "$user:$pw")" >"$tmp/auth.cfg"
 
+app_user="${SENTRA_APP_USER:-}" app_pw="${SENTRA_APP_PASS:-}"
+app_file="${SENTRA_APP_AUTH_FILE:-$HOME/.config/sentra/app-auth}"
+if [[ -z "$app_user" || -z "$app_pw" ]] && [[ -r "$app_file" ]]; then
+  IFS= read -r line <"$app_file"; app_user="${line%%:*}" app_pw="${line#*:}"
+fi
+if [[ -z "$app_user" || -z "$app_pw" ]] && [[ -t 0 ]]; then
+  read -rp "app user (Enter = skip session checks): " app_user
+  [[ -n "$app_user" ]] && { read -rsp "app password: " app_pw; echo; }
+fi
+
 check() { if [[ "$2" == "0" ]]; then printf '  PASS  %s\n' "$1"; pass=$((pass+1)); else printf '  FAIL  %s\n' "$1"; fail=$((fail+1)); fi; }
 req() { code="$(curl -sS "${curl_ca[@]}" -o "$tmp/b" -D "$tmp/h" -w '%{http_code}' "$@")"; }
 areq() { req -K "$tmp/auth.cfg" "$@"; }
@@ -61,7 +75,8 @@ done
 
 # Credential probe FIRST, exactly one authenticated request. Every request with wrong credentials counts towards
 # the fail2ban jail sentra-web (10 per 10 min → ban of this server's public IP, ISS-034): stop immediately on 401.
-areq "$BASE/api/v1/ui/bootstrap"
+# The probe uses the SPA (basic_auth only); bootstrap/help additionally need an app session since v0.3.1.
+areq "$BASE/"
 case "$code" in
   200) ;;
   401) echo "STOP: kredensial salah (401) untuk user '$user' — tidak ada percobaan lain dikirim (fail2ban, ISS-034)." >&2
@@ -79,7 +94,7 @@ case "$code" in
 esac
 
 # Without (or with wrong) credentials: 401 + Basic challenge.
-for p in / /index.html /some/deep/link /api/v1/ui/bootstrap /api/v1/help/index /api/v1/help/openapi; do
+for p in / /index.html /some/deep/link /api/v1/ui/bootstrap /api/v1/help/index /api/v1/help/openapi /api/v1/auth/me; do
   req "$BASE$p"
   check "GET $p without auth = 401" "$([[ $code == 401 && $(hdr WWW-Authenticate) == Basic* ]]; echo $?)"
 done
@@ -123,34 +138,81 @@ check "missing asset = 404 (no SPA fallback, not immutable)" "$([[ $code == 404 
 areq -X POST "$BASE/"
 check "POST / rejected (405)" "$([[ $code == 405 ]]; echo $?)"
 
-# Bootstrap API.
-areq "$BASE/api/v1/ui/bootstrap"
-check "GET /api/v1/ui/bootstrap with auth = 200" "$([[ $code == 200 ]]; echo $?)"
-check "bootstrap fields" "$(jq -e 'keys==["app_name","default_locale","menu_groups","menus","supported_locales","timezone","version"]' "$tmp/b" >/dev/null; echo $?)"
-check "bootstrap locale & timezone valid" "$(jq -e '(.default_locale as $l | .supported_locales|index($l))!=null and (.timezone|length>0)' "$tmp/b" >/dev/null; echo $?)"
-check "bootstrap menus: no labels, valid status, known group" "$(jq -e '(.menus|length>0) and all(.menus[]; (keys==["group","icon","key","order","path","status"]) and (.status|IN("available","coming_soon","not_connected"))) and ([.menu_groups[].key] as $g | all(.menus[]; .group as $x | $g|index($x) != null))' "$tmp/b" >/dev/null; echo $?)"
-check "bootstrap Cache-Control no-store" "$([[ $(hdr Cache-Control) == no-store ]]; echo $?)"
-req "$BASE/api/v1/version"
-ver="$(jq -r .version "$tmp/b")"
-areq "$BASE/api/v1/ui/bootstrap"
-check "bootstrap version = public /version ($ver)" "$(jq -e --arg v "$ver" '.version==$v' "$tmp/b" >/dev/null; echo $?)"
+# App session API behind basic_auth (v0.3.1). Without a session: the app's own 401, no Basic challenge (the browser
+# must not show its login dialog) and never counted by fail2ban.
+for p in /api/v1/ui/bootstrap /api/v1/help/index /api/v1/auth/me; do
+  areq "$BASE$p"
+  check "GET $p with basic_auth, no session = 401 unauthenticated" "$([[ $code == 401 && -z $(hdr WWW-Authenticate) ]] && jq -e '.error.code=="unauthenticated"' "$tmp/b" >/dev/null; echo $?)"
+done
+areq -X POST -H 'Content-Type: application/json' -d '{"username":"x","password":"y"}' "$BASE/api/v1/auth/login"
+check "POST /auth/login without CSRF header = 403" "$([[ $code == 403 ]] && jq -e '.error.code=="csrf_failed"' "$tmp/b" >/dev/null; echo $?)"
+areq -X POST -H 'Content-Type: application/json' -H 'Origin: https://evil.example' -H 'X-Sentra-CSRF: x' \
+  -d '{"username":"x","password":"y"}' "$BASE/api/v1/auth/login"
+check "POST /auth/login from foreign Origin = 403" "$([[ $code == 403 ]] && jq -e '.error.code=="csrf_failed"' "$tmp/b" >/dev/null; echo $?)"
 
-# Help Center API (v0.2.4).
-areq "$BASE/api/v1/help/index?locale=en"
-check "GET /api/v1/help/index with auth = 200, en, pages" "$([[ $code == 200 ]] && jq -e '.locale=="en" and (.pages|length>0) and all(.pages[]; has("markdown")|not)' "$tmp/b" >/dev/null; echo $?)"
-areq "$BASE/api/v1/help/pages/dashboard?locale=id"
-check "GET /api/v1/help/pages/dashboard = 200 markdown" "$([[ $code == 200 ]] && jq -e '.slug=="dashboard" and (.markdown|length>0)' "$tmp/b" >/dev/null; echo $?)"
-areq --path-as-is "$BASE/api/v1/help/pages/..%2f..%2fREADME"
-# Caddy cleans the path before matching (…/pages/../../README → /api/v1/README → 403); the app itself answers 404.
-check "help page traversal rejected (403 at proxy or 404)" "$([[ $code == 403 || $code == 404 ]]; echo $?)"
-areq "$BASE/api/v1/help/index?locale=fr"
-check "help unknown locale → 400 invalid_locale" "$([[ $code == 400 ]] && jq -e '.error.code=="invalid_locale"' "$tmp/b" >/dev/null; echo $?)"
-areq "$BASE/api/v1/help/openapi"
-check "GET /api/v1/help/openapi = 200 JSON spec" "$([[ $code == 200 ]] && jq -e '.openapi and .paths["/api/v1/help/index"]' "$tmp/b" >/dev/null; echo $?)"
-areq -X POST "$BASE/api/v1/help/index"
-check "POST /api/v1/help/index rejected (403)" "$([[ $code == 403 ]]; echo $?)"
+if [[ -z "$app_user" || -z "$app_pw" ]]; then
+  echo "  SKIP  session checks (no app account given; see header of $0)"
+  skipped=1
+else
+  sreq() { areq -b "$tmp/jar" -c "$tmp/jar" -H "Origin: $BASE" "$@"; }
+  # Body via a 600 file built from the environment: the password never appears in the process list.
+  U="$app_user" P="$app_pw" jq -n '{username: env.U, password: env.P}' >"$tmp/login.json"
+  sreq -X POST -H 'Content-Type: application/json' -H 'X-Sentra-CSRF: login' --data-binary @"$tmp/login.json" \
+    "$BASE/api/v1/auth/login"
+  rm -f "$tmp/login.json"
+  # Exactly one app login per run: a wrong password counts towards the account lockout (5 → 15 min).
+  case "$code" in
+    200) ;;
+    401) echo "STOP: login aplikasi gagal (401) untuk '$app_user' — tidak ada percobaan lain (lockout 5x)." >&2; exit 3 ;;
+    429) echo "STOP: login aplikasi dibatasi (429, rate limit). Coba lagi setelah $(hdr Retry-After) detik." >&2; exit 3 ;;
+    *)   echo "STOP: login aplikasi mendapat HTTP $code." >&2; exit 3 ;;
+  esac
+  sc="$(grep -i '^set-cookie: __Host-sentra_session=' "$tmp/h" | tr -d '\r')"
+  check "session cookie __Host-, Secure, HttpOnly, SameSite=Strict, Path=/" "$([[ $sc == *"; Path=/"* && $sc == *"; HttpOnly"* && $sc == *"; Secure"* && $sc == *"; SameSite=Strict"* && $sc != *Domain=* ]]; echo $?)"
+  if jq -e '.user.must_change_password' "$tmp/b" >/dev/null; then
+    echo "STOP: akun '$app_user' masih wajib ganti password — ganti dulu di UI, lalu ulangi." >&2; exit 3
+  fi
+  csrf="$(awk '$6=="__Host-sentra_csrf"{print $7}' "$tmp/jar")"
 
-echo "UI edge: $pass passed, $fail failed"
+  sreq "$BASE/api/v1/auth/me"
+  check "GET /auth/me with session = 200, own user" "$([[ $code == 200 ]] && jq -e --arg u "$app_user" '(.user.username|ascii_downcase)==($u|ascii_downcase) and .session.current' "$tmp/b" >/dev/null; echo $?)"
+
+  # Bootstrap API.
+  sreq "$BASE/api/v1/ui/bootstrap"
+  check "GET /api/v1/ui/bootstrap with session = 200" "$([[ $code == 200 ]]; echo $?)"
+  check "bootstrap fields" "$(jq -e 'keys==["app_name","default_locale","menu_groups","menus","supported_locales","timezone","version"]' "$tmp/b" >/dev/null; echo $?)"
+  check "bootstrap locale & timezone valid" "$(jq -e '(.default_locale as $l | .supported_locales|index($l))!=null and (.timezone|length>0)' "$tmp/b" >/dev/null; echo $?)"
+  check "bootstrap menus: no labels, valid status, known group" "$(jq -e '(.menus|length>0) and all(.menus[]; (keys==["group","icon","key","order","path","status"]) and (.status|IN("available","coming_soon","not_connected"))) and ([.menu_groups[].key] as $g | all(.menus[]; .group as $x | $g|index($x) != null))' "$tmp/b" >/dev/null; echo $?)"
+  check "bootstrap Cache-Control no-store" "$([[ $(hdr Cache-Control) == no-store ]]; echo $?)"
+  bver="$(jq -r .version "$tmp/b")"
+  req "$BASE/api/v1/version"
+  check "bootstrap version = public /version ($(jq -r .version "$tmp/b"))" "$([[ $(jq -r .version "$tmp/b") == "$bver" ]]; echo $?)"
+
+  # Help Center API (v0.2.4).
+  sreq "$BASE/api/v1/help/index?locale=en"
+  check "GET /api/v1/help/index with session = 200, en, pages" "$([[ $code == 200 ]] && jq -e '.locale=="en" and (.pages|length>0) and all(.pages[]; has("markdown")|not)' "$tmp/b" >/dev/null; echo $?)"
+  sreq "$BASE/api/v1/help/pages/dashboard?locale=id"
+  check "GET /api/v1/help/pages/dashboard = 200 markdown" "$([[ $code == 200 ]] && jq -e '.slug=="dashboard" and (.markdown|length>0)' "$tmp/b" >/dev/null; echo $?)"
+  sreq --path-as-is "$BASE/api/v1/help/pages/..%2f..%2fREADME"
+  # Caddy cleans the path before matching (…/pages/../../README → /api/v1/README → 403); the app itself answers 404.
+  check "help page traversal rejected (403 at proxy or 404)" "$([[ $code == 403 || $code == 404 ]]; echo $?)"
+  sreq "$BASE/api/v1/help/index?locale=fr"
+  check "help unknown locale → 400 invalid_locale" "$([[ $code == 400 ]] && jq -e '.error.code=="invalid_locale"' "$tmp/b" >/dev/null; echo $?)"
+  sreq "$BASE/api/v1/help/openapi"
+  check "GET /api/v1/help/openapi = 200 JSON spec" "$([[ $code == 200 ]] && jq -e '.openapi and .paths["/api/v1/auth/login"]' "$tmp/b" >/dev/null; echo $?)"
+  sreq -X POST "$BASE/api/v1/help/index"
+  check "POST /api/v1/help/index rejected (403)" "$([[ $code == 403 ]]; echo $?)"
+
+  # Unsafe request with the session but without the CSRF token is refused; with it, logout works.
+  sreq -X POST "$BASE/api/v1/auth/logout"
+  check "POST /auth/logout without CSRF token = 403" "$([[ $code == 403 ]] && jq -e '.error.code=="csrf_failed"' "$tmp/b" >/dev/null; echo $?)"
+  sreq -X POST -H "X-Sentra-CSRF: $csrf" "$BASE/api/v1/auth/logout"
+  check "POST /auth/logout with CSRF token = 204" "$([[ $code == 204 ]]; echo $?)"
+  sreq "$BASE/api/v1/auth/me"
+  check "GET /auth/me after logout = 401" "$([[ $code == 401 ]]; echo $?)"
+fi
+
+echo "UI edge: $pass passed, $fail failed${skipped:+, session checks SKIPPED}"
 [[ $fail -eq 0 ]]
 }
 
