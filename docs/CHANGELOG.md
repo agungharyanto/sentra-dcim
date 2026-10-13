@@ -19,10 +19,17 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
 - Tombol **?** di header: membuka bantuan menu aktif (front matter `menu`), selain itu beranda Pusat Bantuan.
 - **Referensi API** read-only buatan sendiri dari OpenAPI (`/help/api/reference`): endpoint per tag, parameter,
   skema (resolusi `$ref`), kode status; tanpa "Try it out".
+- Label akses di viewer API dari ekstensi OpenAPI **`x-sentra-access`** (`public` → Publik, `internal` → Internal,
+  `login` → Butuh login); test Go memastikan setiap operasi punya nilai sah dan `public` = allowlist edge Caddy.
+- Komponen domain **`CopyButton`** (navigator.clipboard, tanpa library): Copy → Check ±2 detik, `aria-live`
+  "Disalin", toast error bila clipboard gagal/tidak ada; tampil di showcase `/design-system`. Dipakai sebagai tombol
+  salin path di setiap endpoint viewer API (muncul saat hover/fokus keyboard, selalu terlihat di perangkat sentuh).
+- Header endpoint viewer API memakai pola disclosure + *stretched button* (tanpa elemen interaktif bersarang).
 - Halaman bantuan ID+EN: Pusat Bantuan, Memulai, Dasbor, Dokumentasi API (admin).
 - **govulncheck** di CI (`make vulncheck`).
-- Test: Go (kontrak, 25 uji negatif validator, traversal, 503 terisolasi), Vitest 232, Playwright 22 (+ help:
-  navigasi, cari, "?", viewer API, ID↔EN, gelap/terang, mobile, axe).
+- Test: Go (kontrak, 25 uji negatif validator, traversal, 503 terisolasi, `x-sentra-access`), Vitest 237,
+  Playwright 24 (+ help: navigasi, cari, "?", viewer API, salin path dengan izin clipboard, ID↔EN, gelap/terang,
+  mobile/sentuh, axe).
 
 ### Diubah
 - Dokumen ops/dev keluar dari Pusat Bantuan: runbook ke `docs/ops/runbooks/`, catatan developer ke `docs/dev/`;
@@ -38,7 +45,9 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
 ### Diperbaiki (sebelum rilis, dari pemeriksaan visual)
 - Deskripsi OpenAPI di viewer tampil sebagai Markdown mentah (backtick, baris terputus) → dirender dengan renderer
   aman versi ringkas.
-- Label "Publik" untuk endpoint tanpa autentikasi yang tidak dibuka di domain publik (`/ready`) → "Tanpa autentikasi".
+- Label "Publik" untuk endpoint tanpa autentikasi yang tidak dibuka di domain publik (`/ready`) → kini dari
+  `x-sentra-access` ("Internal").
+- Warna sukses tombol salin tertimpa warna hover di tema gelap → warna hover hanya saat idle.
 
 ## [v0.2.3] - 2026-10-13 — UI Shell
 
