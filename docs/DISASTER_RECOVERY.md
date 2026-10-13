@@ -31,10 +31,31 @@ konfigurasi SSH, firewall, atau fail2ban.
 | 4 | OCI **Run Command** (Oracle Cloud Agent) | Menjalankan perintah root tanpa login (mis. menambah key, unban) | Plugin *Compute Instance Run Command* aktif + dynamic group & IAM policy. Agent terpasang (`snap oracle-cloud-agent`) |
 | 5 | Lepas boot volume → pasang ke VM lain | Semua jalur di atas gagal | Edit `/home/ubuntu/.ssh/authorized_keys` dari VM lain, pasang kembali |
 
-> ⚠️ Status saat migrasi (2026-10-13): image Oracle sudah mematikan `PasswordAuthentication` (file
-> `/etc/ssh/sshd_config.d/60-cloudimg-settings.conf`) dan password user `ubuntu` **terkunci**. Artinya hanya
-> **satu** key SSH yang bisa masuk dan serial console belum bisa login. Lihat ISS-016 — pemilik harus memasang key
-> cadangan dan menyetel password konsol (keputusan pemilik, tidak dilakukan otomatis).
+> ✅ Status 2026-10-13 (ISS-016 selesai): terpasang **dua** key SSH untuk `ubuntu` (utama + cadangan; fingerprint dicatat
+> pemilik di brankas) dan password konsol `ubuntu` sudah disetel pemilik (disimpan di brankas pemilik, bukan di repo/server). `PasswordAuthentication` tetap
+> `no` (bawaan image Oracle, `/etc/ssh/sshd_config.d/60-cloudimg-settings.conf`): password hanya berlaku untuk
+> serial/VNC console, bukan SSH.
+
+### Checklist: kalau SSH hilang
+
+Kerjakan berurutan; berhenti di langkah yang berhasil. **Jangan** menghapus/mengubah VM sebelum langkah 6.
+
+1. **Pastikan masalahnya SSH, bukan jaringan/server mati.** `curl -I https://sentra.bajastu.id/api/v1/health`
+   (200 = VM hidup). Coba dari jaringan lain (mis. hotspot HP) — beda hasil = IP Anda di-ban fail2ban.
+2. **Coba key cadangan** (jalur #1): `ssh -i ~/.ssh/sentra_backup -o IdentitiesOnly=yes ubuntu@132.226.106.158`.
+3. **Cek OCI Console**: instance *Running*? Security List subnet masih mengizinkan TCP 22 dari IP Anda?
+   (perubahan Security List/NSG berlaku tanpa restart).
+4. **Serial Console** (jalur #2): buat Console Connection → login `ubuntu` + password konsol (brankas). Lalu:
+   - di-ban: `sudo fail2ban-client set sshd unbanip <IP>` (lihat *fail2ban* di bawah);
+   - firewall: `sudo ufw allow 22/tcp` atau `sudo ufw disable` sementara, lalu `sudo ops/harden/ufw.sh`;
+   - sshd: `sudo sshd -t` (tampilkan error konfigurasi), perbaiki file di `/etc/ssh/sshd_config.d/`,
+     `sudo systemctl restart ssh`;
+   - key hilang: tambahkan public key baru ke `/home/ubuntu/.ssh/authorized_keys` (mode 600).
+5. **Run Command** (jalur #4) bila password konsol tidak diketahui: jalankan perintah langkah 4 sebagai root, atau
+   `passwd ubuntu` untuk menyetel password konsol baru.
+6. **Boot volume** (jalur #5): stop VM → detach boot volume → attach ke VM lain → perbaiki `authorized_keys` /
+   `sshd_config.d` / `ufw` → attach kembali → start.
+7. Setelah pulih: catat penyebab di `docs/ISSUES.md`, perbarui `ADMIN_IPS`, uji ulang kedua key.
 
 Membuka serial console: OCI Console → Compute → Instances → *instance* → **Console connection** → *Create local
 connection* (unggah public key SSH) → *Launch Cloud Shell connection* (paling mudah) atau salin perintah SSH yang
@@ -107,6 +128,9 @@ sudo systemctl stop fail2ban                     # bila perlu, matikan sementara
 ```
 
 Lalu tambahkan IP tersebut ke `ADMIN_IPS` dan jalankan ulang `sudo ops/harden/fail2ban.sh`.
+
+Ubah `.env` sebagai pemiliknya (`sudo -u sentra -H nano /opt/sentra-dcim/.env`), bukan `sed -i` (ISS-024).
+Nilai `ADMIN_IPS` saat ini hanya ada di `.env` server (tidak dicatat di repo); IP admin dari ISP rumahan bisa berubah.
 
 ### Firewall berlapis di OCI
 

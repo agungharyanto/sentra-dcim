@@ -6,6 +6,9 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
 ## [Unreleased] — v0.1.9 Foundation Close (putaran 2)
 
 ### Diperbaiki
+- Akses darurat server Oracle: key SSH cadangan terpasang dan password konsol `ubuntu` disetel
+  pemilik, sehingga serial console OCI bisa dipakai (ISS-016). `docs/DISASTER_RECOVERY.md` kini memuat checklist
+  langkah demi langkah "kalau SSH hilang" dan cara aman mengubah `ADMIN_IPS`.
 - Push ke GitHub dari server Oracle via deploy key baru `sentra-oracle-deploy` (ISS-019, D-041); key lama
   `sentra-dcim-server` tidak dipakai lagi.
 - `ops/backup.sh` tidak lagi meng-`chown` direktori backup yang sudah ada bila dijalankan user lain; kini menolak
