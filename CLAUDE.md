@@ -13,6 +13,9 @@ Aturan di bawah **wajib dipatuhi di setiap sesi**. Bila ada konflik, aturan ini 
    `merge --no-ff` ke `main` → tag annotated `vX.Y.Z "<Judul>"` → push `main` + tag.
    GitHub selalu sama/lebih maju dari server; `git status` bersih di akhir.
    Sub-versi `.1–.8` **hanya** regresi modul terkait — **tidak pernah** full regression (`scripts/full-regression.sh`).
+   **Pemeriksaan visual screenshot wajib** di setiap regresi yang menyentuh UI: buka screenshot Playwright
+   (`test/e2e/artifacts/`, artefak CI `ui-screenshots`) dan laporkan temuan — test fungsional & axe tidak menangkap
+   masalah tata letak.
    Bila verifikasi penuh dibutuhkan (mis. pindah server), kerjakan sebagai penutup sprint `.9`, bukan di sub-versi.
 3. **Penutup sprint (.9) — satu-satunya tempat full regression.** FULL regression (unit + integrasi + API + smoke) + Definition of Done:
    semua file di GitHub, gitleaks lulus (tanpa secret), container healthy, API test lulus, migrasi up/down lulus,
@@ -24,8 +27,12 @@ Aturan di bawah **wajib dipatuhi di setiap sesi**. Bila ada konflik, aturan ini 
    Least privilege, container non-root, validasi input, query terparameter, rate limit, security headers, audit log.
 6. **API first.** Setiap modul punya REST `/api/v1/...`, spesifikasi di `api/openapi.yaml`; UI hanya konsumen API;
    dokumentasi API tampil di Pusat Bantuan.
-7. **Pusat Bantuan.** Setiap menu/fitur yang selesai wajib punya `docs/help/<modul>/<fitur>.md`
-   (tujuan, langkah, role yang dibutuhkan, endpoint API terkait). Tanpa halaman bantuan = belum Done.
+7. **Pusat Bantuan.** Halaman ada di `docs/help/{id,en}/<slug>/index.md` (+ `<slug>/<sub>.md`), front matter
+   `title`, `audience` (`user`|`admin`), `menu` (key registry, opsional), `order`. **ID dan EN wajib setara** (slug
+   identik). Setiap menu berstatus `available` wajib punya halaman dengan `menu: <key>` (tujuan, langkah, role,
+   endpoint API terkait). Tanpa detail infrastruktur (IP, path server, `.env`, user OS). Dokumen developer/ops
+   (runbook, deploy, recovery) di `docs/ops/runbooks/` & `docs/dev/`, **bukan** di Pusat Bantuan. Semua aturan ini
+   divalidasi `go test ./internal/help/...` (CI gagal). Konvensi: `docs/help/README.md`. Tanpa halaman = belum Done.
 8. **Dokumen wajib:** `docs/CHANGELOG.md`, `docs/ISSUES.md` (open & solved + versi ditemukan/diperbaiki),
    `docs/DEPENDENCIES.md` (semua driver/library/framework/tools + versi + lisensi + fungsi), `docs/DECISIONS.md`,
    `docs/ROADMAP.md`, `docs/DISASTER_RECOVERY.md`.

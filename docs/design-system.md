@@ -134,6 +134,15 @@ hanya di `/design-system`).
 Registry ↔ halaman dijaga test: `go test ./internal/ui/service` memastikan fixture `web/src/test/fixtures/ui-registry.json`
 sama dengan registry; `web/src/app/routes.test.tsx` gagal bila ada menu `available` tanpa halaman.
 
+### Pusat Bantuan (v0.2.4)
+
+- Tata letak modul dengan sub-navigasi: daftar halaman (≥ lg di kiri 16 rem, < lg di atas konten) + konten.
+- Markdown dirender `features/help/Markdown.tsx` (token warna; `h1` Markdown → `h2` karena `h1` milik header shell;
+  blockquote = gaya **info**). Varian `compact` untuk teks pendek (deskripsi OpenAPI).
+- Tautan: route app lewat router; eksternal `target=_blank` + `rel="noopener noreferrer"` + ikon & teks `sr-only`
+  "membuka tab baru".
+- Viewer API: `<details>` per endpoint (bisa dibuka keyboard), tanpa tombol aksi.
+
 ## 7. Logo
 
 Placeholder di **`web/src/assets/brand/logo.svg`** — satu-satunya titik penggantian. File yang sama dipakai komponen

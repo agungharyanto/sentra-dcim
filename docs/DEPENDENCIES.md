@@ -27,7 +27,9 @@ ditambah, diubah versinya, atau dihapus.
 | github.com/redis/go-redis/v9 | 9.23.0 | BSD-2-Clause | Klien Redis |
 | github.com/golang-migrate/migrate/v4 | 4.20.1 | MIT | Migrasi skema (library, driver `pgx/v5`, source `iofs`) |
 | golang.org/x/time | 0.16.0 | BSD-3-Clause | Token bucket rate limiter |
-| Dependensi tidak langsung (pgpassfile, pgservicefile, puddle, xxhash, x/sys, x/text, x/sync, atomic) | lihat `go.sum` | MIT / BSD | Dipakai oleh pgx, go-redis, migrate |
+| go.yaml.in/yaml/v3 | 3.0.5 | MIT / Apache-2.0 | Front matter Pusat Bantuan & konversi `api/openapi.yaml` → JSON (v0.2.4). Fork resmi yang dipelihara organisasi YAML (`gopkg.in/yaml.v3` tidak dipelihara lagi) |
+| golang.org/x/text (tidak langsung, via pgx) | 0.43.0 | BSD-3-Clause | Dinaikkan dari 0.38.0 karena GO-2026-5970 & GO-2026-6629 (ISS-033) |
+| Dependensi tidak langsung (pgpassfile, pgservicefile, puddle, xxhash, x/sys, x/sync 0.24.0, atomic) | lihat `go.sum` | MIT / BSD | Dipakai oleh pgx, go-redis, migrate |
 
 ## Frontend (web/, v0.2.1 — D-042, ADR-001)
 
@@ -52,6 +54,8 @@ pilih versi terbaru yang sudah melewati jendela itu.
 | lucide-react | 1.55.0 | ISC | Ikon (nama ikon menu dari registry backend) |
 | shadcn/ui | — (kode disalin, `components.json`) | MIT | Pola komponen di atas Radix; komponen + Radix ditambahkan di v0.2.2 |
 | radix-ui | 1.8.0 | MIT | Primitif aksesibel (Dialog/Sheet, Select, Tabs, Tooltip, DropdownMenu, Slot) untuk komponen shadcn/ui (v0.2.2) |
+| react-markdown | 10.1.0 | MIT | Renderer Markdown Pusat Bantuan (v0.2.4): tanpa raw HTML (tanpa rehype-raw), `urlTransform` hanya https/mailto/route app |
+| remark-gfm | 4.0.1 | MIT | GitHub Flavored Markdown (tabel, daftar, strikethrough) untuk halaman bantuan |
 | sonner | 2.0.8 | MIT | Toast (pengganti resmi Toast lama shadcn/ui); menyuntik `<style>` → ADR-002 |
 | @fontsource-variable/inter | 5.3.0 | OFL-1.1 | Font UI self-hosted (variable, hanya subset latin yang dibundel) |
 | @fontsource-variable/jetbrains-mono | 5.3.0 | OFL-1.1 | Font monospace self-hosted (kode, ID perangkat, angka teknis), subset latin |
@@ -81,6 +85,7 @@ pilih versi terbaru yang sudah melewati jendela itu.
 | golang-migrate CLI | 4.20.1 | MIT | Migrasi skema DB (CLI opsional; app memakai library yang sama) |
 | sqlc | 1.31.1 | MIT | Generate kode Go type-safe dari query SQL |
 | Redocly CLI (`redocly/cli:2.62.1`) | 2.62.1 | MIT | Validasi `api/openapi.yaml` |
+| govulncheck (`golang.org/x/vuln`) | 1.9.0 | BSD-3-Clause | Pemindaian kerentanan dependensi Go yang benar-benar terpanggil (CI job Lint, `make vulncheck`, v0.2.4) |
 | GCC | (paket Ubuntu) | GPL-3.0 | Dibutuhkan race detector (`go test -race`, CGO) |
 | actionlint | 1.7.12 | MIT | Validasi workflow GitHub Actions (lokal, `/usr/local/bin`) |
 | actions/checkout | v7 | MIT | CI: checkout repo |
