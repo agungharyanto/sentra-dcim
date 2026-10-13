@@ -6,6 +6,13 @@
 # Prints a PASS/FAIL report; exit code 0 only when every check passes.
 set -uo pipefail
 
+# Whole body in main(): bash parses the entire file before running, so editing the script mid-run cannot make it
+# re-execute or skip parts (CLAUDE.md rule 13; the 43-vs-41 checks incident of v0.2.5, ISS-035).
+main() {
+# shellcheck source=/dev/null
+source "$(dirname "$0")/lib/source-rev.sh"
+source_rev_line "$0"
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT" || exit 1
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin"
@@ -39,7 +46,20 @@ check() { # name, command...
 info() { printf '  info  %s\n' "$*"; }
 psql_db() { docker compose exec -T db sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" exec psql -X -q -v ON_ERROR_STOP=1 -tA -U "$POSTGRES_USER" "$@"' sh "$@"; }
 export -f psql_db
-app_db() { docker compose exec -T -e DB_NAME="$REGRESS_DB" app /sentra "$@"; }
+# Migrations up/down run ONLY against the isolated, restored copy $REGRESS_DB — never the production database.
+# Hard guard: the target name must be the regression copy, differ from POSTGRES_DB, and the app must report it.
+assert_regress_target() {
+  if [[ -z "$REGRESS_DB" || "$REGRESS_DB" == "$POSTGRES_DB" || ! "$REGRESS_DB" =~ ^sentra_regress$ ]]; then
+    echo "REFUSING: migration target '$REGRESS_DB' is not the isolated regression copy (production DB: '$POSTGRES_DB')" >&2
+    exit 99
+  fi
+}
+app_db() {
+  assert_regress_target || exit 99
+  docker compose exec -T -e DB_NAME="$REGRESS_DB" app /sentra "$@"
+}
+export -f assert_regress_target app_db
+export REGRESS_DB
 ready_code() { curl -s -o /dev/null -w '%{http_code}' "http://${CADDY_HTTP_BIND:-127.0.0.1:8080}/api/v1/ready"; }
 
 printf '# Sentra DCIM full regression — %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -50,14 +70,17 @@ check "gitleaks (history + working tree)" make --no-print-directory gitleaks
 check "golangci-lint" golangci-lint run ./...
 check "gofmt" bash -c '[[ -z "$(gofmt -l cmd internal migrations test)" ]]'
 check "go vet" go vet -tags=integration ./...
-check "shellcheck" shellcheck -x ops/*.sh ops/harden/*.sh scripts/*.sh scripts/hooks/pre-commit test/api/*.sh
+check "shellcheck" shellcheck -x ops/*.sh ops/harden/*.sh scripts/*.sh scripts/lib/*.sh scripts/hooks/pre-commit test/api/*.sh test/e2e/*.sh
 check "OpenAPI lint (Redocly)" make --no-print-directory openapi-lint
 check "sqlc generated code up to date" sqlc diff
 check "docker compose config valid" docker compose config -q
 check "Caddyfile valid (production-like + empty env)" make --no-print-directory caddy-validate
 check "compose renders Caddy defaults for empty DOMAIN/ACME_EMAIL" bash -c \
   "DOMAIN= ACME_EMAIL= docker compose config --format json | jq -e '.services.caddy.environment | .DOMAIN==\"localhost\" and .ACME_EMAIL==\"admin@localhost\"' >/dev/null"
-if command -v actionlint >/dev/null; then check "actionlint (CI workflow)" actionlint .github/workflows/ci.yml; fi
+check "actionlint (CI workflow, rhysd/actionlint:1.7.12)" docker run --rm -v "$ROOT:/r:ro" -w /r rhysd/actionlint:1.7.12 .github/workflows/ci.yml
+check "govulncheck (reachable Go vulnerabilities)" make --no-print-directory vulncheck
+check "web: supply:check, lint, typecheck, i18n:check, Vitest (Docker)" make --no-print-directory web-check
+check "fail2ban filter (fail2ban-regex, synthetic samples)" make --no-print-directory fail2ban-test
 check "no .env / keys tracked by git" bash -c '! git ls-files | grep -E "(^|/)\.env$|\.pem$|\.key$|credentials"'
 check "pre-commit hook active" bash -c '[[ "$(git config core.hooksPath)" == "scripts/hooks" ]]'
 
@@ -104,6 +127,8 @@ info "backup: $backup_dir ($(as_app du -sh "$backup_dir" 2>/dev/null | cut -f1))
 check "backup checksums" as_app bash -c "cd '$backup_dir' && sha256sum --quiet -c SHA256SUMS"
 check "backup files mode 0600, dir 0700" as_app bash -c \
   "[[ \$(stat -c %a '$backup_dir') == 700 && -z \$(find '$backup_dir' -type f ! -perm 600) && \$(stat -c %a '${BACKUP_DIR:-/var/backups/sentra}') == 700 ]]"
+check "whole backup tree: owner $APP_USER, dirs 0700, files 0600 (incl. .lock)" as_app bash -c \
+  "d='${BACKUP_DIR:-/var/backups/sentra}'; [[ -z \$(find \"\$d\" ! -user '$APP_USER') && -z \$(find \"\$d\" -type d ! -perm 700) && -z \$(find \"\$d\" -type f ! -perm 600) ]]"
 check "restore into empty database $REGRESS_DB" as_app ./ops/restore.sh "$backup_dir" --target-db "$REGRESS_DB" --yes
 check "row count system_info live == restored" bash -c \
   "[[ \$(psql_db -d '$POSTGRES_DB' -c 'select count(*) from system_info') == \$(psql_db -d '$REGRESS_DB' -c 'select count(*) from system_info') ]]"
@@ -112,19 +137,23 @@ check "row count ops_runs live == restored + 1" bash -c \
   "[[ \$(psql_db -d '$POSTGRES_DB' -c 'select count(*) from ops_runs') == \$((\$(psql_db -d '$REGRESS_DB' -c 'select count(*) from ops_runs') + 1)) ]]"
 
 section "7. Migrations up/down (restored copy, app binary)"
+# Hard stop for the whole run if the target is not the regression copy (exit 99 is never caught by `check`).
+assert_regress_target
+info "migration target: database '$REGRESS_DB' in container sentra-db-1 (production database '$POSTGRES_DB' is never targeted)"
 latest="$(find migrations -name "*.up.sql" | wc -l)"
 check "migrate goto 0 (all down)" app_db migrate goto 0
 check "schema empty after down" bash -c "[[ \$(psql_db -d '$REGRESS_DB' -c \"select count(*) from pg_tables where schemaname='public' and tablename<>'schema_migrations'\") == 0 ]]"
 check "migrate up (all $latest)" app_db migrate up
-check "version == latest ($latest), not dirty" bash -c "docker compose exec -T -e DB_NAME='$REGRESS_DB' app /sentra migrate version | grep -qx 'version=$latest dirty=false latest=$latest'"
-check "migrate down 1 + up (last migration reversible)" bash -c "docker compose exec -T -e DB_NAME='$REGRESS_DB' app /sentra migrate down 1 && docker compose exec -T -e DB_NAME='$REGRESS_DB' app /sentra migrate up"
+check "version == latest ($latest), not dirty" bash -c "app_db migrate version | grep -qx 'version=$latest dirty=false latest=$latest'"
+check "production DB untouched: still at version $latest" bash -c "docker compose exec -T app /sentra migrate version | grep -qx 'version=$latest dirty=false latest=$latest'"
+check "migrate down 1 + up (last migration reversible)" bash -c "app_db migrate down 1 && app_db migrate up"
 check "drop regression database" psql_db -d postgres -c "DROP DATABASE IF EXISTS $REGRESS_DB WITH (FORCE)"
 check "live /ready still 200" bash -c "[[ \$(curl -s -o /dev/null -w '%{http_code}' http://${CADDY_HTTP_BIND:-127.0.0.1:8080}/api/v1/ready) == 200 ]]"
 
 section "8. Permissions"
 # 0600; with --admin-user the ACL adds read for that one user only (stat shows the ACL mask as 640).
 check ".env owner-only (+ admin ACL read), no group/other access" bash -c \
-  '[[ $(stat -c %a .env) =~ ^6[04]0$ ]] && getfacl -cp .env | grep -qx "group::---" && getfacl -cp .env | grep -qx "other::---" && [[ -z $(getfacl -cp .env | grep -E "^user:[^:]+:.*w") ]]'
+  '[[ $(stat -L -c %a .env) =~ ^6[04]0$ ]] && getfacl -cp .env | grep -qx "group::---" && getfacl -cp .env | grep -qx "other::---" && [[ -z $(getfacl -cp .env | grep -E "^user:[^:]+:.*w") ]]'
 check "ops scripts not world-writable" bash -c '[[ -z $(find ops scripts -type f -perm -o+w) ]]'
 check "DB rejects wrong password" bash -c "! docker compose exec -T db sh -c 'PGPASSWORD=wrong psql -h 127.0.0.1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c \"select 1\"'"
 check "Redis rejects unauthenticated command" bash -c "docker compose exec -T redis sh -c 'REDISCLI_AUTH= redis-cli get x' 2>&1 | grep -q NOAUTH"
@@ -153,10 +182,27 @@ check "unattended-upgrades enabled" bash -c 'systemctl is-enabled unattended-upg
 check "backup timer scheduled" systemctl is-active sentra-backup.timer
 check "hardening idempotent (no changes on re-run)" bash -c '! sudo ./ops/harden/all.sh 2>&1 | grep -E "updated|installing"'
 
-section "10. Repository state"
+section "10. Host boot & fail2ban (v0.2.5, v0.2.9)"
+for u in docker containerd fail2ban; do
+  check "$u enabled + active at boot" bash -c "[[ \$(systemctl is-enabled $u) == enabled && \$(systemctl is-active $u) == active ]]"
+done
+check "fail2ban drop-in: After=/Requires=docker.service" bash -c "systemctl show fail2ban -p After -p Requires | grep -c docker.service | grep -qx 2"
+check "fail2ban jail sentra-web active" sudo fail2ban-client status sentra-web
+check "DOCKER-USER jumps to f2b-sentra-web (80,443)" bash -c "sudo iptables -S DOCKER-USER | grep -q -- '--dports 80,443 -j f2b-sentra-web'"
+check "fail2ban real ban/unban (network namespace)" sudo ./scripts/fail2ban-ban-test.sh
+check "GRUB menu visible 10 s (serial console)" bash -c "sudo grep -q 'set timeout_style=menu' /boot/grub/grub.cfg"
+check "kernel 6.17.0-1020-oracle kept for rollback (manual + not autoremovable)" bash -c \
+  "apt-mark showmanual | grep -qx linux-image-6.17.0-1020-oracle && ! apt-get -s autoremove 2>/dev/null | grep -q '^Remv .*6.17.0-1020'"
+info "kernel: $(uname -r); reboot pending: $([[ -e /var/run/reboot-required ]] && echo yes || echo no)"
+
+section "11. Repository state"
 check "git status clean" bash -c '[[ -z $(git status --porcelain) ]]'
+check "HEAD pushed to GitHub (origin has this commit)" bash -c 'git fetch -q origin && git branch -r --contains HEAD | grep -q origin/'
 check "mandatory docs present" bash -c 'for f in CLAUDE.md docs/CHANGELOG.md docs/ISSUES.md docs/DEPENDENCIES.md docs/DECISIONS.md docs/ROADMAP.md docs/DISASTER_RECOVERY.md docs/help/README.md api/openapi.yaml; do [[ -s $f ]] || { echo "missing $f"; exit 1; }; done'
 
 printf '\n## Result: %d passed, %d failed\n' "$pass" "$fail"
 for f in "${failed[@]}"; do printf '  - FAILED: %s\n' "$f"; done
 ((fail == 0))
+}
+
+main "$@"
