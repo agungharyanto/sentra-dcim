@@ -40,7 +40,12 @@ type Readiness struct {
 	CheckedAt time.Time              `json:"checked_at"`
 }
 
-// Version describes the running build and server clock.
+// PublicVersion is the only build information exposed to unauthenticated public clients.
+type PublicVersion struct {
+	Version string `json:"version"`
+}
+
+// Version describes the running build and server clock (internal listener only).
 type Version struct {
 	buildinfo.Info
 	ServerTimeUTC     time.Time `json:"server_time_utc"`
@@ -58,7 +63,7 @@ type Service struct {
 	draining     atomic.Bool
 }
 
-// New builds a Service. tz is the display timezone (e.g. Asia/Makassar).
+// New builds a Service. tz is the display timezone (e.g. Asia/Jakarta).
 func New(log *slog.Logger, tz *time.Location, checkers ...Checker) *Service {
 	return &Service{
 		checkers:     checkers,
@@ -106,6 +111,9 @@ func (s *Service) Readiness(ctx context.Context) Readiness {
 	}
 	return rep
 }
+
+// PublicVersion returns only the application version (git describe of the build).
+func (s *Service) PublicVersion() PublicVersion { return PublicVersion{Version: buildinfo.Version} }
 
 // Version returns build metadata and the current server time in UTC and display timezone.
 func (s *Service) Version() Version {
