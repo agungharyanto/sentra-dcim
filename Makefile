@@ -38,10 +38,14 @@ up: .env preflight ## Rebuild images for the current `git describe`, start all c
 	$(MAKE) --no-print-directory version-check
 
 version-check: .env ## Verify the running /api/v1/version == git describe of HEAD (internal listener)
-	@set -a; source .env; set +a; want='$(VERSION)'; base="http://$${CADDY_HTTP_BIND:-127.0.0.1:8080}"; \
-	got="$$(curl -fsS "$$base/api/v1/version" | jq -r .version)"; \
-	if [[ "$$got" != "$$want" ]]; then echo "version-check: running $$got != git describe $$want (run: make up)" >&2; exit 1; fi; \
-	echo "version-check: OK $$got"
+	@# Retries up to 30 s: right after the app container is recreated Caddy may still route to the old one (ISS-025).
+	@set -a; source .env; set +a; want='$(VERSION)'; base="http://$${CADDY_HTTP_BIND:-127.0.0.1:8080}"; got=""; \
+	for i in $$(seq 1 30); do \
+	  got="$$(curl -fsS --max-time 3 "$$base/api/v1/version" 2>/dev/null | jq -r .version 2>/dev/null)"; \
+	  [[ "$$got" == "$$want" ]] && break; sleep 1; \
+	done; \
+	if [[ "$$got" != "$$want" ]]; then echo "version-check: running '$$got' != git describe $$want after 30 s (run: make up)" >&2; exit 1; fi; \
+	[[ $$i -gt 1 ]] && echo "version-check: OK $$got (after $$i attempts)" || echo "version-check: OK $$got"
 
 preflight: .env ## Validate .env before starting (domain/ACME settings)
 	@set -a; source .env; set +a; \
