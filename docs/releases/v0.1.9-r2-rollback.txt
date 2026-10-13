@@ -1,0 +1,101 @@
+### rollback -> v0.1.3 (2026-10-13T09:48:03Z)
+[2026-10-13T09:48:04Z] [rollback] from v0.1.8-4-g97ef42f (schema 2) -> v0.1.3 [v0.1.3] (schema 1)
+[2026-10-13T09:48:04Z] [backup] dumping database sentra
+pg_dump: warning: there are circular foreign-key constraints on this table:
+pg_dump: detail: continuous_agg
+pg_dump: hint: You might not be able to restore the dump without using --disable-triggers or temporarily dropping the constraints.
+pg_dump: hint: Consider using a full dump instead of a --data-only dump to avoid this problem.
+[2026-10-13T09:48:04Z] [backup] archiving volume sentra_caddy_data
+[2026-10-13T09:48:05Z] [backup] archiving volume sentra_caddy_config
+[2026-10-13T09:48:05Z] [backup] archiving volume sentra_redis_data
+[2026-10-13T09:48:05Z] [backup] backup complete: /var/backups/sentra/20261013T094804Z_rollback (52K, schema 2)
+[2026-10-13T09:48:05Z] [rollback] backup: /var/backups/sentra/20261013T094804Z_rollback
+[2026-10-13T09:48:05Z] [rollback] migrating schema down to 1 with current binary
+{"time":"2026-10-13T09:48:06.026280342Z","level":"INFO","msg":"2/d ops_runs (21.64156ms)\n","service":"sentra","component":"migrate"}
+version=1 dirty=false latest=2
+[2026-10-13T09:48:06Z] [rollback] checked out v0.1.3
+[2026-10-13T09:48:06Z] [rollback] building and starting target version
+ Image sentra-caddy:2.11.7 Building 
+ Image sentra-app:v0.1.3 Building 
+ Image sentra-caddy:2.11.7 Built 
+ Image sentra-app:v0.1.3 Built 
+ Container sentra-redis-1 Running 
+ Container sentra-db-1 Running 
+ Container sentra-app-1 Recreate 
+ Container sentra-app-1 Recreated 
+ Container sentra-caddy-1 Recreate 
+ Container sentra-caddy-1 Recreated 
+ Container sentra-db-1 Waiting 
+ Container sentra-redis-1 Waiting 
+ Container sentra-redis-1 Healthy 
+ Container sentra-db-1 Healthy 
+ Container sentra-app-1 Starting 
+ Container sentra-app-1 Started 
+ Container sentra-app-1 Waiting 
+ Container sentra-app-1 Healthy 
+ Container sentra-caddy-1 Starting 
+ Container sentra-caddy-1 Started 
+ Container sentra-db-1 Waiting 
+ Container sentra-redis-1 Waiting 
+ Container sentra-app-1 Waiting 
+ Container sentra-caddy-1 Waiting 
+ Container sentra-app-1 Healthy 
+ Container sentra-db-1 Healthy 
+ Container sentra-redis-1 Healthy 
+ Container sentra-caddy-1 Healthy 
+[2026-10-13T09:48:28Z] [rollback] rollback complete: now running v0.1.3 (schema 1)
+duration 24.17s
+exit 0
+{"version":"v0.1.3","commit":"d8c1136","build_date":"2026-10-13T09:48:06Z","go_version":"go1.27.2","server_time_utc":"2026-10-13T09:48:28.152719785Z","display_timezone":"Asia/Makassar","server_time_display":"2026-10-13T17:48:28+08:00"}
+
+version=1 dirty=false latest=1
+Result: 22 passed, 0 failed
+### roll-forward -> main (2026-10-13T09:48:37Z)
+[2026-10-13T09:48:37Z] [rollback] from v0.1.3 (schema 1) -> main [v0.1.8] (schema 2)
+[2026-10-13T09:48:37Z] [backup] dumping database sentra
+pg_dump: warning: there are circular foreign-key constraints on this table:
+pg_dump: detail: continuous_agg
+pg_dump: hint: You might not be able to restore the dump without using --disable-triggers or temporarily dropping the constraints.
+pg_dump: hint: Consider using a full dump instead of a --data-only dump to avoid this problem.
+[2026-10-13T09:48:38Z] [backup] archiving volume sentra_caddy_data
+[2026-10-13T09:48:38Z] [backup] archiving volume sentra_caddy_config
+[2026-10-13T09:48:39Z] [backup] archiving volume sentra_redis_data
+[2026-10-13T09:48:39Z] [backup] backup complete: /var/backups/sentra/20261013T094837Z_rollback (48K, schema 1)
+[2026-10-13T09:48:39Z] [rollback] backup: /var/backups/sentra/20261013T094837Z_rollback
+[2026-10-13T09:48:39Z] [rollback] checked out v0.1.8
+[2026-10-13T09:48:39Z] [rollback] building and starting target version
+ Image sentra-app:v0.1.8 Building 
+ Image sentra-caddy:2.11.7 Building 
+ Image sentra-app:v0.1.8 Built 
+ Image sentra-caddy:2.11.7 Built 
+ Container sentra-db-1 Running 
+ Container sentra-redis-1 Running 
+ Container sentra-app-1 Recreate 
+ Container sentra-app-1 Recreated 
+ Container sentra-caddy-1 Recreate 
+ Container sentra-caddy-1 Recreated 
+ Container sentra-db-1 Waiting 
+ Container sentra-redis-1 Waiting 
+ Container sentra-db-1 Healthy 
+ Container sentra-redis-1 Healthy 
+ Container sentra-app-1 Starting 
+ Container sentra-app-1 Started 
+ Container sentra-app-1 Waiting 
+ Container sentra-app-1 Healthy 
+ Container sentra-caddy-1 Starting 
+ Container sentra-caddy-1 Started 
+ Container sentra-db-1 Waiting 
+ Container sentra-redis-1 Waiting 
+ Container sentra-app-1 Waiting 
+ Container sentra-caddy-1 Waiting 
+ Container sentra-app-1 Healthy 
+ Container sentra-db-1 Healthy 
+ Container sentra-redis-1 Healthy 
+ Container sentra-caddy-1 Healthy 
+[2026-10-13T09:49:00Z] [rollback] rollback complete: now running v0.1.8 (schema 2)
+duration 23.15s
+exit 0
+{"version":"v0.1.8","commit":"f6fef0b","build_date":"2026-10-13T09:48:39Z","go_version":"go1.27.2","server_time_utc":"2026-10-13T09:49:00.791868335Z","display_timezone":"Asia/Jakarta","server_time_display":"2026-10-13T16:49:00+07:00"}
+
+version=2 dirty=false latest=2
+Result: 24 passed, 0 failed

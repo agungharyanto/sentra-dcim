@@ -5,6 +5,10 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
 
 ## [Unreleased] — v0.1.9 Foundation Close (putaran 2)
 
+### Diperbaiki
+- `ops/backup.sh` tidak lagi meng-`chown` direktori backup yang sudah ada bila dijalankan user lain; kini menolak
+  dengan petunjuk `sudo -u <pemilik>` (ISS-024).
+
 ### Diubah
 - Aturan regresi dipertegas (CLAUDE.md aturan 2–3, D-038): full regression **hanya** di penutup sprint `.9`;
   sub-versi `.1–.8` cukup regresi modul terkait. Catatan rilis v0.1.8 dikoreksi — hasil 72/72 dicatat sebagai

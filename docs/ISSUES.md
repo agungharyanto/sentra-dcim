@@ -9,7 +9,8 @@ Format: ID, judul, prioritas (P1 kritis – P4 rendah), versi ditemukan, versi d
 | ISS-019 | Server baru (Oracle) belum punya kredensial push ke GitHub: remote HTTPS tanpa token/deploy key, `git push` gagal | P1 | v0.1.8 | — | Commit & tag tersimpan lokal; push menunggu deploy key (write) atau token dari pemilik. Lihat laporan v0.1.8 |
 | ISS-016 | Hanya satu key SSH terpasang, password `ubuntu` terkunci: serial console OCI belum bisa login | P1 | v0.1.8 | — | Keputusan pemilik: pasang key cadangan + set password konsol (prosedur di `docs/DISASTER_RECOVERY.md` → Akses darurat). `PasswordAuthentication` sudah `no` bawaan image Oracle — tidak diubah |
 | ISS-010 | GitHub Release v0.1.9 belum dibuat: deploy key tidak bisa membuat Release, perlu `gh auth login` (token akun) | P3 | v0.1.9 | — | Lihat perintah di `docs/releases/v0.1.9.md` |
-| ISS-005 | Uji firewall dari luar (nmap) belum dijalankan | P3 | v0.1.9 | — | Perintah di `docs/releases/v0.1.9.md`. Server Oracle (mode lokal): harapan hanya 22 open; setelah DNS: 22, 80, 443 |
+| ISS-025 | `make up` sekali gagal di `version-check` tepat setelah container app dibuat ulang; diulang langsung lulus, belum bisa direproduksi | P3 | v0.1.9 (putaran 2) | — | Dugaan: Caddy internal belum terhubung ke app baru saat `curl -f`. Pantau; bila terulang tambahkan retry singkat di `version-check` |
+| ISS-005 | Uji firewall dari luar (nmap) belum dijalankan | P3 | v0.1.9 | — | Perintah di `docs/releases/v0.1.9.md`. Mode publik sejak 2026-10-13: harapan hanya 22, 80, 443 open. Menunggu hasil dari pemilik |
 
 ## Solved
 
