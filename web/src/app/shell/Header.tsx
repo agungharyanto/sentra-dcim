@@ -58,7 +58,8 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
           </Link>
         </Button>
         <LanguageSwitcher serverLocales={boot.supported_locales} />
-        <ThemeSwitcher />
+        {/* Icons only below 2xl so title, breadcrumb and the user menu fit on one row at 1280 px. */}
+        <ThemeSwitcher labelsFrom="2xl" />
         <UserMenu />
       </div>
     </header>
