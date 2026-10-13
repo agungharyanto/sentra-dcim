@@ -47,12 +47,20 @@ preflight: .env ## Validate .env before starting (domain/ACME settings)
 	@set -a; source .env; set +a; \
 	if [[ -n "$${DOMAIN:-}" && "$$DOMAIN" != localhost && -z "$${ACME_EMAIL:-}" ]]; then \
 	  echo "preflight: DOMAIN=$$DOMAIN requires ACME_EMAIL in .env" >&2; exit 1; fi; \
+	if [[ -n "$${DOMAIN:-}" && "$$DOMAIN" != localhost && -z "$${WEB_BASIC_AUTH_HASH:-}" ]]; then \
+	  echo "preflight: DOMAIN=$$DOMAIN requires WEB_BASIC_AUTH_USER/WEB_BASIC_AUTH_HASH in .env (UI stays locked otherwise)" >&2; exit 1; fi; \
+	if [[ -n "$${WEB_BASIC_AUTH_HASH:-}" && ! "$$WEB_BASIC_AUTH_HASH" =~ ^\$$2[aby]\$$[0-9]{2}\$$[./A-Za-z0-9]{53}$$ ]]; then \
+	  echo "preflight: WEB_BASIC_AUTH_HASH is not a bcrypt hash (use single quotes in .env, see .env.example)" >&2; exit 1; fi; \
 	if [[ ! '$(VERSION)' =~ ^[A-Za-z0-9._-]+$$ ]]; then echo "preflight: invalid VERSION '$(VERSION)'" >&2; exit 1; fi
 
+CADDY_VALIDATE := docker run --rm -v "$$PWD/deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+	-e WEB_BASIC_AUTH_USER=sentra -e 'WEB_BASIC_AUTH_HASH=$$2a$$14$$wA4jVT8NyygzV9uWV32bKOx2SNKJSSjNH6wBBg9TMt6E.Yaba7bBu'
 caddy-validate: ## Validate the Caddyfile for production-like and empty (dev/CI) settings
-	docker build -q -t sentra-caddy:validate deploy/caddy >/dev/null
-	docker run --rm -e DOMAIN=sentra.example.go.id -e ACME_EMAIL=admin@example.go.id --entrypoint caddy sentra-caddy:validate validate --config /etc/caddy/Caddyfile
-	docker run --rm -e DOMAIN=localhost -e ACME_EMAIL=admin@localhost --entrypoint caddy sentra-caddy:validate validate --config /etc/caddy/Caddyfile
+	$(CADDY_VALIDATE) -e DOMAIN=sentra.example.go.id -e ACME_EMAIL=admin@example.go.id caddy:2.11.7-alpine caddy validate --config /etc/caddy/Caddyfile
+	$(CADDY_VALIDATE) -e DOMAIN=localhost -e ACME_EMAIL=admin@localhost caddy:2.11.7-alpine caddy validate --config /etc/caddy/Caddyfile
+
+web-check: ## Web UI checks in Docker (no Node on host): lint, typecheck, i18n:check, unit tests
+	docker build --target check --output type=cacheonly web
 
 down: ## Stop containers (volumes are kept)
 	$(COMPOSE) down
@@ -67,7 +75,7 @@ build: ## Build backend binary to bin/sentra
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/sentra ./cmd/sentra
 
 ## ---------- Quality ----------
-.PHONY: test test-integration test-api lint gitleaks openapi-lint sqlc fmt
+.PHONY: web-check test test-integration test-api test-ui test-e2e lint gitleaks openapi-lint sqlc fmt
 test: ## Run unit tests with race detector and coverage
 	CGO_ENABLED=1 go test -race -count=1 -coverprofile=coverage.out ./...
 
@@ -79,6 +87,12 @@ test-integration: ## Run integration tests against running DB/Redis (requires `m
 
 test-api: ## Run API smoke tests against the running stack (BASE_URL overridable)
 	BASE_URL=$${BASE_URL:-http://127.0.0.1:8080} ./test/api/smoke.sh
+
+test-ui: ## UI edge tests (basic_auth, SPA, headers) against the public site; credentials: see test/api/ui.sh
+	./test/api/ui.sh
+
+test-e2e: ## Browser smoke test (Playwright in Docker) against the public site; credentials: see test/e2e/README.md
+	./test/e2e/run.sh
 
 lint: ## Run golangci-lint
 	golangci-lint run ./...

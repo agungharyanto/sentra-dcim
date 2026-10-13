@@ -92,6 +92,8 @@ services:
       APP_SHUTDOWN_TIMEOUT: ${APP_SHUTDOWN_TIMEOUT:-15s}
       # Display timezone (storage stays UTC). APP_DISPLAY_TZ is the pre-v0.1.8 name, still honoured by the app.
       DISPLAY_TIMEZONE: ${DISPLAY_TIMEZONE:-}
+      # Server-wide default UI language (id | en); users can switch in the UI.
+      DEFAULT_LOCALE: ${DEFAULT_LOCALE:-id}
       APP_DISPLAY_TZ: ${APP_DISPLAY_TZ:-}
       APP_RATE_LIMIT_RPS: ${APP_RATE_LIMIT_RPS:-20}
       APP_RATE_LIMIT_BURST: ${APP_RATE_LIMIT_BURST:-40}
@@ -119,16 +121,30 @@ services:
       resources:
         limits: { cpus: "1.0", memory: 512m, pids: 256 }
 
+  # Build-only service: the static web UI (web/Dockerfile, target dist) baked into the caddy image. Never started.
+  web:
+    build:
+      context: web
+      target: dist
+    image: sentra-web:${VERSION:-dev}
+    profiles: [build]
+
   caddy:
     <<: *hardening
     build:
       context: deploy/caddy
-    image: sentra-caddy:2.11.7
+      additional_contexts:
+        web: service:web
+    image: sentra-caddy:${VERSION:-dev}
     environment:
       # Caddy's {$VAR:default} only applies when a variable is unset, not empty, so defaults live here.
       # localhost = Caddy internal CA, no ACME (dev/CI). `make up` refuses a real DOMAIN without ACME_EMAIL.
       DOMAIN: ${DOMAIN:-localhost}
       ACME_EMAIL: ${ACME_EMAIL:-admin@localhost}
+      # Temporary basic_auth for the UI until Auth v0.3 (ISS-026). Default hash = bcrypt of a discarded random
+      # string, so an unset .env locks the UI instead of opening it ($$ escapes compose interpolation).
+      WEB_BASIC_AUTH_USER: ${WEB_BASIC_AUTH_USER:-sentra}
+      WEB_BASIC_AUTH_HASH: ${WEB_BASIC_AUTH_HASH:-$$2a$$14$$wA4jVT8NyygzV9uWV32bKOx2SNKJSSjNH6wBBg9TMt6E.Yaba7bBu}
     # Lets the non-root Caddy bind 80/443 inside its own network namespace without any capability.
     sysctls:
       net.ipv4.ip_unprivileged_port_start: 0

@@ -45,9 +45,14 @@ if [[ -n "${EXPECT_VERSION:-}" ]]; then
   check "public version = $EXPECT_VERSION" "$(jq -e --arg v "$EXPECT_VERSION" '.version==$v' "$tmp/b" >/dev/null; echo $?)"
 fi
 
-for p in /api/v1/ready /api/v1/does-not-exist /api/v2/health / /admin "/api/v1/health/../ready"; do
+for p in /api/v1/ready /api/v1/does-not-exist /api/v2/health "/api/v1/health/../ready"; do
   req --path-as-is "$BASE$p"
   check "GET $p rejected at proxy (403)" "$([[ $code == 403 ]] && jq -e '.error.code=="forbidden"' "$tmp/b" >/dev/null; echo $?)"
+done
+# Web UI (v0.2.1): behind temporary basic_auth until Auth v0.3 (ISS-026); full checks in test/api/ui.sh.
+for p in / /admin /api/v1/ui/bootstrap; do
+  req "$BASE$p"
+  check "GET $p requires basic auth (401)" "$([[ $code == 401 && $(hdr WWW-Authenticate) == Basic* ]]; echo $?)"
 done
 req -X POST "$BASE/api/v1/health"
 check "POST /api/v1/health rejected (403)" "$([[ $code == 403 ]]; echo $?)"

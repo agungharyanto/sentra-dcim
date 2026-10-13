@@ -8,5 +8,7 @@ RUN apk add --no-cache libcap \
  && mkdir -p /data/caddy /config/caddy \
  && chown -R 65532:65532 /data /config
 COPY Caddyfile /etc/caddy/Caddyfile
+# Static web UI built by web/Dockerfile (target dist); docker-compose.yml supplies it as the "web" build context.
+COPY --from=web /dist /srv/web
 USER 65532:65532
 EXPOSE 80 443 8081
