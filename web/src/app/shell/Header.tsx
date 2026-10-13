@@ -6,23 +6,27 @@ import { Link, useLocation } from "react-router";
 import { LanguageSwitcher } from "@/components/domain/LanguageSwitcher";
 import { ThemeSwitcher } from "@/components/domain/ThemeSwitcher";
 import { Button } from "@/components/ui/button";
+import { accountPageTitleKey } from "@/features/auth/account";
+import { UserMenu } from "@/features/auth/UserMenu";
 import { useBootstrap } from "@/features/bootstrap/regional";
 import { helpPathForMenu, useHelpIndex } from "@/features/help/api";
 
 import { Clock } from "./Clock";
 import { findMenu, useMenuText } from "./menu";
 
-/** Page title + breadcrumb, live clock, language & theme. No user menu until Auth (v0.3). */
+/** Page title + breadcrumb, live clock, help, language & theme, signed-in user menu. */
 export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
-  const { t } = useTranslation(["shell", "common", "help"]);
+  const { t } = useTranslation(["shell", "common", "help", "auth"]);
   const boot = useBootstrap();
   const { menuLabel, groupLabel } = useMenuText();
   const { pathname } = useLocation();
   const menu = findMenu(boot.menus, pathname);
   const helpIndex = useHelpIndex();
   const helpPath = helpPathForMenu(helpIndex.data?.pages, menu?.key);
-  const title = menu ? menuLabel(menu.key) : t("pages.notFound.title");
-  const crumbs = [t("common:app.name"), ...(menu ? [groupLabel(menu.group)] : []), title];
+  const account = accountPageTitleKey(pathname);
+  const title = menu ? menuLabel(menu.key) : account ? t(`auth:${account}`) : t("pages.notFound.title");
+  const group = menu ? groupLabel(menu.group) : account ? t("auth:account.group") : undefined;
+  const crumbs = [t("common:app.name"), ...(group ? [group] : []), title];
 
   useEffect(() => {
     document.title = `${title} · ${t("common:app.name")}`;
@@ -55,6 +59,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         </Button>
         <LanguageSwitcher serverLocales={boot.supported_locales} />
         <ThemeSwitcher />
+        <UserMenu />
       </div>
     </header>
   );

@@ -12,6 +12,14 @@
     "rate_limited": "Too many requests. Please wait a moment and try again.",
     "internal_error": "A server error occurred.",
     "help_unavailable": "The Help Center is temporarily unavailable.",
-    "invalid_locale": "Unsupported language."
+    "invalid_locale": "Unsupported language.",
+    "unauthenticated": "Your session has ended. Please sign in again.",
+    "invalid_credentials": "Incorrect username or password.",
+    "csrf_failed": "The request was rejected for security reasons. Reload the page and try again.",
+    "password_change_required": "Please change your password first.",
+    "password_policy": "The password does not meet the requirements.",
+    "invalid_current_password": "The current password is incorrect.",
+    "invalid_request": "Invalid request.",
+    "auth_unavailable": "Sign-in is temporarily unavailable. Please try again shortly."
   }
 }

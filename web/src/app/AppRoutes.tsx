@@ -2,6 +2,8 @@ import { lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes } from "react-router";
 
+import { AccountPasswordPage } from "@/features/auth/AccountPasswordPage";
+import { SessionsPage } from "@/features/auth/SessionsPage";
 import { useBootstrap } from "@/features/bootstrap/regional";
 
 import { NotFoundPage } from "./pages/StatusPages";
@@ -39,6 +41,9 @@ export function AppRoutes() {
         {buildRoutes(boot.menus).map((r) => (
           <Route key={r.menu.key} path={r.path} element={r.element} />
         ))}
+        {/* Own account pages (not registry menus; reached from the user menu). */}
+        <Route path="/account/sessions" element={<SessionsPage />} />
+        <Route path="/account/password" element={<AccountPasswordPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
