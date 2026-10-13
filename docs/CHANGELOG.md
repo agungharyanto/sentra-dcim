@@ -27,6 +27,7 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
 ### Diubah
 - Halaman sementara v0.2.1 dihapus; info versi pindah ke sidebar.
 - `test/e2e/smoke.spec.ts` kini memeriksa shell & Dasbor; `test/api/{smoke,ui}.sh` mengikuti kontrak baru.
+- Artefak CI screenshot berganti nama `design-system-screenshots` → `ui-screenshots` (berisi design system + shell).
 
 ### Diperbaiki (sebelum rilis)
 - Mode sidebar ciut kehilangan semua gaya: Radix `Slot` (Tooltip `asChild`) mengubah `className` berbentuk fungsi
