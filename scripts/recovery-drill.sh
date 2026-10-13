@@ -66,7 +66,13 @@ check "web UI behind basic_auth (401 without, 200 with credentials)" "$(
      $(curl -sk -u "drill:$pw" -o /dev/null -w '%{http_code}' https://localhost:28443/dashboard) == 200 ]]; echo $?)"
 check "help API serves embedded pages" "$(curl -sf http://127.0.0.1:28081/api/v1/help/index | jq -e '.pages|length>0' >/dev/null; echo $?)"
 check "production stack untouched (project sentra still 4 healthy)" "$([[ $(docker ps --filter label=com.docker.compose.project=sentra --filter health=healthy -q | wc -l) -eq 4 ]]; echo $?)"
-[[ $fail -eq 0 ]] || { echo "--- build/up log tail:"; tail -20 "$dir/build.log" "$dir/up.log"; }
+if [[ $fail -ne 0 ]]; then
+  # Keep the logs (the clone directory is removed on exit) and show their tails.
+  keep="${DRILL_LOG_DIR:-${TMPDIR:-/tmp}}/sentra-drill-logs-$(date +%Y%m%dT%H%M%S)"
+  if mkdir -p "$keep"; then cp "$dir"/*.log "$keep"/ 2>/dev/null || true; fi
+  echo "--- logs kept in $keep"
+  for f in "$dir/build.log" "$dir/up.log"; do echo "--- tail $(basename "$f"):"; tail -n 25 "$f" 2>/dev/null; done
+fi
 
 echo "recovery drill: $pass passed, $fail failed (cleanup: containers, volumes, images, clone)"
 [[ $fail -eq 0 ]]
