@@ -7,7 +7,8 @@ ditambah, diubah versinya, atau dihapus.
 
 | Nama | Versi | Lisensi | Fungsi |
 |---|---|---|---|
-| Ubuntu Server | 24.04 LTS | Berbagai (GPL dll.) | Sistem operasi server |
+| Ubuntu Server | 24.04 LTS (aarch64, Oracle Cloud) | Berbagai (GPL dll.) | Sistem operasi server |
+| Oracle Cloud Agent (`snap oracle-cloud-agent`) | 1.61.0 (bawaan image) | Oracle (UPL/proprietary) | Agent OCI: monitoring, Run Command (jalur pemulihan darurat) |
 | Docker Engine | 29.9.0 | Apache-2.0 | Runtime container |
 | Docker Compose | 5.6.0 (plugin) | Apache-2.0 | Orkestrasi container lokal/server |
 | TimescaleDB (`timescale/timescaledb:2.30.2-pg16`) | 2.30.2 / PostgreSQL 16 | Timescale License (TSL) + Apache-2.0 (core); PostgreSQL License | Database relasional + time-series |
@@ -47,6 +48,7 @@ ditambah, diubah versinya, atau dihapus.
 | systemd timer | (Ubuntu 24.04) | LGPL-2.1 | Penjadwalan backup harian |
 | GNU Make | 4.3 | GPL-3.0 | Task runner (`Makefile`) |
 | ufw | 0.36.2 | GPL-3.0 | Firewall host |
+| acl (`setfacl`/`getfacl`) | 2.3.2 | GPL-2.0 / LGPL-2.1 | ACL repo & `.env` untuk user admin (`bootstrap --admin-user`) |
 | fail2ban | 1.0.2 | GPL-2.0 | Proteksi brute-force SSH |
 | unattended-upgrades | 2.9.1 (paket Ubuntu) | GPL-2.0 | Update keamanan otomatis |
 | apt-listchanges | 3.27 | GPL-2.0 | Ringkasan changelog paket saat upgrade |

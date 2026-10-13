@@ -194,10 +194,35 @@ sudo git clone --branch v0.1.9 git@github.com:agungharyanto/sentra-dcim.git /opt
 sudo /opt/sentra-dcim/ops/bootstrap-new-server.sh --ref v0.1.9 --env-file /root/sentra.env --restore-from /root/restore/<dir>
 ```
 
-Bila server baru memiliki IP berbeda, ubah record DNS A `sentra.bajastu.id` ke IP baru **sebelum** langkah 3 agar
-Caddy bisa menerbitkan/menggunakan sertifikat (sertifikat lama ikut dipulihkan dari volume `caddy_data`).
-Tanpa `--env-file`, `.env` baru dengan secret acak dibuat otomatis (isi `DOMAIN`/`ACME_EMAIL` setelahnya). Tanpa `--restore-from`, database kosong.
-`--dry-run` menampilkan langkah tanpa mengeksekusi. Setelah selesai: cek `make ps` dan `sudo ufw status`.
+Opsi bootstrap:
+
+| Opsi | Fungsi |
+|---|---|
+| `--env-file <path>` | Pakai `.env` lama (secret sama dengan backup). Tanpa opsi ini `.env` baru dengan secret acak dibuat otomatis |
+| `--domain <fqdn> --acme-email <email>` | `.env` baru dalam **mode publik** (Let's Encrypt, 80/443 dibuka). Tanpa opsi ini `.env` baru dibuat dalam **mode lokal**: `DOMAIN=localhost` (CA internal Caddy), listener publik di `127.0.0.1`, `UFW_OPEN_HTTP=0` — tidak ada permintaan sertifikat sebelum DNS siap |
+| `--admin-user <user>` | Beri user admin cloud (mis. `ubuntu` di Oracle) ACL baca/tulis repo + baca `.env`, dan `safe.directory` Git. Backup tetap milik `sentra` |
+| `--restore-from <dir>` | Restore backup setelah stack menyala. Tanpa opsi ini database kosong |
+| `--dry-run` | Tampilkan langkah tanpa eksekusi |
+
+Pindah ke mode publik setelah record DNS A `sentra.bajastu.id` mengarah ke IP server baru: buka 80/443 di
+Security List OCI, isi `DOMAIN`, `ACME_EMAIL`, `CADDY_PUBLIC_HTTP_BIND=0.0.0.0:80`,
+`CADDY_PUBLIC_HTTPS_BIND=0.0.0.0:443`, `UFW_OPEN_HTTP=1` di `.env`, lalu `sudo ops/harden/ufw.sh` dan
+`make up`, verifikasi `test/api/public.sh`. Sertifikat lama ikut dipulihkan dari volume `caddy_data` bila
+`--restore-from` dipakai. Setelah selesai: cek `make ps` dan `sudo ufw status`.
+
+### Catatan Oracle Cloud (uji nyata 2026-10-13, ISS-003)
+
+Diuji pada VM OCI Ubuntu 24.04.5 aarch64 (4 OCPU, 23 GiB) dengan repo sudah di-clone ke `/opt/sentra-dcim`:
+
+```bash
+sudo /opt/sentra-dcim/ops/bootstrap-new-server.sh --ref <tag> --admin-user ubuntu   # ±2,5 menit
+```
+
+- User admin bawaan `ubuntu` (bukan `root`); SSH key-only, password terkunci — baca **Akses darurat** dulu.
+- Image Oracle memasang iptables `REJECT` sebelum ufw dan `rpcbind` (port 111) — keduanya ditangani otomatis
+  oleh `ops/harden/ufw.sh` dan `ops/harden/services.sh`.
+- Port publik harus dibuka juga di Security List / NSG VCN (di luar server).
+- Semua image container tersedia untuk `arm64`.
 
 > Catatan: langkah 2 di-clone sebagai root memakai key root; langkah 3 mengubah kepemilikan repo ke user `sentra`
 > secara rekursif. Agar `sentra` bisa `git fetch` di kemudian hari, pasang deploy key untuk user tersebut.
