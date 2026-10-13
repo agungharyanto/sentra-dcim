@@ -106,6 +106,18 @@ services:
       DB_SSLMODE: disable
       REDIS_ADDR: redis:6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Auth (ADR-003). Unsafe requests must come from these exact origins (CSRF); default = the public site.
+      APP_ALLOWED_ORIGINS: ${APP_ALLOWED_ORIGINS:-https://${DOMAIN:-localhost}}
+      AUTH_ARGON2_MEMORY_KIB: ${AUTH_ARGON2_MEMORY_KIB:-65536}
+      AUTH_ARGON2_TIME: ${AUTH_ARGON2_TIME:-2}
+      AUTH_ARGON2_THREADS: ${AUTH_ARGON2_THREADS:-2}
+      AUTH_SESSION_IDLE: ${AUTH_SESSION_IDLE:-30m}
+      AUTH_SESSION_ABSOLUTE: ${AUTH_SESSION_ABSOLUTE:-12h}
+      AUTH_LOCK_THRESHOLD: ${AUTH_LOCK_THRESHOLD:-5}
+      AUTH_LOCK_DURATION: ${AUTH_LOCK_DURATION:-15m}
+      AUTH_RATE_IP_LIMIT: ${AUTH_RATE_IP_LIMIT:-30}
+      AUTH_RATE_USER_LIMIT: ${AUTH_RATE_USER_LIMIT:-10}
+      AUTH_RATE_WINDOW: ${AUTH_RATE_WINDOW:-10m}
     read_only: true
     networks: [data, edge]
     depends_on:
