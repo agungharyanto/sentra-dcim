@@ -3,6 +3,22 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [Unreleased] — v0.1.9 Foundation Close (putaran 2)
+
+### Diperbaiki
+- `ops/backup.sh` tidak lagi meng-`chown` direktori backup yang sudah ada bila dijalankan user lain; kini menolak
+  dengan petunjuk `sudo -u <pemilik>` (ISS-024).
+
+### Diubah
+- Aturan regresi dipertegas (CLAUDE.md aturan 2–3, D-038): full regression **hanya** di penutup sprint `.9`;
+  sub-versi `.1–.8` cukup regresi modul terkait. Catatan rilis v0.1.8 dikoreksi — hasil 72/72 dicatat sebagai
+  verifikasi migrasi server, bukan full regression (ISS-023).
+- Go public di server Oracle (D-039): DNS `sentra.bajastu.id` → `132.226.106.158`; ufw membuka 80/443
+  (`UFW_OPEN_HTTP=1`), OCI Security List 80/443, `.env` mode publik. Sertifikat Let's Encrypt terbit; edge test
+  publik 26/26 (ISS-015 selesai). Rincian: addendum `docs/releases/v0.1.9.md`.
+- Jam OS server kini `Asia/Jakarta` (WIB) — kosmetik untuk log host (D-040); container, DB & penyimpanan tetap UTC,
+  backup tetap 02:00 WIB.
+
 ## [v0.1.8] - 2026-10-13 — Timezone & Version Fix
 
 ### Diubah

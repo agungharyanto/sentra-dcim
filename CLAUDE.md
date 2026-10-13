@@ -12,7 +12,9 @@ Aturan di bawah **wajib dipatuhi di setiap sesi**. Bila ada konflik, aturan ini 
 2. **Alur tiap sub-versi.** Branch `feat/vX.Y.Z-<slug>` → commit (Conventional Commits) → regresi modul terkait →
    `merge --no-ff` ke `main` → tag annotated `vX.Y.Z "<Judul>"` → push `main` + tag.
    GitHub selalu sama/lebih maju dari server; `git status` bersih di akhir.
-3. **Penutup sprint (.9).** FULL regression (unit + integrasi + API + smoke) + Definition of Done:
+   Sub-versi `.1–.8` **hanya** regresi modul terkait — **tidak pernah** full regression (`scripts/full-regression.sh`).
+   Bila verifikasi penuh dibutuhkan (mis. pindah server), kerjakan sebagai penutup sprint `.9`, bukan di sub-versi.
+3. **Penutup sprint (.9) — satu-satunya tempat full regression.** FULL regression (unit + integrasi + API + smoke) + Definition of Done:
    semua file di GitHub, gitleaks lulus (tanpa secret), container healthy, API test lulus, migrasi up/down lulus,
    permission diuji, firewall diuji, backup + restore diuji, dokumentasi diperbarui, git status bersih,
    push & tag sukses. Hasil ditulis di `docs/releases/vX.Y.9.md` + GitHub Release.
@@ -40,11 +42,11 @@ Aturan di bawah **wajib dipatuhi di setiap sesi**. Bila ada konflik, aturan ini 
   Caddy, Docker Compose. Lihat `docs/DECISIONS.md` dan `docs/DEPENDENCIES.md`.
 - **Struktur:** `cmd/sentra` (entrypoint), `internal/<modul>/{handler,service,repo}`, `internal/platform/...`
   (config, db, cache, httpserver, logging), `migrations/`, `api/openapi.yaml`, `deploy/`, `ops/`, `docs/`.
-- **Waktu:** simpan UTC, tampilkan menurut `DISPLAY_TIMEZONE` di `.env` (default Asia/Jakarta, WIB, UTC+7).
+- **Waktu:** simpan UTC, tampilkan menurut `DISPLAY_TIMEZONE` di `.env` (default Asia/Jakarta, WIB, UTC+7). Jam OS server = Asia/Jakarta (kosmetik, D-040); container & DB tetap UTC.
 - **Perintah:** `make help` — `up/down/logs/test/lint/migrate/backup/restore/rollback/release`.
 - **Server:** Oracle Cloud (Ubuntu 24.04 aarch64) sejak 2026-10-13; admin OS `ubuntu`, aplikasi milik user `sentra`,
   repo di `/opt/sentra-dcim`, backup di `/var/backups/sentra`; port sshd dibaca otomatis oleh `ops/harden/ufw.sh`.
   Akses darurat (serial console, key cadangan, unban): `docs/DISASTER_RECOVERY.md`. **Jangan ubah
   `PasswordAuthentication` tanpa konfirmasi pemilik.** Domain publik `https://sentra.bajastu.id` (Caddy + Let's Encrypt;
-  mode lokal sampai DNS dipindah, ISS-015); hanya `/api/v1/health` & `/api/v1/version` (`{version}` saja) publik,
+  publik sejak 2026-10-13; butuh ufw + OCI Security List 80/443); hanya `/api/v1/health` & `/api/v1/version` (`{version}` saja) publik,
   API lengkap via `http://127.0.0.1:8080`.
