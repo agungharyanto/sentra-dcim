@@ -15,6 +15,112 @@ Prosedur ini diuji pada setiap penutup sprint (`.9`); hasil uji terakhir ada di 
 > ⚠️ Selama offsite belum diputuskan, backup hanya ada di disk server yang sama. Salin berkala ke lokasi lain
 > secara manual (`scp -r /var/backups/sentra/<dir> ...`).
 
+## Akses darurat (SSH hilang)
+
+Latar belakang: server lama (v0.1) ditinggalkan karena akses SSH hilang. Server saat ini adalah VM **Oracle Cloud
+Infrastructure (OCI)**, Ubuntu 24.04 aarch64, user admin `ubuntu`. Bagian ini wajib dibaca sebelum mengubah
+konfigurasi SSH, firewall, atau fail2ban.
+
+### Jalur pemulihan (urut prioritas)
+
+| # | Jalur | Kapan dipakai | Prasyarat |
+|---|---|---|---|
+| 1 | SSH dengan **key cadangan** | Key utama hilang/rusak | Key cadangan sudah terpasang (lihat di bawah) |
+| 2 | **OCI Serial Console** (Console Connection) | SSH tidak bisa sama sekali: sshd mati, firewall/fail2ban mengunci, salah konfigurasi jaringan | Akses OCI Console + IAM policy `manage instance-console-connection`; **user Linux dengan password** (serial console = login lokal `ttyAMA0`, tidak memakai `authorized_keys`) |
+| 3 | **OCI VNC Console** | Sama seperti #2, bila butuh tampilan grafis | Sama seperti #2 |
+| 4 | OCI **Run Command** (Oracle Cloud Agent) | Menjalankan perintah root tanpa login (mis. menambah key, unban) | Plugin *Compute Instance Run Command* aktif + dynamic group & IAM policy. Agent terpasang (`snap oracle-cloud-agent`) |
+| 5 | Lepas boot volume → pasang ke VM lain | Semua jalur di atas gagal | Edit `/home/ubuntu/.ssh/authorized_keys` dari VM lain, pasang kembali |
+
+> ⚠️ Status saat migrasi (2026-10-13): image Oracle sudah mematikan `PasswordAuthentication` (file
+> `/etc/ssh/sshd_config.d/60-cloudimg-settings.conf`) dan password user `ubuntu` **terkunci**. Artinya hanya
+> **satu** key SSH yang bisa masuk dan serial console belum bisa login. Lihat ISS-016 — pemilik harus memasang key
+> cadangan dan menyetel password konsol (keputusan pemilik, tidak dilakukan otomatis).
+
+Membuka serial console: OCI Console → Compute → Instances → *instance* → **Console connection** → *Create local
+connection* (unggah public key SSH) → *Launch Cloud Shell connection* (paling mudah) atau salin perintah SSH yang
+diberikan. Tekan Enter sampai muncul prompt `login:`, masuk dengan user yang memiliki password.
+
+### Menyiapkan password konsol (sekali, dengan konfirmasi pemilik)
+
+Password ini **hanya** untuk login lokal serial/VNC console; SSH tetap key-only selama `PasswordAuthentication no`.
+
+```bash
+sudo passwd ubuntu        # password kuat, simpan di brankas password tim
+sudo passwd -S ubuntu     # harus "P" (bukan "L")
+```
+
+### Menambah key SSH cadangan
+
+Buat key kedua di perangkat **lain** (laptop cadangan / brankas), bukan di server:
+
+```bash
+# di perangkat admin
+ssh-keygen -t ed25519 -C "sentra-backup-$(date +%Y%m%d)" -f ~/.ssh/sentra_backup
+```
+
+Pasang di server (dari sesi SSH yang sedang aktif), lalu **uji dari terminal baru tanpa menutup sesi lama**:
+
+```bash
+# di server — tempel isi sentra_backup.pub
+install -d -m 700 ~/.ssh
+echo 'ssh-ed25519 AAAA... sentra-backup-YYYYMMDD' >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+# di perangkat admin, terminal BARU
+ssh -i ~/.ssh/sentra_backup -o IdentitiesOnly=yes ubuntu@<IP>   # harus berhasil
+```
+
+Simpan private key cadangan di brankas password tim (bukan di Git, bukan di server). Opsional: tambahkan juga
+key cadangan saat membuat Console Connection agar serial console bisa dibuka dari perangkat cadangan.
+
+### Aturan perubahan SSH (wajib)
+
+1. **Jangan** mengubah `PasswordAuthentication` (mematikan *atau* menyalakan) tanpa konfirmasi eksplisit pemilik.
+2. Sebelum hardening SSH apa pun (password off, ganti port, `AllowUsers`, allowlist IP):
+   - pastikan minimal **dua** key terpasang dan password konsol berfungsi (uji login serial console);
+   - ubah konfigurasi lewat file di `/etc/ssh/sshd_config.d/`, validasi dengan `sudo sshd -t`;
+   - `sudo systemctl reload ssh` (sesi aktif tidak terputus);
+   - **uji login dengan key di sesi/terminal terpisah** (sesi lama tetap terbuka) — baru tutup sesi lama setelah
+     login baru berhasil;
+   - bila ganti port: buka port baru di ufw **dan** Security List OCI lebih dulu, jalankan ulang
+     `sudo ops/harden/ufw.sh` dan `sudo ops/harden/fail2ban.sh` (port dibaca otomatis dari `sshd -T`).
+3. Bila uji gagal: kembalikan file konfigurasi dari sesi lama, `sudo sshd -t && sudo systemctl reload ssh`.
+
+### fail2ban: whitelist admin & unban
+
+`ops/harden/fail2ban.sh` tidak pernah mem-ban (`ignoreip`): loopback, `SSH_ALLOW_FROM`, `ADMIN_IPS` di `.env`
+(daftar IP/CIDR dipisah koma) dan IP sesi SSH yang **sedang aktif** saat skrip dijalankan. IP admin rumahan/seluler
+biasanya dinamis — tambahkan rentang ISP ke `ADMIN_IPS` bila perlu, lalu jalankan ulang skrip:
+
+```bash
+sudo ops/harden/fail2ban.sh
+sudo grep ignoreip /etc/fail2ban/jail.d/sentra.local
+```
+
+Bila admin terkunci (koneksi SSH *timeout* / *connection refused* dari satu IP, sementara dari IP lain bisa),
+masuk lewat serial console (atau Run Command) lalu:
+
+```bash
+sudo fail2ban-client status sshd                 # daftar IP yang di-ban
+sudo fail2ban-client set sshd unbanip <IP>       # unban satu IP
+sudo fail2ban-client unban --all                 # unban semua (darurat)
+sudo systemctl stop fail2ban                     # bila perlu, matikan sementara; nyalakan lagi setelah pulih
+```
+
+Lalu tambahkan IP tersebut ke `ADMIN_IPS` dan jalankan ulang `sudo ops/harden/fail2ban.sh`.
+
+### Firewall berlapis di OCI
+
+Lalu lintas masuk melewati **dua** firewall terpisah:
+
+1. **Security List / NSG VCN** (dikelola di OCI Console) — port harus dibuka di sini lebih dulu.
+2. **ufw** di host (`ops/harden/ufw.sh`). Image Oracle memasang aturan iptables `netfilter-persistent`
+   (`/etc/iptables/rules.v4`) dengan `REJECT` yang berada **sebelum** chain ufw, sehingga semua `ufw allow`
+   selain 22/tcp tidak berlaku. `ufw.sh` menghapus satu aturan itu (salinan asli:
+   `/etc/iptables/rules.v4.sentra-orig`) dan mempertahankan aturan `InstanceServices` milik Oracle.
+
+Bila firewall host mengunci SSH: dari serial console jalankan `sudo ufw allow 22/tcp` (atau `sudo ufw disable`
+sementara), perbaiki, lalu `sudo ops/harden/ufw.sh`.
+
 ## Isi backup
 
 Setiap backup adalah satu direktori `/var/backups/sentra/<UTC-stamp>_<label>/`:

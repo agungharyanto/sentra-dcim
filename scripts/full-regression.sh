@@ -18,6 +18,13 @@ set -a
 source .env
 set +a
 
+# Backups belong to the app user (owner of .env, `sentra`); an admin user (e.g. `ubuntu`, see
+# ops/bootstrap-new-server.sh --admin-user) runs the regression and executes backup/restore as that user.
+APP_USER="$(stat -c %U .env)"
+as_app() { if [[ "$(id -un)" == "$APP_USER" ]]; then "$@"; else sudo -u "$APP_USER" -H "$@"; fi; }
+export APP_USER
+export -f as_app
+
 section() { printf '\n## %s\n' "$*"; }
 check() { # name, command...
   local name="$1"; shift
@@ -84,13 +91,14 @@ fi
 
 section "6. Backup & restore (isolated database)"
 backup_dir=""
-check "backup" bash -c './ops/backup.sh regression > /tmp/sentra-regress-backup.path'
-backup_dir="$(tail -1 /tmp/sentra-regress-backup.path 2>/dev/null)"; rm -f /tmp/sentra-regress-backup.path
-info "backup: $backup_dir ($(du -sh "$backup_dir" 2>/dev/null | cut -f1))"
-check "backup checksums" bash -c "cd '$backup_dir' && sha256sum --quiet -c SHA256SUMS"
-check "backup files mode 0600, dir 0700" bash -c \
+path_file="$(mktemp)"
+check "backup" bash -c "as_app ./ops/backup.sh regression > '$path_file'"
+backup_dir="$(tail -1 "$path_file" 2>/dev/null)"; rm -f "$path_file"
+info "backup: $backup_dir ($(as_app du -sh "$backup_dir" 2>/dev/null | cut -f1))"
+check "backup checksums" as_app bash -c "cd '$backup_dir' && sha256sum --quiet -c SHA256SUMS"
+check "backup files mode 0600, dir 0700" as_app bash -c \
   "[[ \$(stat -c %a '$backup_dir') == 700 && -z \$(find '$backup_dir' -type f ! -perm 600) && \$(stat -c %a '${BACKUP_DIR:-/var/backups/sentra}') == 700 ]]"
-check "restore into empty database $REGRESS_DB" ./ops/restore.sh "$backup_dir" --target-db "$REGRESS_DB" --yes
+check "restore into empty database $REGRESS_DB" as_app ./ops/restore.sh "$backup_dir" --target-db "$REGRESS_DB" --yes
 check "row count system_info live == restored" bash -c \
   "[[ \$(psql_db -d '$POSTGRES_DB' -c 'select count(*) from system_info') == \$(psql_db -d '$REGRESS_DB' -c 'select count(*) from system_info') ]]"
 # The backup records itself in ops_runs after the dump, so live has exactly one more row.
@@ -108,7 +116,9 @@ check "drop regression database" psql_db -d postgres -c "DROP DATABASE IF EXISTS
 check "live /ready still 200" bash -c "[[ \$(curl -s -o /dev/null -w '%{http_code}' http://${CADDY_HTTP_BIND:-127.0.0.1:8080}/api/v1/ready) == 200 ]]"
 
 section "8. Permissions"
-check ".env mode 600" bash -c '[[ $(stat -c %a .env) == 600 ]]'
+# 0600; with --admin-user the ACL adds read for that one user only (stat shows the ACL mask as 640).
+check ".env owner-only (+ admin ACL read), no group/other access" bash -c \
+  '[[ $(stat -c %a .env) =~ ^6[04]0$ ]] && getfacl -cp .env | grep -qx "group::---" && getfacl -cp .env | grep -qx "other::---" && [[ -z $(getfacl -cp .env | grep -E "^user:[^:]+:.*w") ]]'
 check "ops scripts not world-writable" bash -c '[[ -z $(find ops scripts -type f -perm -o+w) ]]'
 check "DB rejects wrong password" bash -c "! docker compose exec -T db sh -c 'PGPASSWORD=wrong psql -h 127.0.0.1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c \"select 1\"'"
 check "Redis rejects unauthenticated command" bash -c "docker compose exec -T redis sh -c 'REDISCLI_AUTH= redis-cli get x' 2>&1 | grep -q NOAUTH"

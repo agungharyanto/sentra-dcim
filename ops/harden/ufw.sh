@@ -52,4 +52,22 @@ else
 fi
 
 ufw --force enable >/dev/null
+
+# Oracle Cloud images ship iptables rules (netfilter-persistent) whose catch-all INPUT REJECT sits *before* the ufw
+# chains, so every ufw allow except 22/tcp is silently ineffective. Drop that one rule (runtime + persisted) so ufw
+# is the single host firewall; the Oracle InstanceServices rules are kept. Done after `ufw enable` so INPUT is never
+# left without a deny policy. The VCN Security List is a separate, outer firewall managed in the Oracle console.
+oci_rules=/etc/iptables/rules.v4
+oci_reject='-A INPUT -j REJECT --reject-with icmp-host-prohibited'
+if [[ -f "$oci_rules" ]] && grep -q 'Oracle Cloud Infrastructure' "$oci_rules"; then
+  if grep -qxF -- "$oci_reject" "$oci_rules"; then
+    [[ -f "$oci_rules.sentra-orig" ]] || cp -p "$oci_rules" "$oci_rules.sentra-orig"
+    grep -vxF -- "$oci_reject" "$oci_rules.sentra-orig" | MODE=0644 write_if_changed "$oci_rules" || true
+  fi
+  while iptables -C INPUT -j REJECT --reject-with icmp-host-prohibited 2>/dev/null; do
+    iptables -D INPUT -j REJECT --reject-with icmp-host-prohibited
+    log "removed Oracle INPUT REJECT rule that shadowed ufw"
+  done
+fi
+
 ufw status verbose
