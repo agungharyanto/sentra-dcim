@@ -118,6 +118,13 @@ Lalu lintas masuk melewati **dua** firewall terpisah:
    selain 22/tcp tidak berlaku. `ufw.sh` menghapus satu aturan itu (salinan asli:
    `/etc/iptables/rules.v4.sentra-orig`) dan mempertahankan aturan `InstanceServices` milik Oracle.
 
+Bila port sudah dibuka di ufw tetapi tetap timeout dari luar, buktikan dulu paket sampai ke VM **sebelum** memicu
+Let's Encrypt (jatah 5 validasi gagal/jam): `sudo tcpdump -ni enp0s6 'dst port 80 or dst port 443'` sambil
+`curl -I http://<ip-publik>/` dari luar. Tidak ada paket = masalah di Security List (rule harus Ingress, di Security
+List yang ter-attach ke subnet VM) atau NSG; ada paket = periksa host. Uji ke IP publik sendiri dari dalam VM tidak
+bisa dipakai (OCI tidak meneruskan hairpin). Rule `REJECT icmp-host-prohibited` bawaan Oracle di chain FORWARD
+berada setelah ACCEPT Docker, sehingga tidak memblokir port Caddy.
+
 Bila firewall host mengunci SSH: dari serial console jalankan `sudo ufw allow 22/tcp` (atau `sudo ufw disable`
 sementara), perbaiki, lalu `sudo ops/harden/ufw.sh`.
 
@@ -137,6 +144,9 @@ Setiap backup adalah satu direktori `/var/backups/sentra/<UTC-stamp>_<label>/`:
 
 **Tidak** termasuk: file `.env` (berisi secret). Simpan salinan `.env` di brankas password tim (bukan Git, bukan
 folder backup yang sama tanpa enkripsi).
+`.env` milik user `sentra` (mode 640, ACL `ubuntu:r`). Ubah **sebagai `sentra`** (`sudo -u sentra -H nano .env`);
+jangan `sed -i` sebagai admin — file diganti dan pemiliknya berubah, lalu backup dijalankan sebagai user yang salah
+(ISS-024).
 
 Setiap backup/restore/rollback dicatat di tabel `ops_runs` (mulai v0.1.4).
 

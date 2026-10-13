@@ -11,7 +11,12 @@ load_env
 label="${1:-manual}"
 [[ "$label" =~ ^[a-z0-9-]{1,32}$ ]] || die "invalid label '$label' (a-z, 0-9, -)"
 
-[[ -d "$BACKUP_DIR" && -w "$BACKUP_DIR" ]] || sudo install -d -o "$(id -u)" -g "$(id -g)" -m 0700 "$BACKUP_DIR"
+# Create the directory on first use only; never re-own an existing one (backups belong to the app user).
+if [[ ! -d "$BACKUP_DIR" ]]; then
+  sudo install -d -o "$(id -u)" -g "$(id -g)" -m 0700 "$BACKUP_DIR"
+elif [[ ! -w "$BACKUP_DIR" ]]; then
+  die "$BACKUP_DIR is not writable by $(id -un); run as its owner: sudo -u $(stat -c %U "$BACKUP_DIR") -H $0"
+fi
 
 exec 9>"$BACKUP_DIR/.lock"
 flock -n 9 || die "another backup is running"
