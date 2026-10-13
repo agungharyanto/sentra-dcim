@@ -1,61 +1,19 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-
-/* shadcn/ui design tokens (base layer only; components arrive in v0.2.2). Fonts are system fonts: no external
-   font hosts (strict CSP, self-hosted assets only). */
+@import "./fonts.css";
+@import "./tokens.css";
 
 @custom-variant dark (&:is(.dark *));
 
-:root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-}
-
+/* Expose the semantic tokens (tokens.css) as Tailwind colours: bg-status-critical-bg, text-menu-available-fg, ... */
 @theme inline {
-  --font-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -71,16 +29,72 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-link: var(--link);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --color-info-fg: var(--info-fg);
+
+  --color-status-normal-solid: var(--status-normal-solid);
+  --color-status-normal-fg: var(--status-normal-fg);
+  --color-status-normal-bg: var(--status-normal-bg);
+  --color-status-normal-border: var(--status-normal-border);
+  --color-status-warning-solid: var(--status-warning-solid);
+  --color-status-warning-fg: var(--status-warning-fg);
+  --color-status-warning-bg: var(--status-warning-bg);
+  --color-status-warning-border: var(--status-warning-border);
+  --color-status-critical-solid: var(--status-critical-solid);
+  --color-status-critical-fg: var(--status-critical-fg);
+  --color-status-critical-bg: var(--status-critical-bg);
+  --color-status-critical-border: var(--status-critical-border);
+  --color-status-offline-solid: var(--status-offline-solid);
+  --color-status-offline-fg: var(--status-offline-fg);
+  --color-status-offline-bg: var(--status-offline-bg);
+  --color-status-offline-border: var(--status-offline-border);
+  --color-status-maintenance-solid: var(--status-maintenance-solid);
+  --color-status-maintenance-fg: var(--status-maintenance-fg);
+  --color-status-maintenance-bg: var(--status-maintenance-bg);
+  --color-status-maintenance-border: var(--status-maintenance-border);
+
+  --color-menu-available-fg: var(--menu-available-fg);
+  --color-menu-available-bg: var(--menu-available-bg);
+  --color-menu-available-border: var(--menu-available-border);
+  --color-menu-coming-soon-fg: var(--menu-coming-soon-fg);
+  --color-menu-coming-soon-bg: var(--menu-coming-soon-bg);
+  --color-menu-coming-soon-border: var(--menu-coming-soon-border);
+  --color-menu-not-connected-fg: var(--menu-not-connected-fg);
+  --color-menu-not-connected-bg: var(--menu-not-connected-bg);
+  --color-menu-not-connected-border: var(--menu-not-connected-border);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
   body {
     @apply bg-background font-sans text-foreground antialiased;
+  }
+  a {
+    @apply text-link underline-offset-4 hover:underline;
+  }
+  /* WCAG 2.3.3: users who ask for reduced motion get no transitions/animations (also keeps e2e/axe deterministic). */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

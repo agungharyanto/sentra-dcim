@@ -9,10 +9,13 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"]],
   outputDir: "/tmp/e2e-results",
+  // Screenshots taken by the specs (helpers.ts artifactsDir) are separate from Playwright failure output.
   use: {
     baseURL: process.env.BASE_URL,
     ignoreHTTPSErrors: process.env.BASE_URL?.startsWith("https://localhost") ?? false,
     trace: "off",
+    // Settled colours for axe: the UI honours prefers-reduced-motion (no transitions/animations).
+    contextOptions: { reducedMotion: "reduce" },
     screenshot: "off",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],

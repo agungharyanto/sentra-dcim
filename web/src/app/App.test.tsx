@@ -64,6 +64,15 @@ describe("placeholder page", () => {
     );
   });
 
+  it("serves the design system showcase at /design-system", async () => {
+    mockFetch(bootstrap());
+    window.history.pushState({}, "", "/design-system");
+    renderApp();
+    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent(resources.id.ds.showcase.title);
+    expect(screen.getByTestId("status-badges")).toHaveTextContent(resources.id.ds.status.critical);
+    window.history.pushState({}, "", "/");
+  });
+
   it("shows a translated error when bootstrap fails", async () => {
     mockFetch({ error: { code: "rate_limited", message: "x" } }, 429);
     renderApp();

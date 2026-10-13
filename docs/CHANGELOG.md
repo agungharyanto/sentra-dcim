@@ -3,6 +3,43 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [v0.2.2] - 2026-10-13 — Design System & Komponen
+
+### Ditambahkan
+- Token desain semantik (`web/src/styles/tokens.css`): tema **gelap (default)**, terang, dan ikuti sistem; status
+  DCIM normal/warning/critical/offline/maintenance (hijau/amber/merah/abu-abu/ungu; biru khusus link/info); status
+  menu available/coming_soon/not_connected.
+- Uji kontras otomatis dari `tokens.css` (139 pasangan, kedua tema): teks ≥ 4.5:1, non-teks (StatusDot, border
+  badge, indikator fokus, batas input) ≥ 3:1.
+- Font Inter + JetBrains Mono self-hosted (variable, subset latin), tanpa CDN.
+- Komponen shadcn/ui di repo: Button, Card, Badge, Input, Select, Tabs, Table, Tooltip, DropdownMenu, Dialog,
+  Sheet, Skeleton, Toast (sonner). Komponen domain: StatusBadge, StatusDot (ikon + label, tidak warna saja),
+  MenuStatusBadge, ThemeSwitcher, LanguageSwitcher, Logo (placeholder, satu titik ganti `assets/brand/logo.svg`).
+- Halaman internal `/design-system` (di luar registry menu, dimuat terpisah/lazy) dalam dua tema dan dua bahasa.
+- `test/e2e/design-system.spec.ts`: kedua tema, Dialog/Sheet/Tooltip/Select/Dropdown/Toast, ID↔EN, console &
+  CSP bersih, **axe-core** 0 pelanggaran serious/critical; screenshot diunggah sebagai artefak CI.
+- `docs/design-system.md`, ADR-002, D-044.
+
+### Diubah
+- CSP respons UI: `style-src 'self' 'unsafe-inline'` (khusus style; `script-src` tetap `'self'`) setelah Playwright
+  membuktikan Radix/sonner diblokir (ISS-027 selesai; nonce → ISS-030).
+- ESLint `no-literal-string`: selain teks JSX, hanya atribut yang terlihat pengguna (`title`, `alt`, `placeholder`,
+  `aria-label`, …) yang diperiksa; prop teknis (`variant`, `value`) tidak.
+- Favicon kini memakai `assets/brand/logo.svg` (satu file logo).
+- UI menghormati `prefers-reduced-motion` (transisi/animasi dimatikan, WCAG 2.3.3); e2e berjalan dengan reduced
+  motion agar axe mengukur warna yang sudah stabil (sempat gagal di CI saat transisi tombol bahasa).
+
+### Keamanan
+- Kebijakan supply chain pnpm `minimumReleaseAge` kini benar-benar ditegakkan: pengecualian otomatis yang ditulis
+  pnpm (sejak v0.2.1) dihapus dan paket dipatok ke rilis > 24 jam — `radix-ui 1.8.0`, `lucide-react 1.55.0`,
+  `typescript-eslint 8.71.1`, `@testing-library/user-event 14.6.7` (ISS-031).
+- Penjaga `pnpm supply:check` di `make web-check`, CI, dan build image: gagal bila ada pengecualian
+  `minimumReleaseAge` atau umur rilis diturunkan di bawah 24 jam (ISS-031).
+
+### Keputusan pemilik dicatat
+- ROADMAP v0.2.2–v0.2.4, v0.2.9 final; fail2ban basic_auth dijadwalkan v0.2.5 (ISS-026). ISS-029: `/design-system`
+  dibatasi role admin/dev di v0.3.
+
 ## [v0.2.1] - 2026-10-13 — Frontend Scaffold & i18n Foundation
 
 ### Ditambahkan

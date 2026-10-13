@@ -32,6 +32,8 @@ ditambah, diubah versinya, atau dihapus.
 ## Frontend (web/, v0.2.1 — D-042, ADR-001)
 
 Versi = hasil resolusi `web/pnpm-lock.yaml`. Build hanya di Docker (`web/Dockerfile`), host tidak butuh Node.
+Kebijakan supply chain pnpm `minimumReleaseAge` (rilis < 24 jam ditolak) **aktif tanpa pengecualian** (ISS-031):
+pilih versi terbaru yang sudah melewati jendela itu.
 
 | Nama | Versi | Lisensi | Fungsi / alasan |
 |---|---|---|---|
@@ -47,22 +49,28 @@ Versi = hasil resolusi `web/pnpm-lock.yaml`. Build hanya di Docker (`web/Dockerf
 | class-variance-authority | 0.7.1 | Apache-2.0 | Varian komponen (konvensi shadcn/ui) |
 | clsx | 2.1.1 | MIT | Gabung className kondisional (`cn()`) |
 | tailwind-merge | 3.7.0 | MIT | Resolusi konflik kelas Tailwind (`cn()`) |
-| lucide-react | 1.56.0 | ISC | Ikon (nama ikon menu dari registry backend) |
+| lucide-react | 1.55.0 | ISC | Ikon (nama ikon menu dari registry backend) |
 | shadcn/ui | — (kode disalin, `components.json`) | MIT | Pola komponen di atas Radix; komponen + Radix ditambahkan di v0.2.2 |
+| radix-ui | 1.8.0 | MIT | Primitif aksesibel (Dialog/Sheet, Select, Tabs, Tooltip, DropdownMenu, Slot) untuk komponen shadcn/ui (v0.2.2) |
+| sonner | 2.0.8 | MIT | Toast (pengganti resmi Toast lama shadcn/ui); menyuntik `<style>` → ADR-002 |
+| @fontsource-variable/inter | 5.3.0 | OFL-1.1 | Font UI self-hosted (variable, hanya subset latin yang dibundel) |
+| @fontsource-variable/jetbrains-mono | 5.3.0 | OFL-1.1 | Font monospace self-hosted (kode, ID perangkat, angka teknis), subset latin |
 | vite | 8.3.4 | MIT | Bundler & dev server; output statis ber-hash tanpa inline script |
 | @vitejs/plugin-react | 6.1.2 | MIT | Dukungan React/JSX di Vite |
 | typescript | 6.0.3 | Apache-2.0 | Type checking strict (7.0 belum didukung typescript-eslint) |
 | @types/react, @types/react-dom | 19.3.0 | MIT | Tipe React |
 | @types/node | 22.20.5 | MIT | Tipe Node (config & skrip `i18n:check`) |
 | eslint, @eslint/js | 10.12.0 / 10.0.1 | MIT | Linter |
-| typescript-eslint | 8.71.2 | MIT | Aturan ESLint untuk TypeScript (`strict`) |
+| typescript-eslint | 8.71.1 | MIT | Aturan ESLint untuk TypeScript (`strict`) |
 | eslint-plugin-react-hooks | 7.1.1 | MIT | Aturan hooks React |
 | eslint-plugin-i18next | 6.1.5 | ISC | `no-literal-string` = error: tidak ada teks UI hardcode |
 | globals | 17.13.0 | MIT | Definisi global browser/node untuk ESLint |
 | vitest | 5.0.4 | MIT | Unit test (i18n, format, render halaman ID/EN) |
 | jsdom | 30.1.2 | MIT | DOM untuk Vitest |
-| @testing-library/react, user-event, jest-dom | 16.3.3 / 14.6.8 / 7.0.1 | MIT | Render & interaksi komponen di test |
+| @testing-library/react, user-event, jest-dom | 16.3.3 / 14.6.7 / 7.0.1 | MIT | Render & interaksi komponen di test |
 | @playwright/test + image `mcr.microsoft.com/playwright:v1.64.0-noble` | 1.64.0 | Apache-2.0 | Smoke test browser (Chromium) `test/e2e/`, multi-arch |
+| @axe-core/playwright | 4.13.0 | MPL-2.0 | Cek aksesibilitas otomatis (WCAG 2.1 A/AA) di `test/e2e` (v0.2.2) |
+| actions/upload-artifact | v7 | MIT | CI: unggah screenshot showcase design system (tidak di-commit) |
 
 ## Tools pengembangan & CI
 

@@ -1,0 +1,112 @@
+{
+  "status": {
+    "normal": "Normal",
+    "warning": "Warning",
+    "critical": "Critical",
+    "offline": "Offline",
+    "maintenance": "Maintenance"
+  },
+  "theme": {
+    "label": "Theme",
+    "dark": "Dark",
+    "light": "Light",
+    "system": "Follow system"
+  },
+  "showcase": {
+    "title": "Design System",
+    "subtitle": "Internal developer page: Sentra DCIM tokens, statuses and components. Not shown in the menu.",
+    "statusRule": "Status is always shown with an icon and a label — never colour alone. Blue is reserved for links/info.",
+    "sections": {
+      "tokens": "Colour tokens",
+      "status": "DCIM status",
+      "menuStatus": "Menu status",
+      "typography": "Typography",
+      "buttons": "Buttons",
+      "badges": "Badges",
+      "forms": "Forms",
+      "tabs": "Tabs",
+      "table": "Table",
+      "overlays": "Overlays",
+      "feedback": "Feedback"
+    },
+    "status": {
+      "badge": "Badge",
+      "dot": "Indicator",
+      "compact": "Compact (label for screen readers & tooltip)"
+    },
+    "typography": {
+      "sans": "Inter — interface text: Server room temperature is stable.",
+      "mono": "JetBrains Mono — code & technical data",
+      "heading": "Page heading"
+    },
+    "buttons": {
+      "default": "Primary",
+      "secondary": "Secondary",
+      "outline": "Outline",
+      "ghost": "Ghost",
+      "destructive": "Delete",
+      "link": "Link",
+      "disabled": "Disabled"
+    },
+    "badges": {
+      "default": "Default",
+      "secondary": "Secondary",
+      "outline": "Outline",
+      "destructive": "Danger"
+    },
+    "form": {
+      "rackLabel": "Rack name",
+      "rackPlaceholder": "e.g. RAK-A01",
+      "siteLabel": "Site",
+      "sitePlaceholder": "Choose a site",
+      "sites": {
+        "main": "Main data center",
+        "drc": "Disaster recovery center (DRC)"
+      }
+    },
+    "tabs": {
+      "overview": "Overview",
+      "power": "Power",
+      "environment": "Environment",
+      "overviewBody": "Server room condition overview.",
+      "powerBody": "Power load per PDU and UPS.",
+      "environmentBody": "Temperature, humidity and leak sensors."
+    },
+    "table": {
+      "caption": "Sample rack data (fictional)",
+      "rack": "Rack",
+      "power": "Power",
+      "temperature": "Temperature",
+      "status": "Status",
+      "kw": "{{value}} kW",
+      "celsius": "{{value}} °C"
+    },
+    "overlays": {
+      "openDialog": "Open dialog",
+      "dialogTitle": "Mark as maintenance?",
+      "dialogBody": "The rack will be marked as under maintenance; its alarms are held temporarily.",
+      "openSheet": "Open side panel",
+      "sheetTitle": "Rack details",
+      "sheetBody": "Side panel for details without leaving the page.",
+      "tooltipTrigger": "Hover here",
+      "tooltip": "Tooltips use the primary colour.",
+      "menu": "Actions menu",
+      "menuItems": {
+        "ack": "Acknowledge alarm",
+        "assign": "Assign technician",
+        "export": "Export data"
+      },
+      "density": "Density",
+      "densityOptions": {
+        "comfortable": "Comfortable",
+        "compact": "Compact"
+      }
+    },
+    "feedback": {
+      "showToast": "Show toast",
+      "toastTitle": "Changes saved",
+      "toastBody": "Sample toast notification.",
+      "skeleton": "Loading (skeleton)"
+    }
+  }
+}

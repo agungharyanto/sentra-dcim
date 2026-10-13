@@ -14,5 +14,11 @@
       "id": "ID",
       "en": "EN"
     }
+  },
+  "actions": {
+    "close": "Close",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save"
   }
 }

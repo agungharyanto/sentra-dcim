@@ -22,7 +22,20 @@ export default tseslint.config(
     ignores: ["src/**/*.test.tsx", "src/test/**"],
     plugins: { i18next },
     rules: {
-      "i18next/no-literal-string": ["error", { mode: "jsx-only" }],
+      // JSX text is always checked; of the attributes only the user-visible ones (technical props such as
+      // variant="outline" or value="drc" are not UI text).
+      "i18next/no-literal-string": [
+        "error",
+        {
+          mode: "jsx-only",
+          "jsx-attributes": {
+            include: [
+              "^(title|alt|placeholder|label|aria-label|aria-description|aria-placeholder|aria-roledescription|aria-valuetext)$",
+            ],
+            exclude: [],
+          },
+        },
+      ],
     },
   },
 );

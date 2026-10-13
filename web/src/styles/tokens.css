@@ -1,0 +1,128 @@
+/* Sentra DCIM design tokens. Components use ONLY these semantic tokens (via Tailwind classes such as
+   bg-status-critical-bg), never raw colours. Rules: docs/design-system.md.
+   Contrast is enforced by src/styles/tokens.test.ts (WCAG AA: text >= 4.5:1, non-text >= 3:1) — keep every
+   colour here a plain oklch(L C H) without alpha so the test can evaluate it.
+   :root = light theme, .dark = dark theme (default; <html class="dark"> in index.html). */
+
+:root {
+  --radius: 0.625rem;
+
+  /* Surfaces & text */
+  --background: oklch(0.985 0.002 260);
+  --foreground: oklch(0.2 0.015 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.015 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.015 260);
+  --muted: oklch(0.955 0.005 260);
+  --muted-foreground: oklch(0.47 0.015 260);
+  --accent: oklch(0.94 0.008 260);
+  --accent-foreground: oklch(0.2 0.015 260);
+  --primary: oklch(0.27 0.02 260);
+  --primary-foreground: oklch(0.985 0.002 260);
+  --secondary: oklch(0.94 0.008 260);
+  --secondary-foreground: oklch(0.2 0.015 260);
+  --destructive: oklch(0.52 0.2 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.9 0.006 260);
+  --input: oklch(0.6 0.012 260);
+  --ring: oklch(0.52 0.16 255);
+
+  /* Link & info: the ONLY place blue is used (never for DCIM status) */
+  --link: oklch(0.48 0.17 255);
+  --info: oklch(0.48 0.17 255);
+  --info-bg: oklch(0.95 0.03 255);
+  --info-fg: oklch(0.4 0.15 255);
+
+  /* DCIM status: normal=green, warning=amber, critical=red, offline=gray, maintenance=purple.
+     solid = dot/icon, fg = badge text, bg = badge fill, border = badge outline. */
+  --status-normal-solid: oklch(0.55 0.15 150);
+  --status-normal-fg: oklch(0.38 0.1 150);
+  --status-normal-bg: oklch(0.95 0.045 150);
+  --status-normal-border: oklch(0.56 0.14 150);
+  --status-warning-solid: oklch(0.6 0.14 65);
+  --status-warning-fg: oklch(0.42 0.1 60);
+  --status-warning-bg: oklch(0.96 0.05 85);
+  --status-warning-border: oklch(0.6 0.13 65);
+  --status-critical-solid: oklch(0.55 0.21 25);
+  --status-critical-fg: oklch(0.42 0.16 25);
+  --status-critical-bg: oklch(0.95 0.03 25);
+  --status-critical-border: oklch(0.56 0.19 25);
+  --status-offline-solid: oklch(0.55 0.01 260);
+  --status-offline-fg: oklch(0.38 0.01 260);
+  --status-offline-bg: oklch(0.95 0.004 260);
+  --status-offline-border: oklch(0.57 0.01 260);
+  --status-maintenance-solid: oklch(0.52 0.19 300);
+  --status-maintenance-fg: oklch(0.4 0.15 300);
+  --status-maintenance-bg: oklch(0.95 0.03 300);
+  --status-maintenance-border: oklch(0.55 0.17 300);
+
+  /* Menu status: available / coming soon (info) / not connected */
+  --menu-available-fg: oklch(0.38 0.1 150);
+  --menu-available-bg: oklch(0.95 0.045 150);
+  --menu-available-border: oklch(0.56 0.14 150);
+  --menu-coming-soon-fg: oklch(0.4 0.15 255);
+  --menu-coming-soon-bg: oklch(0.95 0.03 255);
+  --menu-coming-soon-border: oklch(0.55 0.15 255);
+  --menu-not-connected-fg: oklch(0.38 0.01 260);
+  --menu-not-connected-bg: oklch(0.95 0.004 260);
+  --menu-not-connected-border: oklch(0.57 0.01 260);
+}
+
+.dark {
+  --background: oklch(0.16 0.012 260);
+  --foreground: oklch(0.96 0.004 260);
+  --card: oklch(0.2 0.014 260);
+  --card-foreground: oklch(0.96 0.004 260);
+  --popover: oklch(0.21 0.014 260);
+  --popover-foreground: oklch(0.96 0.004 260);
+  --muted: oklch(0.25 0.014 260);
+  --muted-foreground: oklch(0.74 0.012 260);
+  --accent: oklch(0.27 0.016 260);
+  --accent-foreground: oklch(0.96 0.004 260);
+  --primary: oklch(0.92 0.006 260);
+  --primary-foreground: oklch(0.2 0.015 260);
+  --secondary: oklch(0.27 0.016 260);
+  --secondary-foreground: oklch(0.96 0.004 260);
+  --destructive: oklch(0.53 0.2 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.3 0.014 260);
+  --input: oklch(0.55 0.014 260);
+  --ring: oklch(0.72 0.14 255);
+
+  --link: oklch(0.76 0.13 255);
+  --info: oklch(0.76 0.13 255);
+  --info-bg: oklch(0.28 0.06 255);
+  --info-fg: oklch(0.88 0.07 255);
+
+  --status-normal-solid: oklch(0.72 0.17 150);
+  --status-normal-fg: oklch(0.88 0.12 150);
+  --status-normal-bg: oklch(0.28 0.06 150);
+  --status-normal-border: oklch(0.62 0.15 150);
+  --status-warning-solid: oklch(0.8 0.16 75);
+  --status-warning-fg: oklch(0.9 0.12 85);
+  --status-warning-bg: oklch(0.3 0.06 75);
+  --status-warning-border: oklch(0.7 0.14 75);
+  --status-critical-solid: oklch(0.68 0.2 25);
+  --status-critical-fg: oklch(0.88 0.07 25);
+  --status-critical-bg: oklch(0.29 0.08 25);
+  --status-critical-border: oklch(0.64 0.18 25);
+  --status-offline-solid: oklch(0.66 0.01 260);
+  --status-offline-fg: oklch(0.86 0.008 260);
+  --status-offline-bg: oklch(0.27 0.01 260);
+  --status-offline-border: oklch(0.6 0.01 260);
+  --status-maintenance-solid: oklch(0.71 0.16 300);
+  --status-maintenance-fg: oklch(0.88 0.07 300);
+  --status-maintenance-bg: oklch(0.29 0.07 300);
+  --status-maintenance-border: oklch(0.64 0.15 300);
+
+  --menu-available-fg: oklch(0.88 0.12 150);
+  --menu-available-bg: oklch(0.28 0.06 150);
+  --menu-available-border: oklch(0.62 0.15 150);
+  --menu-coming-soon-fg: oklch(0.88 0.07 255);
+  --menu-coming-soon-bg: oklch(0.28 0.06 255);
+  --menu-coming-soon-border: oklch(0.66 0.12 255);
+  --menu-not-connected-fg: oklch(0.86 0.008 260);
+  --menu-not-connected-bg: oklch(0.27 0.01 260);
+  --menu-not-connected-border: oklch(0.6 0.01 260);
+}

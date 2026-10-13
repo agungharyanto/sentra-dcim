@@ -145,8 +145,16 @@ jobs:
           make test-api
       - name: UI edge test (basic_auth, SPA, headers, bootstrap)
         run: BASE_URL=https://localhost ./test/api/ui.sh
-      - name: Browser smoke test (Playwright)
+      - name: Browser tests (Playwright + axe, design system screenshots)
         run: BASE_URL=https://localhost ./test/e2e/run.sh
+      - name: Upload design system screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: design-system-screenshots
+          path: test/e2e/artifacts/
+          if-no-files-found: warn
+          retention-days: 30
       - name: Container logs on failure
         if: failure()
         run: docker compose logs --no-color

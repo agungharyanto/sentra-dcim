@@ -14,5 +14,11 @@
       "id": "ID",
       "en": "EN"
     }
+  },
+  "actions": {
+    "close": "Tutup",
+    "cancel": "Batal",
+    "confirm": "Konfirmasi",
+    "save": "Simpan"
   }
 }
