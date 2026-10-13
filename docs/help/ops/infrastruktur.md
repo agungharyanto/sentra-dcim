@@ -19,7 +19,7 @@ Menjelaskan komponen container Sentra DCIM dan cara menerapkan hardening server 
 | `redis` | redis:8.10.2-alpine | `127.0.0.1:6379` | Wajib password, AOF aktif, user `redis` (999) |
 | `app` | sentra-app (distroless) | — (internal) | Backend Go, user `nonroot` (65532) |
 | `caddy` | sentra-caddy:`<versi>` (turunan caddy:2.11.7-alpine + UI web statis dari `web/`) | `0.0.0.0:80`, `0.0.0.0:443` (publik), `127.0.0.1:8080` (internal) | Reverse proxy, TLS Let's Encrypt, security headers, UI web di `/` (basic_auth sementara, [admin/web-basic-auth.md](../admin/web-basic-auth.md)), user 65532 — lihat [admin/domain-https.md](../admin/domain-https.md) |
-| `web` | sentra-web:`<versi>` | — | **Hanya build** (profil `build`, tidak pernah dijalankan): artefak UI yang disalin ke image caddy |
+| `web` | sentra-web:`<versi>` | — | **Hanya build** (`scale: 0`, tidak pernah dijalankan): artefak UI yang disalin ke image caddy |
 
 Semua container: `read_only`, `no-new-privileges`, `cap_drop: ALL`, batas CPU/memori/PID, `restart: unless-stopped`,
 healthcheck, rotasi log 10 MB × 5. Data disimpan di named volume `db_data`, `redis_data`, `caddy_data`, `caddy_config`.

@@ -121,13 +121,14 @@ services:
       resources:
         limits: { cpus: "1.0", memory: 512m, pids: 256 }
 
-  # Build-only service: the static web UI (web/Dockerfile, target dist) baked into the caddy image. Never started.
+  # Build-only service: the static web UI (web/Dockerfile, target dist) baked into the caddy image. scale 0 keeps it
+  # from ever starting (a profile would hide it from caddy's additional_contexts on some compose versions).
   web:
     build:
       context: web
       target: dist
     image: sentra-web:${VERSION:-dev}
-    profiles: [build]
+    scale: 0
 
   caddy:
     <<: *hardening
