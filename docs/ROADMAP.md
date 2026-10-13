@@ -9,8 +9,8 @@ Sprint = 1 minggu.
 | Versi | Judul | Ruang lingkup | Status |
 |---|---|---|---|
 | v0.1 | Foundation | Scaffold repo, infra Docker, hardening server, backend skeleton (health/ready/version), Ops & DR (backup/restore/rollback/bootstrap), CI | Selesai (lihat docs/releases/v0.1.9.md) |
-| v0.2 | UI Shell & Design System | Shell UI, design system, kerangka Pusat Bantuan; status menu *Available / Coming Soon / Not Connected*; warna status *Normal / Warning / Critical / Offline / Maintenance*; keputusan framework frontend | Rencana |
-| v0.3 | Auth, RBAC & Audit Log | Login, sesi, RBAC (Admin, NOC, Security, Viewer, dll), audit log | Rencana |
+| v0.2 | UI Shell & Design System | Shell UI, design system, kerangka Pusat Bantuan; status menu *Available / Coming Soon / Not Connected*; warna status *Normal / Warning / Critical / Offline / Maintenance*; keputusan framework frontend; **i18n wajib sejak awal** (lihat rincian) | Rencana |
+| v0.3 | Auth, RBAC & Audit Log | Login, sesi, RBAC (Admin, NOC, Security, Viewer, dll), audit log; detail `/api/v1/version` hanya role Admin; tambahan v0.3.5 Settings – Regional, v0.3.6 Settings – Allowed IP | Rencana |
 | v0.4 | Facility, Tenant & Asset | Hierarki Site > Gedung > Lantai > Ruang > Rack, tenant, aset | Rencana |
 | v0.5 | Dashboard & Alarm Engine | Dashboard, alarm (aktif / diakui / eskalasi / selesai), notifikasi | Rencana |
 | v0.6 | Telemetry Ingestion | Adapter + simulator, time-series (TimescaleDB), deteksi offline vs stale | Rencana |
@@ -34,5 +34,24 @@ Sprint = 1 minggu.
 | v0.1.5 | CI Redis Auth (hotfix) | Perbaikan CI pertama di GitHub | Selesai |
 | v0.1.6 | Domain & HTTPS (tambahan scope) | `sentra.bajastu.id`, Let's Encrypt, ufw 80/443, redirect, HSTS & security headers, allowlist endpoint publik | Selesai |
 | v0.1.7 | Caddy Empty Env Fix (hotfix) | Perbaikan CI v0.1.6 (DOMAIN/ACME_EMAIL kosong) | Selesai |
-| v0.1.8 | (cadangan) | — | Kosong |
+| v0.1.8 | Timezone & Version Fix | Zona tampilan `DISPLAY_TIMEZONE` (default Asia/Jakarta, DB tetap UTC), timer backup 02:00 Asia/Jakarta; `/api/v1/version` == `git describe` (`make up` selalu rebuild + `version-check`, test di full regression); `/version` publik hanya `{version}`, detail via listener internal. Termasuk pekerjaan migrasi server Oracle (akses darurat, bootstrap nyata — D-031) | Selesai |
 | v0.1.9 | Full Regression & DoD | Semua test, uji restore, uji rollback, uji firewall, release notes, GitHub Release | Selesai (push & GitHub Release menunggu ISS-001) |
+
+## Rincian v0.2 — wajib i18n sejak awal
+
+Ditambahkan 2026-10-13 (D-035). Berlaku untuk seluruh UI mulai v0.2, bukan fitur terpisah:
+
+- Bahasa **Indonesia (default)** dan **English**; struktur katalog terjemahan siap ditambah bahasa lain.
+- **Tidak ada teks UI hardcode** — semua label, pesan, error, email/notifikasi lewat kunci terjemahan; lint/CI
+  menolak string literal di komponen UI.
+- Pesan error API memakai `code` stabil (sudah ada di `ErrorBody`) yang diterjemahkan di UI.
+- **Locale & timezone default dibaca dari setting server** (sementara `.env`: `DISPLAY_TIMEZONE`; mulai v0.3.5 dari
+  Settings – Regional). Format tanggal/jam/angka memakai locale aktif; data tetap UTC.
+- Pusat Bantuan tersedia dalam ID (wajib) dan EN.
+
+## Rincian v0.3 — slot tambahan
+
+| Versi | Judul | Isi | Status |
+|---|---|---|---|
+| v0.3.5 | Settings – Regional | Zona waktu, format jam 12/24, format tanggal, bahasa sistem (default server) + preferensi per-user (override). API `/api/v1/settings/regional` (baca: semua user login; ubah sistem: Admin) dan `/api/v1/me/preferences`; audit log; Pusat Bantuan `docs/help/settings/regional.md`. Menggantikan `DISPLAY_TIMEZONE` di `.env` sebagai sumber utama (`.env` tetap jadi nilai awal) | Rencana |
+| v0.3.6 | Settings – Allowed IP | Allowlist IP/CIDR untuk **SSH** dan **panel web**. CRUD via API `/api/v1/settings/allowed-ips` (role Admin) + audit log. Penerapan ke ufw oleh **agent host systemd** terpisah (bukan container app, bukan user aplikasi; D-037). Proteksi lockout: IP admin yang sedang aktif selalu diizinkan, perubahan diterapkan dengan **auto-rollback 2 menit** kecuali dikonfirmasi dari sesi baru. **Alamat MAC tidak dipakai** (D-036). Menggantikan `SSH_ALLOW_FROM`/`ADMIN_IPS` manual (D-007, D-030). Pusat Bantuan `docs/help/settings/allowed-ip.md` | Rencana |

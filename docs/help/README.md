@@ -36,6 +36,7 @@ Apa yang diselesaikan fitur ini dan untuk siapa.
 |---|---|---|---|
 | Ops | Infrastruktur & hardening server | [ops/infrastruktur.md](ops/infrastruktur.md) | v0.1.2 |
 | Ops | Backup, restore & rollback | [ops/backup-restore.md](ops/backup-restore.md) | v0.1.4 |
+| Ops | Akses darurat server (SSH hilang) | [ops/akses-darurat.md](ops/akses-darurat.md) | v0.1.8 |
 | Admin | Domain & HTTPS | [admin/domain-https.md](admin/domain-https.md) | v0.1.6 |
 | API | Endpoint sistem (health, ready, version) | [api/system.md](api/system.md) | v0.1.3 |
 

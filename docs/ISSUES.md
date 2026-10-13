@@ -16,6 +16,7 @@ Format: ID, judul, prioritas (P1 kritis – P4 rendah), versi ditemukan, versi d
 
 | ID | Judul | Prioritas | Ditemukan | Diperbaiki | Catatan |
 |---|---|---|---|---|---|
+| ISS-022 | `/api/v1/version` bisa berbeda dari `git describe` HEAD: (a) `VERSION ?=` di Makefile tertimpa env `VERSION` (mis. setelah `. /etc/os-release` → `24.04.5 LTS (Noble Numbat)`); (b) setelah commit/tag container tidak di-rebuild | P2 | v0.1.7 | v0.1.8 | `VERSION :=`, `make up` = `build` + `up` + `version-check`; `release.sh` redeploy setelah tag; cek di full regression (internal, public, tag image) |
 | ISS-003 | `bootstrap-new-server.sh` belum pernah dijalankan pada server Ubuntu 24.04 benar-benar kosong | P2 | v0.1.4 | v0.1.8 | Dijalankan nyata di VM Oracle baru (2 m 19 d): 4 container healthy, smoke 22/22, full regression baseline 69/70 (gagal = ISS-018). Temuan: ISS-017, ISS-018, ISS-020, ISS-021 |
 | ISS-017 | Firewall host tidak efektif di Oracle: iptables bawaan image (`REJECT` di INPUT) dievaluasi sebelum chain ufw, jadi `ufw allow` selain 22 tidak berlaku | P2 | v0.1.8 | v0.1.8 | `ufw.sh` menghapus aturan itu (runtime + `/etc/iptables/rules.v4`, salinan `.sentra-orig`) |
 | ISS-018 | `rpcbind` (port 111) bawaan image Oracle listen di semua interface | P3 | v0.1.8 | v0.1.8 | Diblokir ufw, tetapi kini dimatikan & di-mask oleh `ops/harden/services.sh` bila tidak ada NFS |

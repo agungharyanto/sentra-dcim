@@ -1,6 +1,10 @@
 # Domain & HTTPS
 
-**Modul:** admin · **Tersedia sejak:** v0.1.6 · **Status:** Available (khusus administrator server)
+**Modul:** admin · **Tersedia sejak:** v0.1.6 · **Diperbarui:** v0.1.8 · **Status:** Available (khusus administrator server)
+
+> **Status saat ini (2026-10-13):** server pindah ke Oracle Cloud dan DNS `sentra.bajastu.id` belum diarahkan ke IP
+> baru, jadi server berjalan dalam **mode lokal** (`DOMAIN=localhost`, sertifikat dari CA internal Caddy, 80/443
+> hanya di loopback dan tertutup di ufw). Ikuti "Menyalakan HTTPS" setelah DNS dipindah (ISS-015).
 
 ## Tujuan
 Sentra DCIM diakses dari internet lewat **https://sentra.bajastu.id**. Caddy mengurus sertifikat TLS Let's Encrypt
@@ -10,7 +14,7 @@ endpoint yang boleh diakses publik.
 ## Role yang dibutuhkan
 | Aksi | Role |
 |---|---|
-| Mengakses `/api/v1/health` dan `/api/v1/version` lewat domain | Publik (tanpa login) |
+| Mengakses `/api/v1/health` dan `/api/v1/version` (hanya `{version}`) lewat domain | Publik (tanpa login) |
 | Mengubah domain, email ACME, atau port publik | Administrator server (`.env`, `sudo` untuk ufw) |
 | Akses API lengkap (mis. `/api/v1/ready`) | Administrator di server, lewat listener internal `http://127.0.0.1:8080` |
 
@@ -31,8 +35,10 @@ Nilai di `.env` (tidak di-commit; contoh ada di `.env.example`):
 
 ### Menyalakan HTTPS (atau mengganti domain)
 1. Pastikan record DNS A `DOMAIN` menunjuk ke IP publik server: `dig +short sentra.bajastu.id`.
-2. Isi `DOMAIN` dan `ACME_EMAIL` di `.env`.
-3. Buka firewall: `make harden` (atau `sudo ops/harden/ufw.sh`), lalu periksa dengan `sudo ufw status`: 80/tcp dan 443/tcp harus `ALLOW`.
+2. Isi `DOMAIN` dan `ACME_EMAIL` di `.env`; set `CADDY_PUBLIC_HTTP_BIND=0.0.0.0:80`,
+   `CADDY_PUBLIC_HTTPS_BIND=0.0.0.0:443` dan `UFW_OPEN_HTTP=1` (mode lokal memakai `127.0.0.1` dan `0`).
+3. Buka firewall: di **Oracle Cloud** buka ingress TCP 80 & 443 pada Security List / NSG VCN lebih dulu, lalu
+   `make harden` (atau `sudo ops/harden/ufw.sh`) dan periksa `sudo ufw status`: 80/tcp dan 443/tcp harus `ALLOW`.
 4. Terapkan: `make up`.
 5. Pantau penerbitan: `make logs SERVICE=caddy` → cari `certificate obtained successfully`.
 6. Uji: `curl -I https://sentra.bajastu.id/api/v1/health` → `HTTP/2 200`. Uji lengkap: `test/api/public.sh`.

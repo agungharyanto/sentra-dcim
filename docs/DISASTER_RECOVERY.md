@@ -7,7 +7,7 @@ Prosedur ini diuji pada setiap penutup sprint (`.9`); hasil uji terakhir ada di 
 
 | Parameter | Target (Pending/Default, D-009/D-010) |
 |---|---|
-| RPO (data hilang maksimum) | 24 jam — backup otomatis harian 02:00 WITA (`sentra-backup.timer`) |
+| RPO (data hilang maksimum) | 24 jam — backup otomatis harian 02:00 Asia/Jakarta / WIB (`sentra-backup.timer`) |
 | RTO (waktu pulih maksimum) | 2 jam ke server baru |
 | Lokasi backup | `/var/backups/sentra` (lokal, mode 0700). Offsite = **Pending** (hook `BACKUP_OFFSITE_CMD`) |
 | Retensi | 14 hari (`BACKUP_RETENTION_DAYS`) |
