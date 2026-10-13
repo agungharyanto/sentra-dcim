@@ -103,7 +103,7 @@
 		max_size 1MB
 	}
 
-	# Until Auth (v0.3) only these endpoints are public; other API paths are rejected at the proxy.
+	# Only these endpoints are public (no basic_auth, no session); other API paths are rejected at the proxy.
 	@public {
 		method GET HEAD
 		path /api/v1/health /api/v1/version
@@ -113,12 +113,24 @@
 		import app_proxy app:8080
 	}
 
-	# UI bootstrap document and Help Center API behind the temporary basic_auth (ISS-026).
+	# UI bootstrap document and Help Center API behind the temporary basic_auth (ISS-026); the app additionally
+	# requires a session (v0.3.1, default-deny).
 	@bootstrap {
 		method GET HEAD
 		path /api/v1/ui/bootstrap /api/v1/help/*
 	}
 	handle @bootstrap {
+		import web_auth
+		import app_proxy app:8080
+	}
+
+	# Session auth API (v0.3.1). Still behind basic_auth until it is removed in v0.3.4 (ISS-026): the app ignores the
+	# Basic header and uses only its own __Host- cookies; its 401s are not counted by fail2ban (X-Request-Id).
+	@auth {
+		method GET HEAD POST DELETE
+		path /api/v1/auth/*
+	}
+	handle @auth {
 		import web_auth
 		import app_proxy app:8080
 	}

@@ -8,13 +8,14 @@ order: 20
 
 ## Masuk
 
-Saat membuka Sentra DCIM, browser meminta **nama pengguna** dan **kata sandi**. Mintalah kredensial ini kepada
-administrator Sentra DCIM. Browser mengingatnya sampai jendela ditutup.
+Masuk dengan **akun pribadi** Anda (nama pengguna atau NIP dan kata sandi) di halaman **Masuk**. Akun dibuat oleh
+administrator; kata sandi pertama wajib diganti. Langkah lengkap: [Masuk dan keluar](../auth/login.md).
 
-> Cara masuk ini **sementara** sampai fitur login dan peran pengguna (Auth) hadir di v0.3. Halaman ini akan
-> direvisi saat itu (catatan internal ISS-026).
+> Sampai v0.3.4 browser juga meminta **kredensial akses situs** sementara sebelum halaman Masuk tampil (catatan
+> internal ISS-026). Mintalah kepada administrator.
 
-Setelah masuk, Anda langsung dibawa ke [Dasbor](../dashboard/index.md).
+Setelah masuk, Anda dibawa ke [Dasbor](../dashboard/index.md). Nama Anda tampil di kanan atas; dari situ Anda bisa
+membuka [Sesi saya](../auth/sesi.md), [mengganti kata sandi](../auth/ganti-password.md), atau **Keluar**.
 
 ## Navigasi
 

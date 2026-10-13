@@ -42,6 +42,10 @@ order: 30                # urutan di daftar (kecil = atas)
 |---|---|---|---|---|
 | `help` | Pusat Bantuan | Help Center | user | `help` |
 | `getting-started` | Memulai | Getting started | user | — |
+| `auth` | Akun & masuk | Account & sign-in | user | — |
+| `auth/login` | Masuk dan keluar | Signing in and out | user | — |
+| `auth/ganti-password` | Ganti kata sandi | Change password | user | — |
+| `auth/sesi` | Sesi saya | My sessions | user | — |
 | `dashboard` | Dasbor | Dashboard | user | `dashboard` |
 | `api` | Dokumentasi API | API documentation | admin | — |
 

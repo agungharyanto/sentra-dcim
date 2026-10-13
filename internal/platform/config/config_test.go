@@ -26,6 +26,10 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.DisplayTZ.String() != "Asia/Jakarta" {
 		t.Fatalf("display tz = %s", cfg.DisplayTZ)
 	}
+	if cfg.Auth.SessionIdle != 30*time.Minute || cfg.Auth.SessionAbsolute != 12*time.Hour || cfg.Auth.LockThreshold != 5 ||
+		cfg.Auth.LockDuration != 15*time.Minute || len(cfg.Auth.AllowedOrigins) != 1 {
+		t.Fatalf("auth defaults: %+v", cfg.Auth)
+	}
 	if cfg.DefaultLocale != "id" {
 		t.Fatalf("default locale = %s", cfg.DefaultLocale)
 	}
@@ -87,6 +91,9 @@ func TestLoadInvalidValues(t *testing.T) {
 		"APP_RATE_LIMIT_RPS":     "0",
 		"APP_TRUSTED_PROXIES":    "not-a-cidr",
 		"DEFAULT_LOCALE":         "fr",
+		"APP_ALLOWED_ORIGINS":    "javascript:alert(1)",
+		"AUTH_SESSION_IDLE":      "-5m",
+		"AUTH_ARGON2_MEMORY_KIB": "16",
 	}
 	for k, v := range cases {
 		t.Run(k, func(t *testing.T) {

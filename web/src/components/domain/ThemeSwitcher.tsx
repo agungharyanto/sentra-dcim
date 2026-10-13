@@ -8,8 +8,11 @@ import { useTheme } from "./theme-context";
 
 const icons = { dark: Moon, light: Sun, system: Monitor } as const;
 
+/** Text labels from this breakpoint on; below it icons only (the label stays for screen readers and the tooltip). */
+const labelClass = { sm: "sr-only sm:not-sr-only", "2xl": "sr-only 2xl:not-sr-only" } as const;
+
 /** Dark / light / follow-system toggle; the choice is stored in this browser. */
-export function ThemeSwitcher() {
+export function ThemeSwitcher({ labelsFrom = "sm" }: { labelsFrom?: keyof typeof labelClass }) {
   const { t } = useTranslation("ds");
   const { preference, setPreference } = useTheme();
 
@@ -30,7 +33,7 @@ export function ThemeSwitcher() {
             )}
           >
             <Icon className="size-4" aria-hidden />
-            <span className="sr-only sm:not-sr-only">{t(`theme.${pref}`)}</span>
+            <span className={labelClass[labelsFrom]}>{t(`theme.${pref}`)}</span>
           </button>
         );
       })}

@@ -1,25 +1,35 @@
 openapi: 3.1.0
 info:
   title: Sentra DCIM API
-  version: 0.2.4
+  version: 0.3.1
   summary: REST API Sentra DCIM — Diskominfo Provinsi Bali
   description: |
     Semua endpoint berada di bawah `/api/v1`. Waktu dikirim dalam UTC (RFC 3339);
     zona tampilan diatur server lewat `DISPLAY_TIMEZONE` (default `Asia/Jakarta`, WIB, UTC+7).
 
     Setiap operasi memiliki ekstensi **`x-sentra-access`** yang menyatakan siapa yang dapat memanggilnya lewat domain
-    publik: `public` (tanpa login), `login` (perlu masuk; sementara basic_auth sampai Auth v0.3), `internal` (hanya
-    listener internal server; ditolak `403` di edge). Viewer API di Pusat Bantuan menampilkan label dari nilai ini.
+    publik: `public` (tanpa login), `login` (perlu sesi aplikasi; lewat domain publik juga basic_auth sementara sampai
+    v0.3.4), `internal` (hanya listener internal server; ditolak `403` di edge). Viewer API di Pusat Bantuan
+    menampilkan label dari nilai ini.
+
+    **Autentikasi (sejak v0.3.1, ADR-003):** sesi server-side. `POST /api/v1/auth/login` memasang cookie
+    `__Host-sentra_session` (HttpOnly, Secure, SameSite=Strict) dan `__Host-sentra_csrf`. Semua endpoint selain
+    `health`, `version`, `auth/login` (dan `ready` di listener internal) **default-deny**: tanpa sesi → `401
+    unauthenticated`. Metode yang mengubah data (POST/PUT/PATCH/DELETE) wajib membawa header `Origin` dari domain
+    aplikasi dan header `X-Sentra-CSRF` yang sama dengan cookie `__Host-sentra_csrf` (sebelum login: nilai apa pun
+    yang tidak kosong) → bila tidak, `403 csrf_failed`. Selama akun wajib ganti kata sandi, semua endpoint kecuali
+    `auth/me`, `auth/password`, `auth/logout` menjawab `403 password_change_required`.
 
     Setiap respons menyertakan header `X-Request-Id` untuk penelusuran. Error memakai format `ErrorBody`.
     Rate limit per IP klien (default 20 req/detik, burst 40) — respons `429` menyertakan `Retry-After`.
     Endpoint `GET` juga melayani `HEAD`.
 
     **Akses publik:** lewat `https://sentra.bajastu.id` hanya `/api/v1/health` dan `/api/v1/version` yang
-    diteruskan tanpa autentikasi. `/api/v1/ui/bootstrap`, `/api/v1/help/*` (dan UI web di `/`) dilindungi **basic_auth sementara** di
-    proxy sampai Auth v0.3 (ISS-026); permintaan API lain ditolak proxy dengan `403`. API lengkap tersedia di listener internal server
-    (`127.0.0.1:8080`, hanya dari server itu sendiri). Detail operasional (mis. commit & waktu server pada
-    `/api/v1/version`) hanya dikirim oleh listener internal; mulai v0.3 juga mensyaratkan role Admin.
+    diteruskan tanpa autentikasi. `/api/v1/auth/*`, `/api/v1/ui/bootstrap`, `/api/v1/help/*` (dan UI web di `/`)
+    juga dilindungi **basic_auth sementara** di proxy sampai v0.3.4 (ISS-026); permintaan API lain ditolak proxy
+    dengan `403`. Listener internal server (`127.0.0.1:8080`, hanya dari server itu sendiri) menerapkan aturan sesi
+    yang sama. Detail operasional (mis. commit & waktu server pada `/api/v1/version`) hanya dikirim oleh listener
+    internal; mulai v0.3.2 juga mensyaratkan role Admin.
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
@@ -35,6 +45,8 @@ tags:
     description: Data pendukung UI web (bootstrap, registry menu)
   - name: help
     description: Pusat Bantuan — halaman Markdown (ID/EN) dan spesifikasi OpenAPI untuk viewer read-only
+  - name: auth
+    description: Masuk/keluar, sesi sendiri, ganti kata sandi (sesi server-side, ADR-003)
 paths:
   /api/v1/health:
     get:
@@ -133,10 +145,9 @@ paths:
 
         **Breaking sejak v0.2.3:** field `menu_groups` dan `menus[].group` baru; path Dasbor `/` → `/dashboard`.
 
-        Lewat domain publik endpoint ini dilindungi basic_auth sementara (sampai Auth v0.3, ISS-026); listener
-        internal `127.0.0.1:8080` tanpa auth.
+        Perlu sesi (sejak v0.3.1); lewat domain publik juga basic_auth sementara (sampai v0.3.4, ISS-026).
       security:
-        - basicAuth: []
+        - sessionCookie: []
       responses:
         "200":
           description: Dokumen bootstrap UI
@@ -158,8 +169,8 @@ paths:
                 menus:
                   - { key: dashboard, path: /dashboard, icon: layout-dashboard, status: available, group: monitoring, order: 10 }
                   - { key: facility, path: /facility, icon: building-2, status: coming_soon, group: infrastructure, order: 10 }
-        "401":
-          description: Kredensial basic_auth tidak ada/salah (dari proxy, hanya lewat domain publik)
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
   /api/v1/help/index:
     get:
@@ -171,7 +182,7 @@ paths:
         Metadata semua halaman untuk satu bahasa, terurut `order` lalu `slug`, termasuk subjudul H2/H3 untuk
         pencarian di klien. Mulai v0.3 disaring menurut role pemanggil berdasarkan `audience` (ISS-032).
       security:
-        - basicAuth: []
+        - sessionCookie: []
       parameters:
         - $ref: "#/components/parameters/HelpLocale"
       responses:
@@ -184,8 +195,8 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/HelpIndex" }
         "400": { $ref: "#/components/responses/InvalidLocale" }
-        "401":
-          description: Kredensial basic_auth tidak ada/salah (dari proxy, hanya lewat domain publik)
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         "503": { $ref: "#/components/responses/HelpUnavailable" }
   /api/v1/help/pages/{slug}:
@@ -199,7 +210,7 @@ paths:
         halaman yang tervalidasi (whitelist), tidak pernah dipakai sebagai path file. Markdown tanpa front matter
         dan tanpa HTML mentah.
       security:
-        - basicAuth: []
+        - sessionCookie: []
       parameters:
         - name: slug
           in: path
@@ -216,8 +227,8 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/HelpPage" }
         "400": { $ref: "#/components/responses/InvalidLocale" }
-        "401":
-          description: Kredensial basic_auth tidak ada/salah (dari proxy, hanya lewat domain publik)
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404":
           description: Halaman tidak ada untuk slug/bahasa ini
           content:
@@ -232,17 +243,165 @@ paths:
       x-sentra-access: login
       summary: Spesifikasi OpenAPI ini dalam JSON (untuk viewer read-only)
       security:
-        - basicAuth: []
+        - sessionCookie: []
       responses:
         "200":
           description: Dokumen OpenAPI 3.1
           content:
             application/json:
               schema: { type: object, additionalProperties: true }
-        "401":
-          description: Kredensial basic_auth tidak ada/salah (dari proxy, hanya lewat domain publik)
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         "503": { $ref: "#/components/responses/HelpUnavailable" }
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      x-sentra-access: login
+      summary: Masuk dengan nama pengguna (atau NIP) dan kata sandi
+      description: |
+        Tidak memerlukan sesi (lewat domain publik masih di balik basic_auth sementara sampai v0.3.4). Wajib header
+        `Origin` dari domain aplikasi dan `X-Sentra-CSRF` (nilai apa pun yang tidak kosong).
+
+        Berhasil → sesi baru (sesi lama di browser ini dicabut, *rotation*), cookie `__Host-sentra_session`
+        (HttpOnly) dan `__Host-sentra_csrf` (dibaca UI untuk header `X-Sentra-CSRF`). Kedua cookie berlaku selama
+        browser terbuka; server mengakhiri sesi setelah 30 menit tanpa aktivitas atau 12 jam sejak masuk.
+
+        Gagal → selalu `401 invalid_credentials` yang sama untuk pengguna tidak dikenal, kata sandi salah, akun
+        terkunci (5 kali salah → 15 menit) atau nonaktif. Percobaan dibatasi per IP dan per nama pengguna → `429`
+        dengan `Retry-After`. Setiap percobaan dicatat di audit log (tanpa kata sandi).
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Berhasil masuk
+          headers:
+            Set-Cookie:
+              description: "`__Host-sentra_session=…; Path=/; Secure; HttpOnly; SameSite=Strict` dan `__Host-sentra_csrf=…; Path=/; Secure; SameSite=Strict`"
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthMe" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401":
+          description: Nama pengguna atau kata sandi salah (generik; juga untuk akun terkunci/nonaktif) — `invalid_credentials`
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorBody" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/AuthUnavailable" }
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      x-sentra-access: login
+      summary: Keluar — mencabut sesi ini dan menghapus cookie
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      responses:
+        "204": { description: Sesi dicabut }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/auth/me:
+    get:
+      tags: [auth]
+      operationId: getMe
+      x-sentra-access: login
+      summary: Pengguna yang sedang masuk dan sesi ini
+      description: Tetap dapat dipanggil selama akun wajib ganti kata sandi (`user.must_change_password`).
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Pengguna dan sesi aktif
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthMe" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+  /api/v1/auth/password:
+    post:
+      tags: [auth]
+      operationId: changePassword
+      x-sentra-access: login
+      summary: Ganti kata sandi sendiri
+      description: |
+        Kata sandi baru 12–128 karakter (tanpa aturan komposisi), berbeda dari yang sekarang. Berhasil → semua sesi
+        lain akun ini dicabut, sesi ini tetap aktif, dan `must_change_password` dihapus.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordChangeRequest" }
+      responses:
+        "204": { description: "Kata sandi diganti; sesi lain dicabut" }
+        "400":
+          description: Kata sandi saat ini salah (`invalid_current_password`) atau body tidak valid (`invalid_request`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorBody" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422":
+          description: Kata sandi baru tidak memenuhi ketentuan (`password_policy`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PasswordPolicyError" }
+  /api/v1/auth/sessions:
+    get:
+      tags: [auth]
+      operationId: listSessions
+      x-sentra-access: login
+      summary: Sesi aktif milik sendiri
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Daftar sesi aktif (terbaru dulu); `current` menandai sesi ini
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sessions]
+                properties:
+                  sessions:
+                    type: array
+                    items: { $ref: "#/components/schemas/SessionInfo" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/auth/sessions/{id}:
+    delete:
+      tags: [auth]
+      operationId: revokeSession
+      x-sentra-access: login
+      summary: Cabut salah satu sesi sendiri
+      description: Hanya sesi milik pengguna sendiri; ID sesi pengguna lain dijawab `404` (tidak membocorkan keberadaannya).
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: "#/components/parameters/CsrfHeader"
+      responses:
+        "204": { description: "Sesi dicabut (bila sesi ini, cookie juga dihapus)" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 components:
   parameters:
     HelpLocale:
@@ -251,16 +410,56 @@ components:
       required: false
       description: Bahasa halaman; default `DEFAULT_LOCALE` server
       schema: { type: string, enum: [id, en] }
+    CsrfHeader:
+      name: X-Sentra-CSRF
+      in: header
+      required: true
+      description: Token CSRF = nilai cookie `__Host-sentra_csrf` (sebelum login nilai apa pun yang tidak kosong)
+      schema: { type: string }
   securitySchemes:
-    basicAuth:
-      type: http
-      scheme: basic
-      description: Sementara, diterapkan di proxy Caddy sampai Auth v0.3 (ISS-026, D-043)
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-sentra_session
+      description: |
+        Sesi server-side (token acak 256-bit; server hanya menyimpan SHA-256-nya). Dipasang oleh `POST /api/v1/auth/login`.
+        Idle 30 menit, absolut 12 jam. Metode yang mengubah data juga butuh `Origin` + `X-Sentra-CSRF`.
+        Lewat domain publik proxy masih meminta basic_auth sementara di depan UI, `auth/*`, `ui/*`, `help/*`
+        sampai v0.3.4 (ISS-026, D-043); itu bukan bagian dari API aplikasi.
   headers:
     X-Request-Id:
       description: ID unik request untuk penelusuran log
       schema: { type: string }
   responses:
+    Unauthenticated:
+      description: |
+        Tanpa sesi yang valid (`unauthenticated`): cookie tidak ada, sesi kedaluwarsa (idle/absolut), dicabut, atau
+        akun dinonaktifkan. Lewat domain publik proxy juga dapat menjawab 401 bila basic_auth sementara salah.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+    Forbidden:
+      description: |
+        `csrf_failed` (Origin bukan domain aplikasi / header `X-Sentra-CSRF` tidak ada atau tidak cocok),
+        `password_change_required` (akun wajib ganti kata sandi dulu), atau `forbidden` (ditolak proxy).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+    NotFound:
+      description: Data tidak ditemukan (`not_found`)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+    InvalidRequest:
+      description: Body JSON tidak valid atau berisi field tak dikenal (`invalid_request`)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+    AuthUnavailable:
+      description: Layanan login sementara tidak tersedia, mis. Redis rate limiter mati — gagal tertutup (`auth_unavailable`)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
     InvalidLocale:
       description: Parameter `locale` tidak didukung (`invalid_locale`)
       content:
@@ -280,6 +479,58 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorBody" }
   schemas:
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 3, maxLength: 64, pattern: "^[A-Za-z0-9._-]{3,64}$", description: Nama pengguna atau NIP (tidak peka huruf besar/kecil) }
+        password: { type: string, format: password, minLength: 1 }
+    PasswordChangeRequest:
+      type: object
+      additionalProperties: false
+      required: [current_password, new_password]
+      properties:
+        current_password: { type: string, format: password }
+        new_password: { type: string, format: password, minLength: 12, maxLength: 128, description: "12–128 karakter Unicode, tanpa aturan komposisi" }
+    PasswordPolicyError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, min_length, max_length]
+          properties:
+            code: { type: string, enum: [password_policy] }
+            message: { type: string }
+            min_length: { type: integer, example: 12 }
+            max_length: { type: integer, example: 128 }
+    AuthUser:
+      type: object
+      required: [id, username, display_name, must_change_password]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string }
+        display_name: { type: string }
+        must_change_password: { type: boolean, description: "Bila true, hanya auth/me, auth/password, auth/logout yang dapat dipakai" }
+    SessionInfo:
+      type: object
+      required: [id, created_at, last_seen_at, expires_at, idle_expires_at, ip, user_agent, current]
+      properties:
+        id: { type: string, format: uuid }
+        created_at: { type: string, format: date-time }
+        last_seen_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time, description: Batas absolut (12 jam sejak masuk) }
+        idle_expires_at: { type: string, format: date-time, description: "Batas idle (30 menit sejak aktivitas terakhir, diperbarui paling sering 1×/menit)" }
+        ip: { type: [string, "null"], description: IP klien saat masuk }
+        user_agent: { type: string, maxLength: 512 }
+        current: { type: boolean, description: Sesi yang dipakai request ini }
+    AuthMe:
+      type: object
+      required: [user, session]
+      properties:
+        user: { $ref: "#/components/schemas/AuthUser" }
+        session: { $ref: "#/components/schemas/SessionInfo" }
     Health:
       type: object
       required: [status]
@@ -410,6 +661,12 @@ components:
           type: object
           required: [code, message]
           properties:
-            code: { type: string, example: not_found }
-            message: { type: string }
+            code:
+              type: string
+              example: not_found
+              description: |
+                Kode stabil (diterjemahkan UI lewat `errors:code.<code>`), antara lain `not_found`, `forbidden`,
+                `rate_limited`, `unauthenticated`, `invalid_credentials`, `csrf_failed`, `password_change_required`,
+                `password_policy`, `invalid_current_password`, `invalid_request`, `auth_unavailable`.
+            message: { type: string, description: Pesan teknis berbahasa Inggris; jangan ditampilkan apa adanya }
             request_id: { type: string }

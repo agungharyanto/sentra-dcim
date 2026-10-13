@@ -150,7 +150,22 @@ jobs:
           echo "SENTRA_WEB_PASS=$web_pass" >> "$GITHUB_ENV"
           make up
           make test-api
-      - name: UI edge test (basic_auth, SPA, headers, bootstrap)
+      - name: Throwaway app account (CLI create-admin + first password change via API)
+        run: |
+          gen() { openssl rand -hex 16; }
+          first="first-$(gen)" app_pass="app-$(gen)"
+          echo "::add-mask::$first"; echo "::add-mask::$app_pass"
+          printf '%s\n' "$first" | docker compose exec -T app /sentra user create-admin --username ci.e2e
+          jar="$(mktemp)"
+          c=(curl -fsS -k -u "ci:$SENTRA_WEB_PASS" -b "$jar" -c "$jar" -H 'Origin: https://localhost' -H 'Content-Type: application/json')
+          U=ci.e2e P="$first" jq -n '{username: env.U, password: env.P}' | "${c[@]}" -H 'X-Sentra-CSRF: login' --data-binary @- https://localhost/api/v1/auth/login >/dev/null
+          csrf="$(awk '$6=="__Host-sentra_csrf"{print $7}' "$jar")"
+          C="$first" N="$app_pass" jq -n '{current_password: env.C, new_password: env.N}' | "${c[@]}" -H "X-Sentra-CSRF: $csrf" --data-binary @- https://localhost/api/v1/auth/password
+          "${c[@]}" -X POST -H "X-Sentra-CSRF: $csrf" https://localhost/api/v1/auth/logout
+          rm -f "$jar"
+          echo "SENTRA_APP_USER=ci.e2e" >> "$GITHUB_ENV"
+          echo "SENTRA_APP_PASS=$app_pass" >> "$GITHUB_ENV"
+      - name: UI edge test (basic_auth, SPA, headers, login, bootstrap)
         run: BASE_URL=https://localhost ./test/api/ui.sh
       - name: Browser tests (Playwright + axe, UI screenshots)
         run: BASE_URL=https://localhost ./test/e2e/run.sh

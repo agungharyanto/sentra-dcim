@@ -31,9 +31,13 @@ ditambah, diubah versinya, atau dihapus.
 | github.com/redis/go-redis/v9 | 9.23.0 | BSD-2-Clause | Klien Redis |
 | github.com/golang-migrate/migrate/v4 | 4.20.1 | MIT | Migrasi skema (library, driver `pgx/v5`, source `iofs`) |
 | golang.org/x/time | 0.16.0 | BSD-3-Clause | Token bucket rate limiter |
+| golang.org/x/crypto | 0.58.0 | BSD-3-Clause | `argon2` (argon2id) untuk hash kata sandi (v0.3.1, ADR-003) |
+| golang.org/x/term | 0.47.0 | BSD-3-Clause | Prompt kata sandi tanpa echo di CLI `sentra user create-admin` (v0.3.1) |
+| github.com/google/uuid | 1.6.0 | BSD-3-Clause | Tipe UUID untuk `users`/`sessions` (sqlc override, v0.3.1) |
 | go.yaml.in/yaml/v3 | 3.0.5 | MIT / Apache-2.0 | Front matter Pusat Bantuan & konversi `api/openapi.yaml` → JSON (v0.2.4). Fork resmi yang dipelihara organisasi YAML (`gopkg.in/yaml.v3` tidak dipelihara lagi) |
 | golang.org/x/text (tidak langsung, via pgx) | 0.43.0 | BSD-3-Clause | Dinaikkan dari 0.38.0 karena GO-2026-5970 & GO-2026-6629 (ISS-033) |
-| Dependensi tidak langsung (pgpassfile, pgservicefile, puddle, xxhash, x/sys, x/sync 0.24.0, atomic) | lihat `go.sum` | MIT / BSD | Dipakai oleh pgx, go-redis, migrate |
+| golang.org/x/sys (tidak langsung, via x/term & x/crypto) | 0.49.0 | BSD-3-Clause | Dinaikkan dari 0.48.0 (syarat x/term 0.47.0, v0.3.1) |
+| Dependensi tidak langsung (pgpassfile, pgservicefile, puddle, xxhash, x/sync 0.24.0, atomic) | lihat `go.sum` | MIT / BSD | Dipakai oleh pgx, go-redis, migrate |
 
 ## Frontend (web/, v0.2.1 — D-042, ADR-001)
 

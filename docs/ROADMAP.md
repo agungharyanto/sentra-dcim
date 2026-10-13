@@ -11,7 +11,7 @@ Sprint = 1 minggu.
 |---|---|---|---|
 | v0.1 | Foundation | Scaffold repo, infra Docker, hardening server, backend skeleton (health/ready/version), Ops & DR (backup/restore/rollback/bootstrap), CI | Selesai (lihat docs/releases/v0.1.9.md) |
 | v0.2 | UI Shell & Design System | Shell UI, design system, kerangka Pusat Bantuan; status menu *Available / Coming Soon / Not Connected*; warna status *Normal / Warning / Critical / Offline / Maintenance*; keputusan framework frontend; **i18n wajib sejak awal** (lihat rincian) | Selesai (lihat docs/releases/v0.2.9.md) |
-| v0.3 | Auth, RBAC & Audit Log | Login, sesi, RBAC (Admin, NOC, Security, Viewer, dll), audit log; detail `/api/v1/version` hanya role Admin; tambahan v0.3.5 Settings – Regional, v0.3.6 Settings – Allowed IP | Rencana |
+| v0.3 | Auth, RBAC & Audit Log | Login & sesi, RBAC (Admin, NOC, Security, Teknisi, Viewer, Auditor), audit log hash chain, MFA Admin, cabut basic_auth; detail `/api/v1/version` hanya Admin; Settings – Regional (v0.3.5) & Allowed IP (v0.3.6) — rincian di bawah | Berjalan (v0.3.1 selesai) |
 | v0.4 | Facility, Tenant & Asset | Hierarki Site > Gedung > Lantai > Ruang > Rack, tenant, aset | Rencana |
 | v0.5 | Dashboard & Alarm Engine | Dashboard, alarm (aktif / diakui / eskalasi / selesai), notifikasi | Rencana |
 | v0.6 | Telemetry Ingestion | Adapter + simulator, time-series (TimescaleDB), deteksi offline vs stale | Rencana |
@@ -61,9 +61,16 @@ Ditambahkan 2026-10-13 (D-035). Berlaku untuk seluruh UI mulai v0.2, bukan fitur
   Settings – Regional). Format tanggal/jam/angka memakai locale aktif; data tetap UTC.
 - Pusat Bantuan tersedia dalam ID (wajib) dan EN.
 
-## Rincian v0.3 — slot tambahan
+## Rincian v0.3 Auth, RBAC & Audit Log
+
+Keputusan arsitektur: [ADR-003](decisions/ADR-003-auth-session-rbac-audit.md), D-046–D-052.
 
 | Versi | Judul | Isi | Status |
 |---|---|---|---|
+| v0.3.1 | Auth Core | Akun lokal (username/NIP), argon2id, sesi server-side opaque (cookie `__Host-sentra_session`, idle 30 menit, absolut 12 jam), lockout & rate limit login, CSRF, middleware default-deny `/api/v1/*`, ganti password (paksa) + revoke sesi, "Sesi saya", admin pertama via CLI, tabel `audit_events` inti (append-only), UI login; hygiene ISS-025/037/038 | Selesai (2026-10-14) |
+| v0.3.2 | RBAC & Pengguna | Permission di kode + role di DB; role sistem Admin, NOC, Security, Teknisi, Viewer, Auditor; menu **Pengguna & Role** (CRUD user, assign role, reset password, nonaktifkan); detail `/api/v1/version` hanya role Admin | Rencana |
+| v0.3.3 | Audit Log | Hash chain (tamper-evident), viewer audit (filter, detail), ekspor, retensi default 365 hari; role DB app terpisah dari owner migrasi; **ISS-029** (`/design-system` admin/dev), **ISS-032** (filter Pusat Bantuan per role) | Rencana |
+| v0.3.4 | MFA & Pengerasan | MFA TOTP **wajib untuk Admin**; nonce CSP per request (**ISS-030**); **cabut basic_auth** (**ISS-026**: `make fail2ban-web-remove`, logger `access_file`); jail fail2ban untuk login aplikasi | Rencana |
 | v0.3.5 | Settings – Regional | Zona waktu, format jam 12/24, format tanggal, bahasa sistem (default server) + preferensi per-user (override). API `/api/v1/settings/regional` (baca: semua user login; ubah sistem: Admin) dan `/api/v1/me/preferences`; audit log; Pusat Bantuan `docs/help/{id,en}/settings/regional.md`. Menggantikan `DISPLAY_TIMEZONE` di `.env` sebagai sumber utama (`.env` tetap jadi nilai awal) | Rencana |
 | v0.3.6 | Settings – Allowed IP | Allowlist IP/CIDR untuk **SSH** dan **panel web**. CRUD via API `/api/v1/settings/allowed-ips` (role Admin) + audit log. Penerapan ke ufw oleh **agent host systemd** terpisah (bukan container app, bukan user aplikasi; D-037). Proteksi lockout: IP admin yang sedang aktif selalu diizinkan, perubahan diterapkan dengan **auto-rollback 2 menit** kecuali dikonfirmasi dari sesi baru. **Alamat MAC tidak dipakai** (D-036). Menggantikan `SSH_ALLOW_FROM`/`ADMIN_IPS` manual (D-007, D-030). Pusat Bantuan `docs/help/{id,en}/settings/allowed-ip.md` | Rencana |
+| v0.3.9 | Penutup Sprint v0.3 | Full regression + DoD; keputusan kernel 6.17 (**ISS-036**) | Rencana |

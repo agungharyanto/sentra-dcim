@@ -18,8 +18,13 @@ permintaan dari browser.
 | Endpoint | Akses saat ini |
 |---|---|
 | `/api/v1/health`, `/api/v1/version` | Publik, tanpa masuk |
-| `/api/v1/ui/bootstrap`, `/api/v1/help/*` | Pengguna yang sudah masuk |
-| Endpoint lain | Belum dibuka untuk umum; akses integrasi menyusul bersama Auth (v0.3) |
+| `/api/v1/auth/login` | Tanpa sesi (halaman Masuk) |
+| `/api/v1/auth/*`, `/api/v1/ui/bootstrap`, `/api/v1/help/*` | Pengguna yang sudah masuk (cookie sesi) |
+| Endpoint lain | Belum dibuka untuk umum; token untuk integrasi mesin menyusul (v0.6) |
+
+Permintaan yang mengubah data (`POST`, `DELETE`, …) wajib membawa header `X-Sentra-CSRF` berisi nilai cookie
+`__Host-sentra_csrf` dan dikirim dari domain aplikasi; bila tidak, respons `403 csrf_failed`. Lihat
+[Masuk dan keluar](../auth/login.md).
 
 ## Konvensi
 

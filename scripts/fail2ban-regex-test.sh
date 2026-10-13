@@ -36,15 +36,15 @@ else
 fi
 
 echo "$out" | grep -E "^Lines:|fail2ban-regex [0-9]|^\|  \[[0-9]+\] \"ts\"" || true
-matched="$(echo "$out" | sed -n '/Matched line(s):/,/Missed line(s):/p' | grep -oE '"client_ip":\s*"[0-9.]+"' |
+matched="$(echo "$out" | sed -n '/Matched line(s):/,/^`-/p' | grep -oE '"client_ip":\s*"[0-9.]+"' |
   grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u | tr '\n' ' ')"
 dates="$(echo "$out" | sed -nE 's/^\|  \[([0-9]+)\] "ts".*/\1/p')"
-lines="$(echo "$out" | sed -nE 's/^Lines: .* ([0-9]+) matched, ([0-9]+) missed.*/\1 \2/p')"
+lines="$(echo "$out" | sed -nE 's/^Lines: .* ([0-9]+) ignored, ([0-9]+) matched, ([0-9]+) missed.*/\1 \2 \3/p')"
 echo "matched IPs: $matched"
-if [[ "$lines" == "3 6" && "$matched" == "203.0.113.10 203.0.113.11 203.0.113.12 " && "$dates" == "9" ]]; then
-  echo "fail2ban-regex: OK (3 matched, 6 missed, timestamp recognised on all 9 lines)"
+if [[ "$lines" == "1 4 6" && "$matched" == "203.0.113.10 203.0.113.11 203.0.113.12 203.0.113.13 " && "$dates" == "11" ]]; then
+  echo "fail2ban-regex: OK (4 matched, 1 ignored app 401, 6 missed, timestamp recognised on all 11 lines)"
 else
-  echo "fail2ban-regex: FAILED (matched/missed = ${lines:-?}, IPs = ${matched:-none}, dated lines = ${dates:-0})" >&2
+  echo "fail2ban-regex: FAILED (ignored/matched/missed = ${lines:-?}, IPs = ${matched:-none}, dated lines = ${dates:-0})" >&2
   echo "$out" >&2
   exit 1
 fi

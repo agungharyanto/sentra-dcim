@@ -166,6 +166,9 @@ Setiap backup adalah satu direktori `/var/backups/sentra/<UTC-stamp>_<label>/`:
 | `manifest.json` | Waktu, label, versi aplikasi, commit, versi skema DB, host |
 | `SHA256SUMS` | Checksum semua file — diverifikasi saat backup & sebelum restore |
 
+Sejak v0.3.1 `db.dump` juga berisi **hash kata sandi** (argon2id), hash token sesi, dan log audit — perlakukan
+backup sebagai data rahasia (direktori 0700, file 0600, sudah diterapkan `ops/backup.sh`).
+
 **Tidak** termasuk: file `.env` (berisi secret). Simpan salinan `.env` di brankas password tim (bukan Git, bukan
 folder backup yang sama tanpa enkripsi).
 `.env` milik user `sentra` (mode 640, ACL `ubuntu:r`). Ubah **sebagai `sentra`** (`sudo -u sentra -H nano .env`);
@@ -213,6 +216,32 @@ baru) → `git checkout` tag → `make up` (build image tag + `migrate up`) → 
 = tag. Target minimum: `v0.1.3`. Bila gagal: `ops/restore.sh <backup yang dicetak>`.
 
 Aturan migrasi (CLAUDE.md aturan 9): setiap migrasi wajib punya `down` dan backward-compatible.
+
+> **Rollback melewati v0.3.1** (ke `v0.2.x`): `down` migrasi `000003_auth` menghapus tabel `users`, `sessions`, dan
+> `audit_events` beserta isinya (akun, sesi, log audit). Backup otomatis `rollback` menyimpannya; naik kembali ke
+> v0.3.1+ lalu `ops/restore.sh <backup>` bila data itu dibutuhkan.
+
+## Pemulihan akses admin aplikasi (v0.3.1+)
+
+Akun aplikasi (login Sentra DCIM) terpisah dari akun OS server. Admin pertama — dan admin darurat bila semua admin
+terkunci atau lupa kata sandi — dibuat **dari server** lewat CLI di container app; tidak ada jalur lewat web.
+
+```bash
+cd /opt/sentra-dcim
+sudo -u sentra docker compose exec app /sentra user create-admin --username <nama-atau-NIP> [--display-name "<Nama>"]
+# Kata sandi diketik dua kali tanpa tampil di layar (12–128 karakter). Jangan lewat argumen/riwayat shell.
+# Non-interaktif (mis. dari pengelola rahasia): satu baris di stdin
+#   ... docker compose exec -T app /sentra user create-admin --username <nama> < file-mode-600
+```
+
+- Akun baru **wajib ganti kata sandi** saat pertama masuk; kata sandi sementara tidak berlaku lagi setelahnya.
+- Nama pengguna yang sudah ada ditolak (`username already exists`): pakai nama lain (mis. `admin.darurat`), lalu
+  setelah masuk tangani akun lama. Reset kata sandi & nonaktifkan akun lewat aplikasi hadir di v0.3.2 (menu
+  Pengguna & Role); role Admin diberikan ke akun CLI pada migrasi v0.3.2.
+- Akun terkunci karena salah kata sandi terbuka sendiri setelah 15 menit (`AUTH_LOCK_DURATION`).
+- Setiap pembuatan tercatat di `audit_events` (`user.create_admin`, aktor `system`/`cli`), tanpa kata sandi.
+- Rate limit login ada di Redis; bila Redis mati, login ditolak (`503 auth_unavailable`, gagal tertutup) — pulihkan
+  Redis dulu (`docker compose ps`, `make logs SERVICE=redis`).
 
 ## Server baru (Ubuntu 24.04 kosong) — maksimal 5 perintah
 

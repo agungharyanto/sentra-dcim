@@ -18,6 +18,13 @@ export function registry(): {
 export const user = process.env.SENTRA_WEB_USER ?? "";
 export const pass = process.env.SENTRA_WEB_PASS ?? "";
 
+/** Application account (session login, v0.3.1): an active account that already changed its first password. */
+export const appUser = process.env.SENTRA_APP_USER ?? "";
+export const appPass = process.env.SENTRA_APP_PASS ?? "";
+
+/** Signed-in browser state written by global-setup.ts (session + CSRF cookies), used by every spec. */
+export const stateFile = "/tmp/e2e-state.json";
+
 /** Screenshots go to E2E_ARTIFACTS (uploaded by CI, never committed). */
 export const artifactsDir = process.env.E2E_ARTIFACTS ?? "/tmp/e2e-artifacts";
 

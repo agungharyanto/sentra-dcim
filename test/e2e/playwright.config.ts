@@ -9,6 +9,8 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"]],
   outputDir: "/tmp/e2e-results",
+  // One API login for the whole run; every spec starts signed in (storageState).
+  globalSetup: "./global-setup.ts",
   // Screenshots taken by the specs (helpers.ts artifactsDir) are separate from Playwright failure output.
   use: {
     baseURL: process.env.BASE_URL,
@@ -17,6 +19,7 @@ export default defineConfig({
     // Settled colours for axe: the UI honours prefers-reduced-motion (no transitions/animations).
     contextOptions: { reducedMotion: "reduce" },
     screenshot: "off",
+    storageState: "/tmp/e2e-state.json",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 });

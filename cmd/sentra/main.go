@@ -5,6 +5,9 @@
 //	sentra serve                     start the HTTP API server
 //	sentra migrate up|down [n]|goto <v>|force <v>|version
 //	sentra healthcheck               probe the local liveness endpoint (container healthcheck)
+//	sentra user create-admin --username <name> [--display-name <name>]
+//	                                 create an administrator; password from the terminal (asked twice) or one
+//	                                 line on stdin; it must be changed at first login
 //	sentra version                   print build metadata
 package main
 
@@ -24,10 +27,14 @@ import (
 	"time"
 	_ "time/tzdata" // embed tz database; distroless images may lack it
 
-	"github.com/go-chi/chi/v5"
-
 	apispec "github.com/agungharyanto/sentra-dcim/api"
 	helpdocs "github.com/agungharyanto/sentra-dcim/docs/help"
+	"github.com/agungharyanto/sentra-dcim/internal/api"
+	auditrepo "github.com/agungharyanto/sentra-dcim/internal/audit/repo"
+	auditservice "github.com/agungharyanto/sentra-dcim/internal/audit/service"
+	authhandler "github.com/agungharyanto/sentra-dcim/internal/auth/handler"
+	authrepo "github.com/agungharyanto/sentra-dcim/internal/auth/repo"
+	authservice "github.com/agungharyanto/sentra-dcim/internal/auth/service"
 	helphandler "github.com/agungharyanto/sentra-dcim/internal/help/handler"
 	helpservice "github.com/agungharyanto/sentra-dcim/internal/help/service"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/buildinfo"
@@ -59,10 +66,12 @@ func main() {
 		err = runMigrate(args)
 	case "healthcheck":
 		err = healthcheck()
+	case "user":
+		err = runUser(args)
 	case "version":
 		err = json.NewEncoder(os.Stdout).Encode(buildinfo.Get())
 	default:
-		err = fmt.Errorf("unknown command %q (want serve|migrate|healthcheck|version)", cmd)
+		err = fmt.Errorf("unknown command %q (want serve|migrate|healthcheck|user|version)", cmd)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -114,22 +123,28 @@ func serve() error {
 	}
 	help := helphandler.New(helpCat, cfg.DefaultLocale, config.SupportedLocales)
 
+	rec := auditservice.New(auditrepo.New(pool), log)
+	auth, err := authservice.New(authrepo.New(pool), authservice.NewRedisLimiter(rdb, authservice.DefaultLimiterPrefix), rec, log, cfg.Auth)
+	if err != nil {
+		return fmt.Errorf("auth: %w", err)
+	}
+	authH := authhandler.New(auth, log, cfg.Auth.AllowedOrigins)
+	go cleanupSessions(ctx, auth, log)
+
 	rl := httpserver.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
 	go rl.Janitor(ctx)
 
 	// Public listener (behind Caddy's public site) and internal listener (Caddy 127.0.0.1 only) share all
-	// dependencies; they differ in how much operational detail they return.
+	// dependencies; they differ in how much operational detail they return and in the unauthenticated allowlist
+	// (internal adds /ready for ops scripts). Everything else requires a session (internal/api, default-deny).
+	modules := func(sys *systemhandler.Handler) api.Modules {
+		return api.Modules{System: sys, UI: uihandler.New(ui), Help: help, Auth: authH}
+	}
 	servers := []*http.Server{
-		httpserver.NewServer(cfg.HTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, func(r chi.Router) {
-			systemhandler.New(sys).Routes(r)
-			uihandler.New(ui).Routes(r)
-			help.Routes(r)
-		}), log),
-		httpserver.NewServer(cfg.InternalHTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, func(r chi.Router) {
-			systemhandler.NewInternal(sys).Routes(r)
-			uihandler.New(ui).Routes(r)
-			help.Routes(r)
-		}), log),
+		httpserver.NewServer(cfg.HTTPAddr,
+			httpserver.NewRouter(log, rl, cfg.TrustedProxies, api.Mount(modules(systemhandler.New(sys)), false)), log),
+		httpserver.NewServer(cfg.InternalHTTPAddr,
+			httpserver.NewRouter(log, rl, cfg.TrustedProxies, api.Mount(modules(systemhandler.NewInternal(sys)), true)), log),
 	}
 
 	errCh := make(chan error, len(servers))
@@ -168,6 +183,24 @@ func serve() error {
 	}
 	log.Info("server stopped cleanly")
 	return nil
+}
+
+// cleanupSessions deletes stale sessions at start-up and then hourly.
+func cleanupSessions(ctx context.Context, auth *authservice.Service, log *slog.Logger) {
+	t := time.NewTicker(time.Hour)
+	defer t.Stop()
+	for {
+		if n, err := auth.CleanupStale(ctx); err != nil && ctx.Err() == nil {
+			log.Warn("session cleanup failed", "error", err)
+		} else if n > 0 {
+			log.Info("stale sessions deleted", "count", n)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
 }
 
 // helpMenus adapts the UI menu registry for help validation (menu keys, app routes, available menus).

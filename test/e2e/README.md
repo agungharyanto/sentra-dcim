@@ -15,7 +15,16 @@ Kredensial basic_auth **tidak pernah** disimpan di repo. Urutan sumber:
 2. file `~/.config/sentra/web-auth` (mode 600, satu baris `user:password`; lokasi lain via `SENTRA_WEB_AUTH_FILE`);
 3. prompt interaktif (hanya bila ada TTY).
 
-`test/api/ui.sh` (`make test-ui`) memakai sumber kredensial yang sama.
+Sejak v0.3.1 juga dibutuhkan **akun aplikasi** (login sesi) yang aktif dan sudah mengganti kata sandi pertamanya:
+`SENTRA_APP_USER` + `SENTRA_APP_PASS`, atau file `~/.config/sentra/app-auth` (mode 600, satu baris
+`user:password`; lokasi lain via `SENTRA_APP_AUTH_FILE`), atau prompt. Playwright masuk **sekali** lewat API
+(`global-setup.ts`, storageState) — satu login salah menghentikan run sebelum spec berjalan (lockout akun 5×).
+Spec `auth.spec.ts` menambah satu login nyata lewat form lalu Keluar (sesi itu saja yang dicabut).
+Layar error login dan wajib ganti kata sandi memakai respons tiruan (`page.route`), jadi akun tidak terkunci dan
+kata sandinya tidak pernah diubah oleh test.
+
+`test/api/ui.sh` (`make test-ui`) memakai sumber kredensial yang sama; tanpa akun aplikasi cek sesi dilewati
+(`SKIP`, run tidak sah sebagai regresi lengkap).
 
 Sejak v0.2.2 ada `design-system.spec.ts`: halaman `/design-system` dalam tema gelap & terang, Dialog/Sheet/Tooltip/
 Select/Dropdown/Toast, ganti ID↔EN, console & CSP bersih, dan **axe-core** (WCAG 2.1 A/AA) tanpa pelanggaran
@@ -23,18 +32,19 @@ Select/Dropdown/Toast, ganti ID↔EN, console & CSP bersih, dan **axe-core** (WC
 Screenshot disimpan di `test/e2e/artifacts/` (lokasi lain: `E2E_ARTIFACTS`), di-gitignore, dan diunggah CI sebagai
 artefak `ui-screenshots`.
 
-## Angka acuan (v0.2.5)
+## Angka acuan (v0.3.1)
 
 Jumlah cek yang diharapkan saat semua lulus. Bila berbeda, cari tahu sebabnya sebelum menerima hasil.
 
 | Perintah | Skrip | Acuan | Catatan |
 |---|---|---|---|
-| `make test-api` | `test/api/smoke.sh` | 28 | listener internal |
+| `make test-api` | `test/api/smoke.sh` | 30 (31 dengan `EXPECT_VERSION`) | listener internal; v0.3.1: + 4 default-deny, 2 CSRF, − 3 bootstrap, − 1 help |
 | `test/api/public.sh` | edge publik | 36 | termasuk 401 basic_auth & cek access log (v0.2.5) |
-| `make test-ui` | `test/api/ui.sh` | **41** | 33 baris `check` + loop (2 endpoint publik, 6 path tanpa login, 3 path API 403). Probe kredensial di awal **bukan** cek; bila 401 skrip berhenti (exit 3) |
-| `make test-e2e` | Playwright | **24** | smoke 2 · design system 2 · shell 9 · help 11 |
+| `make test-ui` | `test/api/ui.sh` | **52** | v0.3.1: + `/api/v1/auth/me` tanpa basic_auth, 3 path 401 tanpa sesi, 2 CSRF login, cek sesi (cookie, me, bootstrap, help, CSRF logout, logout). Probe basic_auth (`/`) dan login aplikasi di awal **bukan** cek; 401 → berhenti (exit 3) |
+| `make test-e2e` | Playwright | **28** | smoke 2 · design system 2 · shell 9 · help 11 · auth 4 |
 | `make fail2ban-test` | `fail2ban-regex` | 3 cocok / 6 tidak | sampel sintetis |
 | `make fail2ban-ban-test` | ban nyata | 9 · `RESTART=fail2ban` 14 · `RESTART=docker` 15 | sudo; jumlah baris "admin IP" bergantung jumlah IP admin |
 
 Percobaan kredensial salah per run (fail2ban `sentra-web`, maxretry 10/10 menit): `ui.sh` 1, `run.sh` 0 (1 bila
-probe gagal), `public.sh` 1. Lihat `docs/ops/runbooks/fail2ban.md`.
+probe gagal), `public.sh` 1. Login **aplikasi** per run: `ui.sh` 1, `make test-e2e` 2 (rate limit per pengguna 10/10
+menit); 401 dari aplikasi tidak dihitung fail2ban. Lihat `docs/ops/runbooks/fail2ban.md`.

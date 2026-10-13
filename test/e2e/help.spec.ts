@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
-import { artifactsDir, catalog, pass, user, watchProblems } from "./helpers";
+import { artifactsDir, catalog, pass, stateFile, user, watchProblems } from "./helpers";
 
 const cat = {
   id: { help: catalog("id", "help"), shell: catalog("id", "shell"), ds: catalog("id", "ds") },
@@ -130,6 +130,7 @@ test.describe("Help Center", () => {
       isMobile: true,
       ignoreHTTPSErrors: true,
       httpCredentials: { username: user, password: pass },
+      storageState: stateFile,
       reducedMotion: "reduce",
     });
     const mobile = await touch.newPage();

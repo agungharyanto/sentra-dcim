@@ -12,6 +12,14 @@
     "rate_limited": "Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.",
     "internal_error": "Terjadi kesalahan pada server.",
     "help_unavailable": "Halaman Pusat Bantuan sedang tidak tersedia.",
-    "invalid_locale": "Bahasa tidak didukung."
+    "invalid_locale": "Bahasa tidak didukung.",
+    "unauthenticated": "Sesi Anda telah berakhir. Silakan masuk kembali.",
+    "invalid_credentials": "Nama pengguna atau kata sandi salah.",
+    "csrf_failed": "Permintaan ditolak demi keamanan. Muat ulang halaman lalu coba lagi.",
+    "password_change_required": "Ganti kata sandi Anda terlebih dahulu.",
+    "password_policy": "Kata sandi tidak memenuhi ketentuan.",
+    "invalid_current_password": "Kata sandi saat ini salah.",
+    "invalid_request": "Permintaan tidak valid.",
+    "auth_unavailable": "Layanan masuk sedang tidak tersedia. Coba lagi beberapa saat lagi."
   }
 }

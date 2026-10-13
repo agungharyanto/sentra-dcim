@@ -8,13 +8,14 @@ order: 20
 
 ## Signing in
 
-When you open Sentra DCIM, the browser asks for a **user name** and **password**. Ask your Sentra DCIM
-administrator for these credentials. The browser remembers them until the window is closed.
+Sign in with your **personal account** (username or NIP and password) on the **Sign in** page. Accounts are created
+by an administrator; the first password must be changed. Full steps: [Signing in and out](../auth/login.md).
 
-> This sign-in method is **temporary** until sign-in and user roles (Auth) arrive in v0.3. This page will be
-> revised then (internal note ISS-026).
+> Until v0.3.4 the browser also asks for temporary **site access credentials** before the Sign in page appears
+> (internal note ISS-026). Ask your administrator for them.
 
-After signing in you land on the [Dashboard](../dashboard/index.md).
+After signing in you land on the [Dashboard](../dashboard/index.md). Your name is shown in the top right; from there
+you can open [My sessions](../auth/sesi.md), [change your password](../auth/ganti-password.md) or **Sign out**.
 
 ## Navigation
 
