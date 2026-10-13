@@ -102,10 +102,10 @@
 		import app_proxy app:8080
 	}
 
-	# UI bootstrap document behind the temporary basic_auth (ISS-026).
+	# UI bootstrap document and Help Center API behind the temporary basic_auth (ISS-026).
 	@bootstrap {
 		method GET HEAD
-		path /api/v1/ui/bootstrap
+		path /api/v1/ui/bootstrap /api/v1/help/*
 	}
 	handle @bootstrap {
 		import web_auth

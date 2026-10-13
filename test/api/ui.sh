@@ -49,7 +49,7 @@ for p in /api/v1/health /api/v1/version; do
 done
 
 # Without (or with wrong) credentials: 401 + Basic challenge.
-for p in / /index.html /some/deep/link /api/v1/ui/bootstrap; do
+for p in / /index.html /some/deep/link /api/v1/ui/bootstrap /api/v1/help/index /api/v1/help/openapi; do
   req "$BASE$p"
   check "GET $p without auth = 401" "$([[ $code == 401 && $(hdr WWW-Authenticate) == Basic* ]]; echo $?)"
 done
@@ -103,6 +103,20 @@ req "$BASE/api/v1/version"
 ver="$(jq -r .version "$tmp/b")"
 areq "$BASE/api/v1/ui/bootstrap"
 check "bootstrap version = public /version ($ver)" "$(jq -e --arg v "$ver" '.version==$v' "$tmp/b" >/dev/null; echo $?)"
+
+# Help Center API (v0.2.4).
+areq "$BASE/api/v1/help/index?locale=en"
+check "GET /api/v1/help/index with auth = 200, en, pages" "$([[ $code == 200 ]] && jq -e '.locale=="en" and (.pages|length>0) and all(.pages[]; has("markdown")|not)' "$tmp/b" >/dev/null; echo $?)"
+areq "$BASE/api/v1/help/pages/dashboard?locale=id"
+check "GET /api/v1/help/pages/dashboard = 200 markdown" "$([[ $code == 200 ]] && jq -e '.slug=="dashboard" and (.markdown|length>0)' "$tmp/b" >/dev/null; echo $?)"
+areq --path-as-is "$BASE/api/v1/help/pages/..%2f..%2fREADME"
+check "help page traversal → 404" "$([[ $code == 404 ]]; echo $?)"
+areq "$BASE/api/v1/help/index?locale=fr"
+check "help unknown locale → 400 invalid_locale" "$([[ $code == 400 ]] && jq -e '.error.code=="invalid_locale"' "$tmp/b" >/dev/null; echo $?)"
+areq "$BASE/api/v1/help/openapi"
+check "GET /api/v1/help/openapi = 200 JSON spec" "$([[ $code == 200 ]] && jq -e '.openapi and .paths["/api/v1/help/index"]' "$tmp/b" >/dev/null; echo $?)"
+areq -X POST "$BASE/api/v1/help/index"
+check "POST /api/v1/help/index rejected (403)" "$([[ $code == 403 ]]; echo $?)"
 
 echo "UI edge: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

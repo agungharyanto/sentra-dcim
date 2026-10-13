@@ -17,6 +17,7 @@ async function expectAccessible(page: Page, label: string) {
 /** Expected page for a registry menu. */
 function pageTestId(status: string, key: string) {
   if (key === "dashboard") return "dashboard-empty";
+  if (key === "help") return "help-center";
   return status === "not_connected" ? "not-connected" : "coming-soon";
 }
 
