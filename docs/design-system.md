@@ -68,6 +68,11 @@ Status menu (registry backend, `GET /api/v1/ui/bootstrap`): `available` (hijau, 
   `class="dark"` dan tema yang tersimpan baru diterapkan saat JavaScript berjalan. Ini **diterima** (keputusan
   pemilik, v0.2.2) karena menghindarinya butuh inline script, yang dilarang CSP `script-src 'self'`.
 
+### Gerak
+
+Semua transisi/animasi dimatikan bila pengguna memilih `prefers-reduced-motion: reduce` (WCAG 2.3.3, aturan global
+di `globals.css`). Jangan menambah animasi yang wajib dilihat untuk memahami status.
+
 ## 4. Tipografi
 
 Inter (teks UI) dan JetBrains Mono (kode, ID perangkat, angka teknis) — variable font **self-hosted**, subset

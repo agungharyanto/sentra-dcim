@@ -26,6 +26,8 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
 - ESLint `no-literal-string`: selain teks JSX, hanya atribut yang terlihat pengguna (`title`, `alt`, `placeholder`,
   `aria-label`, …) yang diperiksa; prop teknis (`variant`, `value`) tidak.
 - Favicon kini memakai `assets/brand/logo.svg` (satu file logo).
+- UI menghormati `prefers-reduced-motion` (transisi/animasi dimatikan, WCAG 2.3.3); e2e berjalan dengan reduced
+  motion agar axe mengukur warna yang sudah stabil (sempat gagal di CI saat transisi tombol bahasa).
 
 ### Keamanan
 - Kebijakan supply chain pnpm `minimumReleaseAge` kini benar-benar ditegakkan: pengecualian otomatis yang ditulis
