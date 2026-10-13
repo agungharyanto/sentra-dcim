@@ -16,3 +16,9 @@ Kredensial basic_auth **tidak pernah** disimpan di repo. Urutan sumber:
 3. prompt interaktif (hanya bila ada TTY).
 
 `test/api/ui.sh` (`make test-ui`) memakai sumber kredensial yang sama.
+
+Sejak v0.2.2 ada `design-system.spec.ts`: halaman `/design-system` dalam tema gelap & terang, Dialog/Sheet/Tooltip/
+Select/Dropdown/Toast, ganti ID↔EN, console & CSP bersih, dan **axe-core** (WCAG 2.1 A/AA) tanpa pelanggaran
+*serious/critical*. Browser dijalankan dengan `prefers-reduced-motion: reduce` agar warna terukur setelah stabil.
+Screenshot disimpan di `test/e2e/artifacts/` (lokasi lain: `E2E_ARTIFACTS`), di-gitignore, dan diunggah CI sebagai
+artefak `design-system-screenshots`.

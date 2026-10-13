@@ -22,7 +22,7 @@ fi
 [[ -n "$user" && -n "$pw" ]] || { echo "no basic_auth credentials (see header of $0)"; exit 2; }
 
 # Screenshots (design system showcase) land here; CI uploads them as an artifact. Never committed.
-artifacts="${E2E_ARTIFACTS:-$root/test/e2e/.artifacts}"
+artifacts="${E2E_ARTIFACTS:-$root/test/e2e/artifacts}"
 mkdir -p "$artifacts"
 
 # Credentials reach the container through a mode-600 env file, never the process list.
