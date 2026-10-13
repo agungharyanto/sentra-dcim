@@ -4,6 +4,7 @@
 # image (app, web, caddy) as compose project "sentradrill", waits for 4 healthy containers, runs migrations and the
 # smoke test, checks the web UI is served, then removes containers, volumes, images and the clone.
 #   ./scripts/recovery-drill.sh                 (DRILL_REF=main by default; any branch/tag on GitHub)
+#   DRILL_NO_CACHE=1 ./scripts/recovery-drill.sh   build with --no-cache --pull (like a brand-new server)
 set -euo pipefail
 
 main() {
@@ -51,7 +52,10 @@ umask 022
 BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 export VERSION="drill-$sha" COMMIT="$sha" BUILD_DATE
 start=$(date +%s)
-check "build all images (app, web, caddy) from the clone" "$(docker compose -p "$project" build app caddy >"$dir/build.log" 2>&1; echo $?)"
+build_opts=()
+[[ -n "${DRILL_NO_CACHE:-}" ]] && build_opts=(--no-cache --pull)
+echo "  info  build options: ${build_opts[*]:-(Docker layer cache allowed)}"
+check "build all images (app, web, caddy) from the clone" "$(docker compose -p "$project" build "${build_opts[@]}" app caddy >"$dir/build.log" 2>&1; echo $?)"
 check "4 containers healthy" "$(docker compose -p "$project" up -d --wait >"$dir/up.log" 2>&1; echo $?)"
 echo "  info  build + start: $(( $(date +%s) - start )) s"
 check "migrations up" "$(docker compose -p "$project" exec -T app /sentra migrate up >/dev/null 2>&1; echo $?)"
