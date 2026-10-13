@@ -30,7 +30,7 @@
 }
 
 (app_proxy) {
-	reverse_proxy app:8080 {
+	reverse_proxy {args[0]} {
 		# The app derives client IP (rate limiting, audit) from X-Real-IP; never trust client-supplied values.
 		header_up X-Real-IP {client_ip}
 		header_up -True-Client-IP
@@ -58,7 +58,8 @@
 		path /api/v1/health /api/v1/version
 	}
 	handle @public {
-		import app_proxy
+		# Public app listener: /api/v1/version returns only {"version"}.
+		import app_proxy app:8080
 	}
 	handle {
 		header Content-Type "application/json; charset=utf-8"
@@ -78,7 +79,8 @@ http://:8081 {
 	import security_headers
 
 	handle /api/* {
-		import app_proxy
+		# Internal app listener: full details (e.g. /api/v1/version build + clock). Never route publicly.
+		import app_proxy app:8081
 	}
 	handle {
 		respond "Sentra DCIM (internal)" 200

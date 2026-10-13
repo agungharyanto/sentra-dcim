@@ -19,7 +19,7 @@ dengan aman. Prosedur lengkap & sasaran RPO/RTO: [docs/DISASTER_RECOVERY.md](../
 1. `make backup` (atau `ops/backup.sh <label>`).
 2. Baris terakhir output = lokasi backup, mis. `/var/backups/sentra/20261012T180000Z_manual`.
 
-Backup otomatis berjalan setiap hari 02:00 WITA (`systemctl list-timers sentra-backup.timer`).
+Backup otomatis berjalan setiap hari 02:00 Asia/Jakarta (WIB = 19:00 UTC) (`systemctl list-timers sentra-backup.timer`).
 Pasang dengan `make backup-timer`.
 
 ### Uji restore (tanpa mengganggu produksi)

@@ -21,9 +21,19 @@ import (
 
 func newServer(t *testing.T, checkers ...service.Checker) *httptest.Server {
 	t.Helper()
-	loc, _ := time.LoadLocation("Asia/Makassar")
+	return serve(t, handler.New, checkers...)
+}
+
+func newInternalServer(t *testing.T, checkers ...service.Checker) *httptest.Server {
+	t.Helper()
+	return serve(t, handler.NewInternal, checkers...)
+}
+
+func serve(t *testing.T, mk func(*service.Service) *handler.Handler, checkers ...service.Checker) *httptest.Server {
+	t.Helper()
+	loc, _ := time.LoadLocation("Asia/Jakarta")
 	svc := service.New(logging.Discard(), loc, checkers...)
-	r := httpserver.NewRouter(logging.Discard(), nil, nil, func(r chi.Router) { handler.New(svc).Routes(r) })
+	r := httpserver.NewRouter(logging.Discard(), nil, nil, func(r chi.Router) { mk(svc).Routes(r) })
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
 	return srv
@@ -98,18 +108,37 @@ func TestReadyUnavailable(t *testing.T) {
 	}
 }
 
-func TestVersion(t *testing.T) {
-	buildinfo.Version = "v0.1.3-test"
+func TestVersionPublicOnlyVersion(t *testing.T) {
+	buildinfo.Version = "v0.1.8-test"
 	srv := newServer(t)
 	var v map[string]any
 	resp := get(t, srv.URL+"/api/v1/version", &v)
-	if resp.StatusCode != http.StatusOK || v["version"] != "v0.1.3-test" || v["display_timezone"] != "Asia/Makassar" {
+	if resp.StatusCode != http.StatusOK || v["version"] != "v0.1.8-test" {
+		t.Fatalf("got %d %v", resp.StatusCode, v)
+	}
+	if len(v) != 1 {
+		t.Fatalf("public /version must expose only {version}, got %v", v)
+	}
+	if resp.Header.Get("Cache-Control") != "no-store" {
+		t.Errorf("Cache-Control = %q", resp.Header.Get("Cache-Control"))
+	}
+}
+
+func TestVersionInternalDetails(t *testing.T) {
+	buildinfo.Version = "v0.1.8-test"
+	srv := newInternalServer(t)
+	var v map[string]any
+	resp := get(t, srv.URL+"/api/v1/version", &v)
+	if resp.StatusCode != http.StatusOK || v["version"] != "v0.1.8-test" || v["display_timezone"] != "Asia/Jakarta" {
 		t.Fatalf("got %d %v", resp.StatusCode, v)
 	}
 	for _, k := range []string{"commit", "go_version", "server_time_utc", "server_time_display"} {
 		if _, ok := v[k]; !ok {
 			t.Errorf("missing field %s", k)
 		}
+	}
+	if d, _ := v["server_time_display"].(string); !strings.HasSuffix(d, "+07:00") {
+		t.Errorf("server_time_display = %q, want +07:00 offset", d)
 	}
 }
 

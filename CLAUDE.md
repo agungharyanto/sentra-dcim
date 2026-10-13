@@ -40,8 +40,11 @@ Aturan di bawah **wajib dipatuhi di setiap sesi**. Bila ada konflik, aturan ini 
   Caddy, Docker Compose. Lihat `docs/DECISIONS.md` dan `docs/DEPENDENCIES.md`.
 - **Struktur:** `cmd/sentra` (entrypoint), `internal/<modul>/{handler,service,repo}`, `internal/platform/...`
   (config, db, cache, httpserver, logging), `migrations/`, `api/openapi.yaml`, `deploy/`, `ops/`, `docs/`.
-- **Waktu:** simpan UTC, tampilkan Asia/Makassar (WITA).
+- **Waktu:** simpan UTC, tampilkan menurut `DISPLAY_TIMEZONE` di `.env` (default Asia/Jakarta, WIB, UTC+7).
 - **Perintah:** `make help` — `up/down/logs/test/lint/migrate/backup/restore/rollback/release`.
-- **Server:** user `sentra`, repo di `/opt/sentra-dcim`, backup di `/var/backups/sentra`, sshd di port non-standar
-  (dibaca otomatis oleh `ops/harden/ufw.sh`). Domain publik `https://sentra.bajastu.id` (Caddy + Let's Encrypt);
-  hanya `/api/v1/health` & `/api/v1/version` publik, API lengkap via `http://127.0.0.1:8080`.
+- **Server:** Oracle Cloud (Ubuntu 24.04 aarch64) sejak 2026-10-13; admin OS `ubuntu`, aplikasi milik user `sentra`,
+  repo di `/opt/sentra-dcim`, backup di `/var/backups/sentra`; port sshd dibaca otomatis oleh `ops/harden/ufw.sh`.
+  Akses darurat (serial console, key cadangan, unban): `docs/DISASTER_RECOVERY.md`. **Jangan ubah
+  `PasswordAuthentication` tanpa konfirmasi pemilik.** Domain publik `https://sentra.bajastu.id` (Caddy + Let's Encrypt;
+  mode lokal sampai DNS dipindah, ISS-015); hanya `/api/v1/health` & `/api/v1/version` (`{version}` saja) publik,
+  API lengkap via `http://127.0.0.1:8080`.

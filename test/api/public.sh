@@ -40,6 +40,10 @@ check "request ID does not leak container ID" "$([[ $(hdr X-Request-Id) == sentr
 
 req "$BASE/api/v1/version"
 check "GET /api/v1/version = 200" "$([[ $code == 200 ]] && jq -e '.version' "$tmp/b" >/dev/null; echo $?)"
+check "public /version exposes only {version}" "$(jq -e 'keys==["version"]' "$tmp/b" >/dev/null; echo $?)"
+if [[ -n "${EXPECT_VERSION:-}" ]]; then
+  check "public version = $EXPECT_VERSION" "$(jq -e --arg v "$EXPECT_VERSION" '.version==$v' "$tmp/b" >/dev/null; echo $?)"
+fi
 
 for p in /api/v1/ready /api/v1/does-not-exist /api/v2/health / /admin "/api/v1/health/../ready"; do
   req --path-as-is "$BASE$p"

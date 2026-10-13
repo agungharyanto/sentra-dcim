@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/agungharyanto/sentra-dcim/internal/platform/buildinfo"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/logging"
 )
 
@@ -17,9 +18,9 @@ func failing(name string) Checker {
 	return FuncChecker{CheckName: name, Fn: func(context.Context) error { return errors.New("dial tcp 10.0.0.5:5432: refused") }}
 }
 
-func wita(t *testing.T) *time.Location {
+func wib(t *testing.T) *time.Location {
 	t.Helper()
-	loc, err := time.LoadLocation("Asia/Makassar")
+	loc, err := time.LoadLocation("Asia/Jakarta")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +28,7 @@ func wita(t *testing.T) *time.Location {
 }
 
 func TestReadinessAllOK(t *testing.T) {
-	s := New(logging.Discard(), wita(t), ok("database"), ok("redis"))
+	s := New(logging.Discard(), wib(t), ok("database"), ok("redis"))
 	rep := s.Readiness(context.Background())
 	if rep.Status != StatusReady || len(rep.Checks) != 2 {
 		t.Fatalf("unexpected report: %+v", rep)
@@ -35,7 +36,7 @@ func TestReadinessAllOK(t *testing.T) {
 }
 
 func TestReadinessFailureHidesDetails(t *testing.T) {
-	s := New(logging.Discard(), wita(t), ok("database"), failing("redis"))
+	s := New(logging.Discard(), wib(t), ok("database"), failing("redis"))
 	rep := s.Readiness(context.Background())
 	if rep.Status != StatusNotReady {
 		t.Fatalf("status = %s", rep.Status)
@@ -47,7 +48,7 @@ func TestReadinessFailureHidesDetails(t *testing.T) {
 
 func TestReadinessTimeout(t *testing.T) {
 	slow := FuncChecker{CheckName: "slow", Fn: func(ctx context.Context) error { <-ctx.Done(); return ctx.Err() }}
-	s := New(logging.Discard(), wita(t), slow)
+	s := New(logging.Discard(), wib(t), slow)
 	s.checkTimeout = 50 * time.Millisecond
 	start := time.Now()
 	rep := s.Readiness(context.Background())
@@ -57,7 +58,7 @@ func TestReadinessTimeout(t *testing.T) {
 }
 
 func TestReadinessDraining(t *testing.T) {
-	s := New(logging.Discard(), wita(t), ok("database"))
+	s := New(logging.Discard(), wib(t), ok("database"))
 	s.SetDraining()
 	if rep := s.Readiness(context.Background()); rep.Status != StatusNotReady {
 		t.Fatalf("draining should be not_ready, got %s", rep.Status)
@@ -65,15 +66,23 @@ func TestReadinessDraining(t *testing.T) {
 }
 
 func TestVersionTimezones(t *testing.T) {
-	s := New(logging.Discard(), wita(t))
+	s := New(logging.Discard(), wib(t))
 	fixed := time.Date(2026, 10, 12, 4, 0, 0, 0, time.UTC)
 	s.now = func() time.Time { return fixed }
 	v := s.Version()
 	if !v.ServerTimeUTC.Equal(fixed) || v.ServerTimeUTC.Location() != time.UTC {
 		t.Fatalf("utc time = %v", v.ServerTimeUTC)
 	}
-	if v.ServerTimeDisplay != "2026-10-12T12:00:00+08:00" || v.DisplayTimezone != "Asia/Makassar" {
+	if v.ServerTimeDisplay != "2026-10-12T11:00:00+07:00" || v.DisplayTimezone != "Asia/Jakarta" {
 		t.Fatalf("display = %s %s", v.ServerTimeDisplay, v.DisplayTimezone)
+	}
+}
+
+func TestPublicVersionOnlyVersion(t *testing.T) {
+	buildinfo.Version = "v9.9.9-test"
+	t.Cleanup(func() { buildinfo.Version = "dev" })
+	if got := New(logging.Discard(), wib(t)).PublicVersion(); got != (PublicVersion{Version: "v9.9.9-test"}) {
+		t.Fatalf("public version = %+v", got)
 	}
 }
 

@@ -9,7 +9,7 @@ sampai ada keputusan), **Superseded** (digantikan keputusan lain).
 | D-002 | 2026-10-12 | Router `go-chi/chi v5`, DB driver `pgx v5` + `sqlc`, migrasi `golang-migrate`, log `log/slog` JSON | Accepted | |
 | D-003 | 2026-10-12 | PostgreSQL 16 + TimescaleDB (image `timescale/timescaledb:2.30.2-pg16`), Redis, Caddy, Docker Compose | Accepted | |
 | D-004 | 2026-10-12 | Image backend multi-stage, runtime `gcr.io/distroless/static-debian12:nonroot` (UID 65532) | Accepted | |
-| D-005 | 2026-10-12 | Waktu disimpan UTC (`timestamptz`), ditampilkan Asia/Makassar (WITA, UTC+8) | Accepted | |
+| D-005 | 2026-10-12 | Waktu disimpan UTC (`timestamptz`), ditampilkan Asia/Makassar (WITA, UTC+8) | Superseded (D-032) | |
 | D-006 | 2026-10-12 | Framework frontend | Pending/Default | Diputuskan di v0.2 |
 | D-007 | 2026-10-12 | Allowlist IP admin / WireGuard untuk SSH & panel | Pending/Default | Variabel `SSH_ALLOW_FROM`, `WG_PORT` di `ops/harden/ufw.sh`; default: SSH terbuka dari mana saja (dilindungi fail2ban), WireGuard tidak dibuka |
 | D-008 | 2026-10-12 | Port 80/443 ditutup di ufw sampai domain & TLS siap | Superseded (D-023) | Caddy hanya bind `127.0.0.1:8080` selama v0.1; buka dengan `OPEN_HTTP=1 ops/harden/ufw.sh` |
@@ -21,8 +21,8 @@ sampai ada keputusan), **Superseded** (digantikan keputusan lain).
 | D-014 | 2026-10-12 | Migrasi DB dijalankan oleh binary app (`sentra migrate up/down/goto`) memakai golang-migrate dengan file tertanam (embed), bukan container terpisah | Accepted | Image tetap distroless, tanpa shell |
 | D-016 | 2026-10-12 | `chi/middleware.RealIP` tidak dipakai (deprecated, rentan spoofing). Middleware sendiri: `X-Real-IP` hanya dipercaya dari CIDR `APP_TRUSTED_PROXIES`; Caddy (edge) tidak mempercayai `X-Forwarded-For` klien | Accepted | |
 | D-017 | 2026-10-12 | Rate limit in-memory per IP (20 rps, burst 40) selama app 1 replika | Pending/Default | Pindah ke Redis bila app di-scale >1 replika |
-| D-018 | 2026-10-12 | `/health`, `/ready`, `/version` publik tanpa auth; detail error hanya di log | Accepted | Ditinjau ulang di v0.3 (Auth) |
-| D-019 | 2026-10-12 | Backup otomatis harian 02:00 WITA via systemd timer (bukan cron/container) | Pending/Default | |
+| D-018 | 2026-10-12 | `/health`, `/ready`, `/version` tanpa auth; detail error hanya di log | Accepted | Dipersempit oleh D-025 & D-033; ditinjau ulang di v0.3 (Auth) |
+| D-019 | 2026-10-12 | Backup otomatis harian via systemd timer (bukan cron/container); sejak v0.1.8 pukul 02:00 Asia/Jakarta (`OnCalendar=... Asia/Jakarta`) | Pending/Default | Jam tetap, tidak mengikuti `DISPLAY_TIMEZONE` |
 | D-020 | 2026-10-12 | Rollback memakai `ops/rollback.sh` dengan target minimum v0.1.3; schema down dijalankan oleh binary versi saat ini | Accepted | |
 | D-021 | 2026-10-12 | `.env` tidak ikut backup; salinan disimpan di brankas password tim | Pending/Default | Alternatif: backup `.env` terenkripsi (age/gpg) |
 | D-022 | 2026-10-12 | Hotfix setelah penutup sprint (`.9`) memakai slot cadangan kosong pertama (`.5–.8`) sprint tersebut | Pending/Default | v0.1.5 = hotfix CI |
@@ -36,3 +36,9 @@ sampai ada keputusan), **Superseded** (digantikan keputusan lain).
 | D-029 | 2026-10-13 | Jalur pemulihan utama bila SSH hilang = OCI Serial/VNC Console (+ key SSH cadangan, Run Command). `PasswordAuthentication` tidak diubah tanpa konfirmasi pemilik; hardening SSH wajib diuji dengan key di sesi terpisah sebelum password dimatikan | Accepted | Arahan pemilik. Prosedur di `docs/DISASTER_RECOVERY.md` |
 | D-030 | 2026-10-13 | fail2ban tidak pernah mem-ban `ADMIN_IPS` (`.env`) dan IP sesi SSH yang aktif saat hardening dijalankan | Accepted | Digantikan/dilengkapi allowlist v0.3.6 |
 | D-031 | 2026-10-13 | Pekerjaan ops di luar slot versi (migrasi server) di-merge `--no-ff` tanpa tag sendiri dan ikut rilis di tag berikutnya (v0.1.8) | Pending/Default | Slot cadangan sprint 1 tinggal v0.1.8 yang sudah ditetapkan untuk Timezone & Version Fix |
+| D-032 | 2026-10-13 | Zona waktu tampilan dari `DISPLAY_TIMEZONE` di `.env`, default `Asia/Jakarta` (WIB, UTC+7); DB & server tetap UTC. `APP_DISPLAY_TZ` lama masih dibaca sebagai fallback | Accepted | Arahan pemilik (v0.1.8). Menggantikan D-005. Mulai v0.3.5 dapat diatur lewat Settings – Regional |
+| D-033 | 2026-10-13 | `/api/v1/version` publik hanya `{version}`. Detail (commit, build, Go, jam server) hanya dari **listener internal app** (`:8081`) yang hanya di-proxy oleh listener Caddy `127.0.0.1:8080`; mulai v0.3 + role Admin | Accepted | Pemisahan di level listener (bukan header) agar tidak bisa dipalsukan klien |
+| D-034 | 2026-10-13 | `make up` selalu rebuild image app & caddy dengan `VERSION := git describe` (tidak bisa ditimpa env), lalu `make version-check`; `release.sh` redeploy setelah tag | Accepted | Perbaikan ISS-022 |
+| D-035 | 2026-10-13 | i18n wajib sejak v0.2: Bahasa Indonesia default + English; tidak ada teks UI hardcode; locale & timezone default dari setting server, bisa per-user (v0.3.5) | Accepted | Arahan pemilik |
+| D-036 | 2026-10-13 | Allowlist akses (v0.3.6) berbasis IP/CIDR saja; **alamat MAC tidak dipakai** | Accepted | MAC hanya terlihat di segmen L2 yang sama (hilang setelah router/NAT/internet), mudah dipalsukan, dan tidak tersedia untuk klien remote — tidak memberi keamanan nyata |
+| D-037 | 2026-10-13 | Penerapan allowlist ke ufw (v0.3.6) oleh agent host systemd terpisah (bukan container app, bukan root aplikasi): app hanya menulis kebijakan via API; agent memvalidasi, menerapkan, dan auto-rollback 2 menit bila tidak dikonfirmasi; IP admin aktif selalu diizinkan | Accepted | Container app tetap non-root tanpa akses firewall/docker.sock |

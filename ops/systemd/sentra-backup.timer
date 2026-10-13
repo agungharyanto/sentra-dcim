@@ -1,8 +1,8 @@
 [Unit]
-Description=Run Sentra DCIM backup daily at 02:00 WITA (18:00 UTC)
+Description=Run Sentra DCIM backup daily at 02:00 Asia/Jakarta (WIB, 19:00 UTC)
 
 [Timer]
-OnCalendar=*-*-* 18:00:00 UTC
+OnCalendar=*-*-* 02:00:00 Asia/Jakarta
 RandomizedDelaySec=10min
 Persistent=true
 

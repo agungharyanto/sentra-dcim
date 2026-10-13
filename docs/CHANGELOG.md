@@ -3,6 +3,39 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [v0.1.8] - 2026-10-13 — Timezone & Version Fix
+
+### Diubah
+- Zona waktu tampilan kini `DISPLAY_TIMEZONE` di `.env`, default **Asia/Jakarta (WIB, UTC+7)**; database & server
+  tetap UTC. Nama lama `APP_DISPLAY_TZ` masih dibaca sebagai fallback (D-032).
+- Timer backup harian kini 02:00 **Asia/Jakarta** (`OnCalendar=*-*-* 02:00:00 Asia/Jakarta` = 19:00 UTC).
+- **Keamanan:** `/api/v1/version` publik hanya mengembalikan `{"version"}`. Commit, tanggal build, versi Go, jam
+  server & zona tampilan hanya dari listener internal app (`:8081`, di-proxy Caddy `127.0.0.1:8080` saja); v0.3
+  menambah syarat role Admin (D-033). Respons `/version` kini `Cache-Control: no-store`.
+- Caddy: situs publik → `app:8080`, listener internal → `app:8081`.
+- Dokumen yang menyebut WITA/Asia/Makassar diperbarui ke WIB/Asia/Jakarta (entri CHANGELOG & release notes lama
+  dibiarkan sebagai catatan sejarah).
+
+### Diperbaiki
+- `/api/v1/version` bisa berbeda dari `git describe` HEAD (ISS-022). `VERSION`/`COMMIT` di Makefile tidak bisa lagi
+  ditimpa variabel environment; `make up` selalu `docker compose build app caddy` lalu `make version-check`;
+  `scripts/release.sh` me-redeploy stack setelah membuat tag.
+
+### Ditambahkan
+- `make version-check`; full regression memeriksa versi berjalan == `git describe` (internal & publik) dan tag
+  image `sentra-app:<versi>`; smoke test memeriksa zona & offset sesuai `DISPLAY_TIMEZONE`.
+- ROADMAP: i18n wajib sejak v0.2 (D-035); v0.3.5 *Settings – Regional*; v0.3.6 *Settings – Allowed IP*
+  (agent host, anti-lockout, MAC tidak dipakai — D-036, D-037).
+
+### Migrasi server ke Oracle Cloud (pekerjaan pra-v0.1.8, D-031)
+- Akses darurat di `docs/DISASTER_RECOVERY.md` + Pusat Bantuan `ops/akses-darurat.md`: OCI Serial/VNC Console,
+  key SSH cadangan, aturan perubahan SSH (`PasswordAuthentication` tidak diubah tanpa konfirmasi), unban fail2ban.
+- fail2ban tidak pernah mem-ban `ADMIN_IPS` dan IP sesi SSH aktif (D-030).
+- `ufw.sh` menghapus aturan iptables `REJECT` bawaan image Oracle yang membuat ufw tidak efektif (ISS-017);
+  `ops/harden/services.sh` mematikan `rpcbind` (ISS-018).
+- Bootstrap: `.env` otomatis dalam mode lokal (tanpa ACME) kecuali `--domain/--acme-email`; `--admin-user` (ACL);
+  diuji nyata di server kosong — ISS-003 selesai. `test/api/public.sh` punya mode lokal (CA internal Caddy).
+
 ## [v0.1.7] - 2026-10-12 — Caddy Empty Env Fix
 
 ### Diperbaiki

@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 	_ "time/tzdata" // embed tz database; distroless images may lack it
@@ -100,32 +101,50 @@ func serve() error {
 	rl := httpserver.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
 	go rl.Janitor(ctx)
 
-	router := httpserver.NewRouter(log, rl, cfg.TrustedProxies, func(r chi.Router) {
-		systemhandler.New(sys).Routes(r)
-	})
-	srv := httpserver.NewServer(cfg.HTTPAddr, router, log)
-
-	errCh := make(chan error, 1)
-	go func() {
-		log.Info("http server starting", "addr", cfg.HTTPAddr, "version", buildinfo.Version, "env", cfg.Env)
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errCh <- err
-		}
-		close(errCh)
-	}()
-
-	select {
-	case err := <-errCh:
-		return fmt.Errorf("http server: %w", err)
-	case <-ctx.Done():
+	// Public listener (behind Caddy's public site) and internal listener (Caddy 127.0.0.1 only) share all
+	// dependencies; they differ in how much operational detail they return.
+	servers := []*http.Server{
+		httpserver.NewServer(cfg.HTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, func(r chi.Router) {
+			systemhandler.New(sys).Routes(r)
+		}), log),
+		httpserver.NewServer(cfg.InternalHTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, func(r chi.Router) {
+			systemhandler.NewInternal(sys).Routes(r)
+		}), log),
 	}
 
-	log.Info("shutdown signal received, draining", "timeout", cfg.ShutdownTimeout.String())
+	errCh := make(chan error, len(servers))
+	for _, srv := range servers {
+		go func() {
+			log.Info("http server starting", "addr", srv.Addr, "version", buildinfo.Version, "env", cfg.Env)
+			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				errCh <- fmt.Errorf("%s: %w", srv.Addr, err)
+			}
+		}()
+	}
+
+	var serveErr error
+	select {
+	case serveErr = <-errCh:
+		log.Error("http server failed, shutting down", "error", serveErr)
+	case <-ctx.Done():
+		log.Info("shutdown signal received, draining", "timeout", cfg.ShutdownTimeout.String())
+	}
+
 	sys.SetDraining()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		return fmt.Errorf("graceful shutdown: %w", err)
+	var wg sync.WaitGroup
+	shutdownErrs := make([]error, len(servers))
+	for i, srv := range servers {
+		wg.Go(func() {
+			if err := srv.Shutdown(shutdownCtx); err != nil {
+				shutdownErrs[i] = fmt.Errorf("graceful shutdown %s: %w", srv.Addr, err)
+			}
+		})
+	}
+	wg.Wait()
+	if err := errors.Join(append([]error{serveErr}, shutdownErrs...)...); err != nil {
+		return err
 	}
 	log.Info("server stopped cleanly")
 	return nil
