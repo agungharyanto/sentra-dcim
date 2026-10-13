@@ -57,6 +57,20 @@ for p in / /admin /api/v1/ui/bootstrap /api/v1/help/index /api/v1/help/pages/das
 done
 check "401 keeps security headers (HSTS, nosniff, no Server)" "$([[ -n $(hdr Strict-Transport-Security) && $(hdr X-Content-Type-Options) == nosniff && -z $(hdr Server) ]]; echo $?)"
 check "401 body is the JSON error envelope" "$(jq -e '.error.code=="unauthorized"' "$tmp/b" >/dev/null; echo $?)"
+# Access log file for fail2ban (v0.2.5): grows per request, records the client IP, never the credentials.
+root="$(cd "$(dirname "$0")/../.." && pwd)"
+logsize() { docker compose -f "$root/docker-compose.yml" exec -T caddy stat -c %s /var/log/caddy/access.log 2>/dev/null || echo -1; }
+probe_user="logprobe$RANDOM" probe_pass="wrong-$RANDOM$RANDOM"
+size0="$(logsize)"
+req -u "$probe_user:$probe_pass" "$BASE/"
+sleep 1
+size1="$(logsize)"
+check "access.log exists and grows after a request ($size0 → $size1 bytes)" "$(( size0 >= 0 && size1 > size0 ? 0 : 1 ))"
+last="$(docker compose -f "$root/docker-compose.yml" exec -T caddy tail -50 /var/log/caddy/access.log)"
+probe_b64="$(printf '%s:%s' "$probe_user" "$probe_pass" | base64 | tr -d '\n')"
+check "access.log records client_ip and Authorization as REDACTED" "$(grep -F "\"uri\":\"/\"" <<<"$last" | tail -1 | grep -q '"Authorization":\["REDACTED"\]' && grep -q '"client_ip":"' <<<"$last"; echo $?)"
+check "access.log never contains the credentials (plain or base64)" "$(! grep -qF -e "$probe_pass" -e "$probe_b64" -e "${probe_b64:0:16}" <<<"$last"; echo $?)"
+
 req -X POST "$BASE/api/v1/health"
 check "POST /api/v1/health rejected (403)" "$([[ $code == 403 ]]; echo $?)"
 
