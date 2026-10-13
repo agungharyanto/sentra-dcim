@@ -15,6 +15,22 @@ sshd_ports() {
   echo "$ports"
 }
 
+# Read KEY from the repo .env (last occurrence); prints nothing if unset or the file is missing.
+repo_env() {
+  local env_file
+  env_file="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/.env"
+  [[ -f "$env_file" ]] || return 0
+  sed -n "s/^$1=//p" "$env_file" | tail -1
+}
+
+# Source IPs of currently established SSH sessions (the admins running this script right now).
+active_ssh_peers() {
+  local p
+  for p in $(sshd_ports); do
+    ss -Htn state established "( sport = :$p )" | awk '{print $NF}'
+  done | sed -E 's/^\[?(::ffff:)?//; s/\]?:[0-9]+$//' | sort -u
+}
+
 # Write file only if content differs. Prints "changed" when written.
 write_if_changed() {
   local dest="$1" tmp

@@ -34,8 +34,9 @@ healthcheck, rotasi log 10 MB × 5. Data disimpan di named volume `db_data`, `re
 
 | Skrip | Fungsi |
 |---|---|
-| `ops/harden/ufw.sh` | Default deny incoming; port sshd aktif (dideteksi otomatis dari `sshd -T`) + 80/443 bila `UFW_OPEN_HTTP=1` di `.env` |
-| `ops/harden/fail2ban.sh` | Jail `sshd` (mode aggressive), ban 1 jam bertambah s.d. 1 minggu, maks 5 gagal / 10 menit |
+| `ops/harden/services.sh` | Mematikan & mem-mask `rpcbind` (port 111, bawaan image Oracle) bila tidak ada NFS |
+| `ops/harden/ufw.sh` | Default deny incoming; port sshd aktif (dideteksi otomatis dari `sshd -T`) + 80/443 bila `UFW_OPEN_HTTP=1` di `.env`. Di Oracle Cloud menghapus aturan iptables `REJECT` bawaan image yang menutupi ufw |
+| `ops/harden/fail2ban.sh` | Jail `sshd` (mode aggressive), ban 1 jam bertambah s.d. 1 minggu, maks 5 gagal / 10 menit. Tidak pernah mem-ban `ADMIN_IPS` (`.env`) dan IP sesi SSH yang aktif saat dijalankan. Cara unban: `docs/DISASTER_RECOVERY.md` → Akses darurat |
 | `ops/harden/sysctl.sh` | Anti-spoofing, tanpa ICMP redirect/source route, SYN cookies, pembatasan kernel pointer/dmesg/BPF |
 | `ops/harden/unattended-upgrades.sh` | Update keamanan otomatis harian, tanpa reboot otomatis |
 
