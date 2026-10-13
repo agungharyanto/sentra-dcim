@@ -24,11 +24,21 @@ func New(svc *service.Service) *Handler { return &Handler{svc: svc} }
 // additionally require the Admin role.
 func NewInternal(svc *service.Service) *Handler { return &Handler{svc: svc, internal: true} }
 
-// Routes registers the system endpoints on r (mounted at /api/v1).
+// Routes registers all system endpoints on r (mounted at /api/v1).
 func (h *Handler) Routes(r chi.Router) {
+	h.PublicRoutes(r)
+	h.OpsRoutes(r)
+}
+
+// PublicRoutes registers the endpoints that never require a session: /health and /version.
+func (h *Handler) PublicRoutes(r chi.Router) {
 	r.Get("/health", h.health)
-	r.Get("/ready", h.ready)
 	r.Get("/version", h.version)
+}
+
+// OpsRoutes registers /ready (dependency status): unauthenticated on the internal listener only.
+func (h *Handler) OpsRoutes(r chi.Router) {
+	r.Get("/ready", h.ready)
 }
 
 func (h *Handler) health(w http.ResponseWriter, _ *http.Request) {

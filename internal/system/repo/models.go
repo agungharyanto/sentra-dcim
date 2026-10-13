@@ -5,8 +5,29 @@
 package repo
 
 import (
+	"net/netip"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+// Append-only audit log (ADR-003). UPDATE/DELETE/TRUNCATE are rejected by triggers.
+type AuditEvent struct {
+	ID            int64              `json:"id"`
+	OccurredAt    pgtype.Timestamptz `json:"occurred_at"`
+	ActorType     string             `json:"actor_type"`
+	ActorID       pgtype.UUID        `json:"actor_id"`
+	ActorUsername string             `json:"actor_username"`
+	Action        string             `json:"action"`
+	TargetType    string             `json:"target_type"`
+	TargetID      string             `json:"target_id"`
+	Result        string             `json:"result"`
+	Ip            *netip.Addr        `json:"ip"`
+	UserAgent     string             `json:"user_agent"`
+	RequestID     string             `json:"request_id"`
+	Metadata      []byte             `json:"metadata"`
+	PrevHash      []byte             `json:"prev_hash"`
+	Hash          []byte             `json:"hash"`
+}
 
 // Operational runs recorded by ops/*.sh. Timestamps are UTC.
 type OpsRun struct {
@@ -24,9 +45,40 @@ type SchemaMigration struct {
 	Dirty   bool  `json:"dirty"`
 }
 
+// Server-side sessions (opaque token, ADR-003). Only token hashes are stored.
+type Session struct {
+	ID            pgtype.UUID        `json:"id"`
+	TokenHash     []byte             `json:"token_hash"`
+	UserID        pgtype.UUID        `json:"user_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	LastSeenAt    pgtype.Timestamptz `json:"last_seen_at"`
+	ExpiresAt     pgtype.Timestamptz `json:"expires_at"`
+	IdleExpiresAt pgtype.Timestamptz `json:"idle_expires_at"`
+	Ip            *netip.Addr        `json:"ip"`
+	UserAgent     string             `json:"user_agent"`
+	RevokedAt     pgtype.Timestamptz `json:"revoked_at"`
+}
+
 // Key/value metadata about this Sentra DCIM installation. All timestamps are UTC.
 type SystemInfo struct {
 	Key       string             `json:"key"`
 	Value     string             `json:"value"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Local accounts (v0.3.1). Passwords only as argon2id hashes. Timestamps UTC.
+type User struct {
+	ID                 pgtype.UUID        `json:"id"`
+	Username           string             `json:"username"`
+	DisplayName        string             `json:"display_name"`
+	Email              pgtype.Text        `json:"email"`
+	PasswordHash       string             `json:"password_hash"`
+	Status             string             `json:"status"`
+	MustChangePassword bool               `json:"must_change_password"`
+	FailedAttempts     int32              `json:"failed_attempts"`
+	LockedUntil        pgtype.Timestamptz `json:"locked_until"`
+	PasswordChangedAt  pgtype.Timestamptz `json:"password_changed_at"`
+	LastLoginAt        pgtype.Timestamptz `json:"last_login_at"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }

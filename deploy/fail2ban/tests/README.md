@@ -14,6 +14,8 @@ Diuji oleh `make fail2ban-test` (`scripts/fail2ban-regex-test.sh`) dengan `fail2
 | 7 | 401 + Authorization for another host | tidak cocok |
 | 8 | forged keys inside a header value (JSON-escaped) | tidak cocok |
 | 9 | 4010-like status prefix | tidak cocok |
+| 10 | 401 dari app (login app gagal; `X-Request-Id` di `resp_headers`) | diabaikan (ignoreregex) |
+| 11 | 401 basic_auth dengan header request `X-Request-Id` palsu | cocok |
 
-Harapan total: **3 cocok** (`203.0.113.10–12`), 6 diabaikan. Baris 2–3 memakai urutan key/spasi berbeda: filter tidak
+Harapan total: **4 cocok** (`203.0.113.10–13`), 1 diabaikan (ignoreregex), 6 tidak cocok. Baris 2–3 memakai urutan key/spasi berbeda: filter tidak
 boleh bergantung pada urutan field JSON.

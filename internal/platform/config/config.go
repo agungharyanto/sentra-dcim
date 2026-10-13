@@ -41,6 +41,24 @@ type Config struct {
 	TrustedProxies []netip.Prefix
 	DB             DB
 	Redis          Redis
+	Auth           Auth
+}
+
+// Auth holds authentication settings (ADR-003, v0.3.1).
+type Auth struct {
+	// argon2id parameters for new hashes; existing hashes keep their own parameters (rehashed on login).
+	Argon2MemoryKiB uint32
+	Argon2Time      uint32
+	Argon2Threads   uint8
+	SessionIdle     time.Duration // sliding idle timeout (30 min)
+	SessionAbsolute time.Duration // absolute session lifetime (12 h)
+	LockThreshold   int           // consecutive wrong passwords before the account is locked (5)
+	LockDuration    time.Duration // lock length (15 min)
+	RateIPLimit     int           // login attempts per client IP per RateWindow
+	RateUserLimit   int           // login attempts per username per RateWindow
+	RateWindow      time.Duration
+	// AllowedOrigins are the exact origins (scheme://host[:port]) accepted for unsafe requests (CSRF).
+	AllowedOrigins []string
 }
 
 // DB holds PostgreSQL connection settings.
@@ -102,6 +120,23 @@ func LoadFrom(lookup func(string) (string, bool)) (Config, error) {
 			Password: p.required("REDIS_PASSWORD"),
 			DB:       p.int("REDIS_DB", 0),
 		},
+	}
+
+	cfg.Auth = Auth{
+		Argon2MemoryKiB: uint32(p.int32("AUTH_ARGON2_MEMORY_KIB", 65536, 8192, 1048576)), //nolint:gosec // bounded
+		Argon2Time:      uint32(p.int32("AUTH_ARGON2_TIME", 2, 1, 10)),                   //nolint:gosec // bounded
+		Argon2Threads:   uint8(p.int32("AUTH_ARGON2_THREADS", 2, 1, 16)),                 //nolint:gosec // bounded
+		SessionIdle:     p.duration("AUTH_SESSION_IDLE", 30*time.Minute),
+		SessionAbsolute: p.duration("AUTH_SESSION_ABSOLUTE", 12*time.Hour),
+		LockThreshold:   int(p.int32("AUTH_LOCK_THRESHOLD", 5, 1, 100)),
+		LockDuration:    p.duration("AUTH_LOCK_DURATION", 15*time.Minute),
+		RateIPLimit:     int(p.int32("AUTH_RATE_IP_LIMIT", 30, 1, 100000)),
+		RateUserLimit:   int(p.int32("AUTH_RATE_USER_LIMIT", 10, 1, 100000)),
+		RateWindow:      p.duration("AUTH_RATE_WINDOW", 10*time.Minute),
+		AllowedOrigins:  p.origins("APP_ALLOWED_ORIGINS", "https://localhost"),
+	}
+	if cfg.Auth.SessionIdle > cfg.Auth.SessionAbsolute {
+		p.errs = append(p.errs, errors.New("AUTH_SESSION_IDLE must not exceed AUTH_SESSION_ABSOLUTE"))
 	}
 
 	cfg.TrustedProxies = p.prefixes("APP_TRUSTED_PROXIES", "127.0.0.1/32,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16")
@@ -199,6 +234,28 @@ func (p *parser) prefixes(key, def string) []netip.Prefix {
 			continue
 		}
 		out = append(out, pfx.Masked())
+	}
+	return out
+}
+
+// origins parses a comma-separated list of exact origins (scheme://host[:port], no path).
+func (p *parser) origins(key, def string) []string {
+	var out []string
+	for _, s := range strings.Split(p.str(key, def), ",") {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		u, err := url.Parse(s)
+		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || (u.Path != "" && u.Path != "/") ||
+			u.RawQuery != "" || u.User != nil {
+			p.errs = append(p.errs, fmt.Errorf("%s: invalid origin %q (want scheme://host[:port])", key, s))
+			continue
+		}
+		out = append(out, u.Scheme+"://"+strings.ToLower(u.Host))
+	}
+	if len(out) == 0 {
+		p.errs = append(p.errs, fmt.Errorf("%s: at least one origin required", key))
 	}
 	return out
 }

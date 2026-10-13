@@ -1,0 +1,75 @@
+-- name: CreateUser :one
+INSERT INTO users (username, display_name, email, password_hash, must_change_password)
+VALUES (@username, @display_name, @email, @password_hash, @must_change_password)
+RETURNING *;
+
+-- name: GetUserByUsername :one
+SELECT * FROM users WHERE username = @username;
+
+-- name: GetUserByID :one
+SELECT * FROM users WHERE id = @id;
+
+-- name: CountUsers :one
+SELECT count(*) FROM users;
+
+-- RecordLoginFailure counts a wrong password and locks the account at the threshold. A lock that has already
+-- expired starts a fresh count, so an unlocked account gets the full number of attempts again.
+-- name: RecordLoginFailure :one
+UPDATE users AS u
+SET failed_attempts = c.attempts,
+    locked_until    = CASE WHEN c.attempts >= @threshold::int THEN now() + make_interval(secs => @lock_seconds::float8)
+                           WHEN u.locked_until <= now() THEN NULL
+                           ELSE u.locked_until END,
+    updated_at      = now()
+FROM (SELECT x.id AS uid,
+             CASE WHEN x.locked_until IS NOT NULL AND x.locked_until <= now() THEN 1 ELSE x.failed_attempts + 1 END AS attempts
+      FROM users AS x WHERE x.id = @user_id) AS c
+WHERE u.id = c.uid
+RETURNING u.failed_attempts, u.locked_until;
+
+-- name: RecordLoginSuccess :exec
+UPDATE users SET failed_attempts = 0, locked_until = NULL, last_login_at = now(), updated_at = now() WHERE id = @id;
+
+-- name: UpdatePasswordHash :exec
+UPDATE users
+SET password_hash = @password_hash, must_change_password = @must_change_password,
+    password_changed_at = now(), updated_at = now()
+WHERE id = @id;
+
+-- name: RehashPassword :exec
+UPDATE users SET password_hash = @password_hash, updated_at = now() WHERE id = @id;
+
+-- name: CreateSession :one
+INSERT INTO sessions (token_hash, user_id, expires_at, idle_expires_at, ip, user_agent)
+VALUES (@token_hash, @user_id, @expires_at, @idle_expires_at, @ip, @user_agent)
+RETURNING *;
+
+-- name: GetActiveSession :one
+SELECT s.id AS session_id, s.user_id, s.created_at AS session_created_at, s.last_seen_at, s.expires_at, s.idle_expires_at,
+       u.username, u.display_name, u.status, u.must_change_password
+FROM sessions s
+JOIN users u ON u.id = s.user_id
+WHERE s.token_hash = @token_hash
+  AND s.revoked_at IS NULL
+  AND s.expires_at > now()
+  AND s.idle_expires_at > now()
+  AND u.status = 'active';
+
+-- name: TouchSession :exec
+UPDATE sessions SET last_seen_at = now(), idle_expires_at = LEAST(@idle_expires_at, expires_at) WHERE id = @id AND revoked_at IS NULL;
+
+-- name: RevokeSession :execrows
+UPDATE sessions SET revoked_at = now() WHERE id = @id AND user_id = @user_id AND revoked_at IS NULL;
+
+-- name: RevokeOtherSessions :execrows
+UPDATE sessions SET revoked_at = now() WHERE user_id = @user_id AND id <> @keep_id AND revoked_at IS NULL;
+
+-- name: ListActiveSessions :many
+SELECT id, created_at, last_seen_at, expires_at, idle_expires_at, ip, user_agent
+FROM sessions
+WHERE user_id = @user_id AND revoked_at IS NULL AND expires_at > now() AND idle_expires_at > now()
+ORDER BY last_seen_at DESC;
+
+-- name: DeleteStaleSessions :execrows
+DELETE FROM sessions
+WHERE expires_at < @cutoff OR idle_expires_at < @cutoff OR revoked_at < @cutoff;
