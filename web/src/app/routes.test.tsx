@@ -33,9 +33,9 @@ describe("buildRoutes", () => {
   it("maps each status to its standard page", () => {
     const routes = buildRoutes([menu("dashboard", "available"), menu("alarms", "coming_soon"), menu("power", "not_connected")]);
     expect(routes.map((r) => [r.path, r.kind])).toEqual([
-      ["/dashboard", "module"],
-      ["/alarms", "coming_soon"],
-      ["/power", "not_connected"],
+      ["/dashboard/*", "module"],
+      ["/alarms/*", "coming_soon"],
+      ["/power/*", "not_connected"],
     ]);
   });
 
@@ -45,6 +45,7 @@ describe("buildRoutes", () => {
   });
 
   it("creates one route per registry menu", () => {
-    expect(buildRoutes(menus).map((r) => r.path)).toEqual(menus.map((m) => m.path));
+    // "/*": modules own their sub-routes (e.g. /help/<slug>).
+    expect(buildRoutes(menus).map((r) => r.path)).toEqual(menus.map((m) => `${m.path}/*`));
   });
 });

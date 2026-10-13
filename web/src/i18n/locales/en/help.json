@@ -1,0 +1,33 @@
+{
+  "pagesNav": "Help pages",
+  "searchLabel": "Search help",
+  "searchPlaceholder": "Search titles or subheadings…",
+  "noResults": "No matching pages.",
+  "loading": "Loading help page",
+  "loadError": "The Help Center could not be loaded. Please try again shortly.",
+  "notFoundTitle": "Help page not found",
+  "notFoundBody": "This page is not available in the selected language or has moved. Pick another page from the list.",
+  "openHelp": "Help for this page",
+  "newTab": "(opens in a new tab)",
+  "audience": {
+    "user": "Users",
+    "admin": "Administrators"
+  },
+  "api": {
+    "title": "API reference",
+    "intro": "{{title}} — specification version {{version}}.",
+    "readOnly": "Read-only: this page never sends requests to the API.",
+    "signedIn": "Sign-in required",
+    "parameters": "Parameters",
+    "noParameters": "No parameters.",
+    "name": "Name",
+    "in": "In",
+    "type": "Type",
+    "description": "Description",
+    "required": "required",
+    "requestBody": "Request body",
+    "responses": "Responses",
+    "oneOf": "One of the following shapes:",
+    "noAuth": "No authentication"
+  }
+}

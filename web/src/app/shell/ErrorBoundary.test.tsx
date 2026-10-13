@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
@@ -7,7 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { BootstrapContext } from "@/features/bootstrap/regional";
 import { initI18n } from "@/i18n";
 import { resources } from "@/i18n/resources";
-import { testBootstrap } from "@/test/bootstrap";
+import { helpIndex, mockApi, testBootstrap } from "@/test/bootstrap";
 
 import { AppShell } from "./AppShell";
 
@@ -19,11 +20,16 @@ describe("page error boundary", () => {
   beforeEach(async () => {
     await initI18n("id");
     vi.spyOn(console, "error").mockImplementation(() => {});
+    mockApi({ "/api/v1/help/index": helpIndex("id") });
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
 
   it("shows a translated error page and resets when navigating to another page", async () => {
     render(
+      <QueryClientProvider client={new QueryClient()}>
       <ThemeProvider>
         <TooltipProvider>
           <BootstrapContext value={testBootstrap()}>
@@ -37,7 +43,8 @@ describe("page error boundary", () => {
             </MemoryRouter>
           </BootstrapContext>
         </TooltipProvider>
-      </ThemeProvider>,
+      </ThemeProvider>
+      </QueryClientProvider>,
     );
 
     expect(await screen.findByTestId("page-error")).toHaveTextContent(resources.id.shell.pages.error.title);

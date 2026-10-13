@@ -10,6 +10,8 @@
     "not_found": "Data not found.",
     "method_not_allowed": "Request method not allowed.",
     "rate_limited": "Too many requests. Please wait a moment and try again.",
-    "internal_error": "A server error occurred."
+    "internal_error": "A server error occurred.",
+    "help_unavailable": "The Help Center is temporarily unavailable.",
+    "invalid_locale": "Unsupported language."
   }
 }

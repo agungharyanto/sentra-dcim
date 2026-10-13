@@ -10,6 +10,8 @@
     "not_found": "Data tidak ditemukan.",
     "method_not_allowed": "Metode permintaan tidak diizinkan.",
     "rate_limited": "Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.",
-    "internal_error": "Terjadi kesalahan pada server."
+    "internal_error": "Terjadi kesalahan pada server.",
+    "help_unavailable": "Halaman Pusat Bantuan sedang tidak tersedia.",
+    "invalid_locale": "Bahasa tidak didukung."
   }
 }
