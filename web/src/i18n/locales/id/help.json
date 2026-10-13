@@ -17,7 +17,6 @@
     "title": "Referensi API",
     "intro": "{{title}} — versi spesifikasi {{version}}.",
     "readOnly": "Hanya baca: halaman ini tidak mengirim permintaan ke API.",
-    "signedIn": "Perlu masuk",
     "parameters": "Parameter",
     "noParameters": "Tanpa parameter.",
     "name": "Nama",
@@ -28,6 +27,17 @@
     "requestBody": "Isi permintaan",
     "responses": "Respons",
     "oneOf": "Salah satu dari bentuk berikut:",
-    "noAuth": "Tanpa autentikasi"
+    "copyPath": "Salin path {{path}}",
+    "toggle": "Tampilkan detail {{method}} {{path}}",
+    "access": {
+      "public": "Publik",
+      "internal": "Internal",
+      "login": "Butuh login"
+    },
+    "accessHint": {
+      "public": "Dapat dipanggil tanpa login lewat domain publik.",
+      "internal": "Hanya dari listener internal server; ditolak di domain publik.",
+      "login": "Perlu masuk (sementara basic_auth sampai Auth v0.3)."
+    }
   }
 }

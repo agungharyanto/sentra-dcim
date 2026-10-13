@@ -73,6 +73,9 @@ test.describe("design system showcase", () => {
       await page.keyboard.press("Escape");
       await expect(page.getByRole("menu")).toBeHidden();
 
+      // Copy button (reusable domain component)
+      await expect(page.getByTestId("copy-demo").getByRole("button", { name: id.ds.showcase.copyDemo })).toBeVisible();
+
       // Toast
       await page.getByRole("button", { name: id.ds.showcase.feedback.showToast }).click();
       const toast = page.locator("[data-sonner-toast]");

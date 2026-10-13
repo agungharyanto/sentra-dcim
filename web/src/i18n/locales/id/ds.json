@@ -107,6 +107,11 @@
       "toastTitle": "Perubahan disimpan",
       "toastBody": "Contoh notifikasi toast.",
       "skeleton": "Memuat (skeleton)"
-    }
+    },
+    "copyDemo": "Salin ID perangkat"
+  },
+  "copy": {
+    "copied": "Disalin",
+    "failed": "Gagal menyalin ke clipboard. Salin manual: {{value}}"
   }
 }

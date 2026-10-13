@@ -17,7 +17,6 @@
     "title": "API reference",
     "intro": "{{title}} — specification version {{version}}.",
     "readOnly": "Read-only: this page never sends requests to the API.",
-    "signedIn": "Sign-in required",
     "parameters": "Parameters",
     "noParameters": "No parameters.",
     "name": "Name",
@@ -28,6 +27,17 @@
     "requestBody": "Request body",
     "responses": "Responses",
     "oneOf": "One of the following shapes:",
-    "noAuth": "No authentication"
+    "copyPath": "Copy path {{path}}",
+    "toggle": "Show details of {{method}} {{path}}",
+    "access": {
+      "public": "Public",
+      "internal": "Internal",
+      "login": "Sign-in required"
+    },
+    "accessHint": {
+      "public": "Callable without sign-in through the public domain.",
+      "internal": "Only from the server's internal listener; rejected on the public domain.",
+      "login": "Sign-in required (temporary basic_auth until Auth v0.3)."
+    }
   }
 }

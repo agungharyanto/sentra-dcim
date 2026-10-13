@@ -108,6 +108,8 @@ export interface OpenApiOperation {
   parameters?: OpenApiParameter[];
   requestBody?: { content?: Record<string, { schema?: OpenApiSchema }> };
   responses?: Record<string, OpenApiResponse>;
+  /** Who may call this at the public edge: public | internal | login (Sentra extension). */
+  "x-sentra-access"?: string;
 }
 
 export interface OpenApiDoc {

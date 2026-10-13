@@ -4,6 +4,8 @@
 @import "./tokens.css";
 
 @custom-variant dark (&:is(.dark *));
+/* Devices without hover (touch): reveal-on-hover controls are always visible there. */
+@custom-variant no-hover (@media (hover: none));
 
 /* Expose the semantic tokens (tokens.css) as Tailwind colours: bg-status-critical-bg, text-menu-available-fg, ... */
 @theme inline {

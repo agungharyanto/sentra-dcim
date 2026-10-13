@@ -107,6 +107,11 @@
       "toastTitle": "Changes saved",
       "toastBody": "Sample toast notification.",
       "skeleton": "Loading (skeleton)"
-    }
+    },
+    "copyDemo": "Copy device ID"
+  },
+  "copy": {
+    "copied": "Copied",
+    "failed": "Could not copy to the clipboard. Copy manually: {{value}}"
   }
 }

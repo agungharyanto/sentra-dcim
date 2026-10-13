@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import { LanguageSwitcher } from "@/components/domain/LanguageSwitcher";
+import { CopyButton } from "@/components/domain/CopyButton";
 import { Logo } from "@/components/domain/Logo";
 import { MenuStatusBadge } from "@/components/domain/MenuStatusBadge";
 import { dcimStatuses, menuStatuses } from "@/components/domain/status";
@@ -48,6 +49,9 @@ const tokenGroups: string[][] = [
   ["primary", "primary-foreground", "secondary", "accent", "destructive", "link", "info", "info-bg"],
   ...dcimStatuses.map((s) => ["solid", "fg", "bg", "border"].map((p) => `status-${s}-${p}`)),
 ];
+
+// Fictional sample identifier for the copy demo.
+const sampleDeviceId = "PDU-A01-02";
 
 // Fictional sample rows for the table demo.
 const racks = [
@@ -318,6 +322,10 @@ export function DesignSystemPage() {
           >
             {t("showcase.feedback.showToast")}
           </Button>
+          <span className="inline-flex items-center gap-1 rounded-md border px-2 py-1" data-testid="copy-demo">
+            <code className="font-mono text-sm">{sampleDeviceId}</code>
+            <CopyButton value={sampleDeviceId} label={t("showcase.copyDemo")} />
+          </span>
           <div className="w-full space-y-2" aria-label={t("showcase.feedback.skeleton")} role="status">
             <Skeleton className="h-4 w-2/3" />
             <Skeleton className="h-4 w-1/2" />

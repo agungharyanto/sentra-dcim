@@ -1,4 +1,8 @@
+import { ChevronRight } from "lucide-react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
+
+import { CopyButton } from "@/components/domain/CopyButton";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -158,36 +162,71 @@ function Responses({ doc, responses }: { doc: OpenApiDoc; responses: Record<stri
   );
 }
 
+export type Access = "public" | "internal" | "login";
+
+/** Access level from the spec's x-sentra-access extension (never hardcoded per path in the UI). */
+export function accessOf(op: OpenApiOperation): Access | undefined {
+  const v = op["x-sentra-access"];
+  return v === "public" || v === "internal" || v === "login" ? v : undefined;
+}
+
+/**
+ * One endpoint as a disclosure. Header structure avoids nested interactive elements: the toggle <button> holds
+ * method + path and stretches over the whole row (::after), the copy button is a sibling placed above it (z-10).
+ */
 function Operation({ doc, method, path, op }: { doc: OpenApiDoc; method: string; path: string; op: OpenApiOperation }) {
   const { t } = useTranslation("help");
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
   const body = op.requestBody?.content && Object.values(op.requestBody.content)[0]?.schema;
-  const isPublic = Array.isArray(op.security) && op.security.length === 0;
+  const access = accessOf(op);
   return (
-    <details className="rounded-lg border bg-card" data-operation={`${method.toUpperCase()} ${path}`}>
-      <summary className="flex cursor-pointer flex-wrap items-center gap-2 px-4 py-3 outline-none focus-visible:ring-[3px] focus-visible:ring-ring">
-        <span className="rounded bg-primary px-2 py-0.5 font-mono text-xs font-semibold text-primary-foreground uppercase">{method}</span>
-        <code className="font-mono text-sm">{path}</code>
+    <div className="rounded-lg border bg-card" data-operation={`${method.toUpperCase()} ${path}`} data-open={open}>
+      <div className="group relative flex flex-wrap items-center gap-2 rounded-lg px-4 py-2.5 hover:bg-accent/50">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={() => setOpen(!open)}
+          className="flex items-center gap-2 text-left outline-none after:absolute after:inset-0 after:rounded-lg after:content-[''] focus-visible:after:ring-[3px] focus-visible:after:ring-ring"
+          data-testid="operation-toggle"
+        >
+          <ChevronRight className={cn("size-4 shrink-0 transition-transform", open && "rotate-90")} aria-hidden />
+          <span className="rounded bg-primary px-2 py-0.5 font-mono text-xs font-semibold text-primary-foreground uppercase">{method}</span>
+          <code className="font-mono text-sm break-all">{path}</code>
+        </button>
+        <CopyButton
+          value={path}
+          label={t("api.copyPath", { path })}
+          className="relative z-10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[copied=true]:opacity-100 no-hover:opacity-100"
+        />
         <span className="text-sm text-muted-foreground">{op.summary}</span>
-        <span className="ml-auto text-xs text-muted-foreground">{isPublic ? t("api.noAuth") : t("api.signedIn")}</span>
-      </summary>
-      <div className="space-y-4 border-t px-4 py-3">
-        {op.description && <Markdown compact>{op.description}</Markdown>}
-        <section>
-          <h4 className="mb-1 text-sm font-semibold">{t("api.parameters")}</h4>
-          <Parameters doc={doc} params={op.parameters ?? []} />
-        </section>
-        {body && (
-          <section>
-            <h4 className="mb-1 text-sm font-semibold">{t("api.requestBody")}</h4>
-            <SchemaView doc={doc} schema={body} />
-          </section>
+        {access && (
+          <span className="ml-auto text-xs text-muted-foreground" title={t(`api.accessHint.${access}`)} data-access={access}>
+            {t(`api.access.${access}`)}
+          </span>
         )}
-        <section>
-          <h4 className="mb-1 text-sm font-semibold">{t("api.responses")}</h4>
-          <Responses doc={doc} responses={op.responses ?? {}} />
-        </section>
       </div>
-    </details>
+      {open && (
+        <div id={panelId} className="space-y-4 border-t px-4 py-3">
+          {op.description && <Markdown compact>{op.description}</Markdown>}
+          <section>
+            <h4 className="mb-1 text-sm font-semibold">{t("api.parameters")}</h4>
+            <Parameters doc={doc} params={op.parameters ?? []} />
+          </section>
+          {body && (
+            <section>
+              <h4 className="mb-1 text-sm font-semibold">{t("api.requestBody")}</h4>
+              <SchemaView doc={doc} schema={body} />
+            </section>
+          )}
+          <section>
+            <h4 className="mb-1 text-sm font-semibold">{t("api.responses")}</h4>
+            <Responses doc={doc} responses={op.responses ?? {}} />
+          </section>
+        </div>
+      )}
+    </div>
   );
 }
 
