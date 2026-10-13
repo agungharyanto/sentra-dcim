@@ -104,7 +104,37 @@ Dialog, Sheet, Select, DropdownMenu (via `react-remove-scroll`) dan Toast (`sonn
 saat runtime. Karena itu respons UI memakai `style-src 'self' 'unsafe-inline'`; `script-src` tetap `'self'`.
 Alasan & rencana perbaikan (nonce): [ADR-002](decisions/ADR-002-csp-style-src.md), D-044.
 
-## 6. Logo
+## 6. Layout shell (v0.2.3)
+
+Kode: `web/src/app/shell/`, routing `web/src/app/{AppRoutes,routes}.tsx`, halaman standar `web/src/app/pages/`.
+
+| Area | Aturan |
+|---|---|
+| Landmark | Skip link **Lompat ke konten** (elemen pertama, terlihat saat fokus) → `<main id="main-content">`; `<header>`; `<nav>` utama (aria-label i18n) dan `<nav>` breadcrumb |
+| Sidebar (≥ lg) | Dari registry backend: grup (`menu_groups`) → menu (ikon lucide + label i18n). `MenuStatusBadge` hanya untuk menu **non-available**. Menu aktif: `aria-current="page"` + latar `accent`. Versi app di bawah. Lebar 18 rem; **ciut** 4 rem (ikon saja, nama di Tooltip, status sebagai `sr-only`), tersimpan di `localStorage` `sentra.sidebar` |
+| Drawer (< lg) | Sidebar disembunyikan; tombol ☰ di header membuka `Sheet` kiri berisi menu yang sama; tertutup saat navigasi atau **Esc** |
+| Header | Breadcrumb (*Sentra DCIM › Grup › Menu*) + `h1` judul halaman (satu-satunya `h1`; halaman memakai `h2`), lalu jam, bahasa, tema. **Tanpa menu user** sampai Auth v0.3 |
+| Jam | Komponen `Clock` dengan state sendiri (tik 1 detik hanya me-render jam), zona dari bootstrap, `<time dateTime>` UTC. **Tanpa `aria-live`** — tidak dibacakan tiap detik |
+| Error | `ErrorBoundary` per halaman, di-*key* dengan `pathname`: berpindah halaman menghapus error; header & sidebar tetap hidup |
+
+### Halaman standar
+
+| Halaman | Kapan | Komponen |
+|---|---|---|
+| Modul | Menu `available` dengan entri di `moduleRegistry` | Halaman modul (v0.2.3: hanya Dasbor) |
+| Segera hadir | Menu `coming_soon` (juga `available` tanpa halaman — pengaman runtime) | `ComingSoonPage`: deskripsi modul (`shell:menuDescription.<key>`) + kembali ke Dasbor |
+| Belum terhubung | Menu `not_connected` | `NotConnectedPage` |
+| 404 | Path tak dikenal, di dalam shell | `NotFoundPage` |
+| Error | Halaman gagal render | `ErrorPage` + tombol muat ulang |
+
+Semua memakai `StatePage` (ikon, judul `h2`, teks, aksi). **Empty state, bukan data contoh:** modul tanpa data nyata
+menampilkan keadaan kosong yang jujur — dilarang angka, tabel, atau grafik dummy di halaman pengguna (contoh fiktif
+hanya di `/design-system`).
+
+Registry ↔ halaman dijaga test: `go test ./internal/ui/service` memastikan fixture `web/src/test/fixtures/ui-registry.json`
+sama dengan registry; `web/src/app/routes.test.tsx` gagal bila ada menu `available` tanpa halaman.
+
+## 7. Logo
 
 Placeholder di **`web/src/assets/brand/logo.svg`** — satu-satunya titik penggantian. File yang sama dipakai komponen
 `Logo` (header) dan sebagai favicon (`web/index.html`). Ganti file itu (SVG persegi, latar sendiri) lalu `make up`;

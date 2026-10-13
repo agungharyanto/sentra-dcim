@@ -42,6 +42,8 @@ Apa yang diselesaikan fitur ini dan untuk siapa.
 | API | Endpoint sistem (health, ready, version) | [api/system.md](api/system.md) | v0.1.3 |
 | API | Bootstrap UI (bahasa, zona waktu, registry menu) | [api/ui-bootstrap.md](api/ui-bootstrap.md) | v0.2.1 |
 
+| Dasbor | Dasbor & navigasi (shell UI) | [id/dashboard/index.md](id/dashboard/index.md) · [en](en/dashboard/index.md) | v0.2.3 |
+
 Mulai v0.2 Pusat Bantuan dua bahasa: konvensi di [id/README.md](id/README.md) dan [en/README.md](en/README.md);
 halaman di atas dipindah ke `id/` pada v0.2.4.
 
