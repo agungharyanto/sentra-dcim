@@ -13,18 +13,25 @@ import (
 	"time"
 )
 
+// DefaultDisplayTimezone is the display timezone when DISPLAY_TIMEZONE is not set (WIB, UTC+7).
+const DefaultDisplayTimezone = "Asia/Jakarta"
+
 // Config is the full application configuration.
 type Config struct {
-	Env             string
-	LogLevel        string
-	HTTPAddr        string
-	ShutdownTimeout time.Duration
-	DisplayTZ       *time.Location
-	RateLimitRPS    float64
-	RateLimitBurst  int
-	TrustedProxies  []netip.Prefix
-	DB              DB
-	Redis           Redis
+	Env      string
+	LogLevel string
+	// HTTPAddr serves the public-facing API (proxied by Caddy's public site); responses are minimal.
+	HTTPAddr string
+	// InternalHTTPAddr serves the same API with operational details (e.g. full /version). Reachable only via the
+	// Caddy listener bound to host 127.0.0.1; never proxy it publicly.
+	InternalHTTPAddr string
+	ShutdownTimeout  time.Duration
+	DisplayTZ        *time.Location
+	RateLimitRPS     float64
+	RateLimitBurst   int
+	TrustedProxies   []netip.Prefix
+	DB               DB
+	Redis            Redis
 }
 
 // DB holds PostgreSQL connection settings.
@@ -64,12 +71,13 @@ func Load() (Config, error) { return LoadFrom(os.LookupEnv) }
 func LoadFrom(lookup func(string) (string, bool)) (Config, error) {
 	p := parser{lookup: lookup}
 	cfg := Config{
-		Env:             p.str("APP_ENV", "production"),
-		LogLevel:        strings.ToLower(p.str("APP_LOG_LEVEL", "info")),
-		HTTPAddr:        p.str("APP_HTTP_ADDR", ":8080"),
-		ShutdownTimeout: p.duration("APP_SHUTDOWN_TIMEOUT", 15*time.Second),
-		RateLimitRPS:    p.float("APP_RATE_LIMIT_RPS", 20),
-		RateLimitBurst:  p.int("APP_RATE_LIMIT_BURST", 40),
+		Env:              p.str("APP_ENV", "production"),
+		LogLevel:         strings.ToLower(p.str("APP_LOG_LEVEL", "info")),
+		HTTPAddr:         p.str("APP_HTTP_ADDR", ":8080"),
+		InternalHTTPAddr: p.str("APP_INTERNAL_HTTP_ADDR", ":8081"),
+		ShutdownTimeout:  p.duration("APP_SHUTDOWN_TIMEOUT", 15*time.Second),
+		RateLimitRPS:     p.float("APP_RATE_LIMIT_RPS", 20),
+		RateLimitBurst:   p.int("APP_RATE_LIMIT_BURST", 40),
 		DB: DB{
 			Host:     p.str("DB_HOST", "127.0.0.1"),
 			Port:     p.int("DB_PORT", 5432),
@@ -88,12 +96,20 @@ func LoadFrom(lookup func(string) (string, bool)) (Config, error) {
 
 	cfg.TrustedProxies = p.prefixes("APP_TRUSTED_PROXIES", "127.0.0.1/32,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16")
 
-	tzName := p.str("APP_DISPLAY_TZ", "Asia/Makassar")
-	tz, err := time.LoadLocation(tzName)
+	// DISPLAY_TIMEZONE replaces APP_DISPLAY_TZ (v0.1.8); the old name is still honoured for existing .env files.
+	tzKey := "DISPLAY_TIMEZONE"
+	if p.str(tzKey, "") == "" && p.str("APP_DISPLAY_TZ", "") != "" {
+		tzKey = "APP_DISPLAY_TZ"
+	}
+	tz, err := time.LoadLocation(p.str(tzKey, DefaultDisplayTimezone))
 	if err != nil {
-		p.errs = append(p.errs, fmt.Errorf("APP_DISPLAY_TZ: %w", err))
+		p.errs = append(p.errs, fmt.Errorf("%s: %w", tzKey, err))
 	}
 	cfg.DisplayTZ = tz
+
+	if cfg.HTTPAddr == cfg.InternalHTTPAddr {
+		p.errs = append(p.errs, errors.New("APP_HTTP_ADDR and APP_INTERNAL_HTTP_ADDR must differ"))
+	}
 
 	switch cfg.LogLevel {
 	case "debug", "info", "warn", "error":
