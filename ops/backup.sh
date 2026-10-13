@@ -18,13 +18,15 @@ elif [[ ! -w "$BACKUP_DIR" ]]; then
   die "$BACKUP_DIR is not writable by $(id -un); run as its owner: sudo -u $(stat -c %U "$BACKUP_DIR") -H $0"
 fi
 
+# Everything created from here on (lock file, dump, archives) is owner-only: files 0600, directories 0700.
+umask 077
 exec 9>"$BACKUP_DIR/.lock"
+chmod 0600 "$BACKUP_DIR/.lock"   # also tightens a lock file created by older versions (was 0664)
 flock -n 9 || die "another backup is running"
 
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 dest="$BACKUP_DIR/${stamp}_${label}"
 work="$dest.partial"
-umask 077
 mkdir -p "$work"
 done=0
 on_exit() {

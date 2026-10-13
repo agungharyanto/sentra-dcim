@@ -8,6 +8,7 @@ ditambah, diubah versinya, atau dihapus.
 | Nama | Versi | Lisensi | Fungsi |
 |---|---|---|---|
 | Ubuntu Server | 24.04 LTS (aarch64, Oracle Cloud) | Berbagai (GPL dll.) | Sistem operasi server |
+| Kernel Linux (`linux-image-oracle`) | 7.0.0-1013-oracle (berjalan sejak v0.2.9); 6.17.0-1020-oracle dipertahankan untuk rollback (ISS-036) | GPL-2.0 | Kernel host; GRUB menu 10 s untuk memilih kernel lewat serial console |
 | Oracle Cloud Agent (`snap oracle-cloud-agent`) | 1.61.0 (bawaan image) | Oracle (UPL/proprietary) | Agent OCI: monitoring, Run Command (jalur pemulihan darurat) |
 | Docker Engine | 29.9.0 | Apache-2.0 | Runtime container |
 | fail2ban (paket Ubuntu) | 1.0.2-3ubuntu0.1 | GPL-2.0 | Ban IP: jail `sshd` (v0.1) dan `sentra-web` (login basic_auth salah, v0.2.5) |
@@ -88,6 +89,7 @@ pilih versi terbaru yang sudah melewati jendela itu.
 | golang-migrate CLI | 4.20.1 | MIT | Migrasi skema DB (CLI opsional; app memakai library yang sama) |
 | sqlc | 1.31.1 | MIT | Generate kode Go type-safe dari query SQL |
 | Redocly CLI (`redocly/cli:2.62.1`) | 2.62.1 | MIT | Validasi `api/openapi.yaml` |
+| actionlint (`rhysd/actionlint:1.7.12`) | 1.7.12 | MIT | Lint workflow GitHub Actions (CI & full regression, v0.2.9) |
 | Ubuntu 24.04 (`ubuntu:24.04`, CI) + fail2ban 1.0.2 | 24.04 | Berbagai / GPL-2.0 | `fail2ban-regex` untuk uji filter di CI, versi sama dengan produksi |
 | govulncheck (`golang.org/x/vuln`) | 1.9.0 | BSD-3-Clause | Pemindaian kerentanan dependensi Go yang benar-benar terpanggil (CI job Lint, `make vulncheck`, v0.2.4) |
 | GCC | (paket Ubuntu) | GPL-3.0 | Dibutuhkan race detector (`go test -race`, CGO) |

@@ -5,6 +5,13 @@
 # with Caddy's internal CA root instead of Let's Encrypt.
 set -uo pipefail
 
+# Whole body in main(): bash parses the entire file before running, so editing the script mid-run cannot make it
+# re-execute or skip parts (CLAUDE.md rule 13; the 43-vs-41 checks incident of v0.2.5, ISS-035).
+main() {
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../../scripts/lib/source-rev.sh"
+source_rev_line "$0"
+
 if [[ -z "${DOMAIN:-}" && -f "$(dirname "$0")/../../.env" ]]; then
   DOMAIN="$(sed -n 's/^DOMAIN=//p' "$(dirname "$0")/../../.env" | tail -1)"
 fi
@@ -94,3 +101,6 @@ check "TLS 1.3 accepted" "$(echo | openssl s_client -connect "$DOMAIN:443" -serv
 
 echo "Result: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]
+}
+
+main "$@"

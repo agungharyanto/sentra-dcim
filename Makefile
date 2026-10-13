@@ -77,7 +77,7 @@ build: ## Build backend binary to bin/sentra
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/sentra ./cmd/sentra
 
 ## ---------- Quality ----------
-.PHONY: web-check test test-integration test-api test-ui test-e2e lint vulncheck fail2ban-test fail2ban-web fail2ban-web-remove fail2ban-ban-test gitleaks openapi-lint sqlc fmt
+.PHONY: web-check test test-integration test-api test-ui test-e2e lint vulncheck fail2ban-test fail2ban-web fail2ban-web-remove fail2ban-ban-test boot-menu post-reboot-check recovery-drill gitleaks openapi-lint sqlc fmt
 test: ## Run unit tests with race detector and coverage
 	CGO_ENABLED=1 go test -race -count=1 -coverprofile=coverage.out ./...
 
@@ -110,6 +110,15 @@ fail2ban-web-remove: ## Remove the sentra-web jail, filter and systemd drop-in (
 
 fail2ban-ban-test: ## Real ban/unban test from a throwaway container network against this host (sudo)
 	sudo ./scripts/fail2ban-ban-test.sh
+
+boot-menu: ## Host boot prep: GRUB menu 10 s on the serial console, keep kernel 6.17 for rollback (idempotent; sudo)
+	sudo ./scripts/host-boot-setup.sh
+
+post-reboot-check: ## After a reboot: kernel, uptime, services, containers, fail2ban/DOCKER-USER, smoke, edge, ban test (sudo)
+	sudo ./scripts/post-reboot-check.sh
+
+recovery-drill: ## Build and start the whole stack from a clean GitHub clone (separate project/ports), then clean up
+	./scripts/recovery-drill.sh
 
 vulncheck: ## Scan Go dependencies for known, reachable vulnerabilities (same version as CI)
 	go install golang.org/x/vuln/cmd/govulncheck@v1.9.0

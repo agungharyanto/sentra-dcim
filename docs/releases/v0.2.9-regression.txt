@@ -1,0 +1,119 @@
+== full-regression.sh @ v0.2.5-8-g159f44c (clean) — /opt/sentra-worktrees/v0.2.9
+# Sentra DCIM full regression — 2026-10-13T17:24:25Z
+git: v0.2.5-8-g159f44c (159f44c)  host: instance-20261013-1403
+
+## 1. Static analysis & secret scan
+  PASS  gitleaks (history + working tree)
+  PASS  golangci-lint
+  PASS  gofmt
+  PASS  go vet
+  PASS  shellcheck
+  PASS  OpenAPI lint (Redocly)
+  PASS  sqlc generated code up to date
+  PASS  docker compose config valid
+  PASS  Caddyfile valid (production-like + empty env)
+  PASS  compose renders Caddy defaults for empty DOMAIN/ACME_EMAIL
+  PASS  actionlint (CI workflow, rhysd/actionlint:1.7.12)
+  PASS  govulncheck (reachable Go vulnerabilities)
+  PASS  web: supply:check, lint, typecheck, i18n:check, Vitest (Docker)
+  PASS  fail2ban filter (fail2ban-regex, synthetic samples)
+  PASS  no .env / keys tracked by git
+  PASS  pre-commit hook active
+
+## 2. Unit tests
+  PASS  go test -race (unit)
+  info  coverage: 61.7%
+
+## 3. Integration tests (TimescaleDB + Redis)
+  PASS  go test -tags=integration
+
+## 4. Containers
+  PASS  db healthy
+  PASS  db non-root user
+  PASS  db read-only rootfs + no-new-privileges + cap_drop ALL
+  PASS  db restart policy unless-stopped + memory limit
+  PASS  db not privileged, no docker.sock mount
+  PASS  redis healthy
+  PASS  redis non-root user
+  PASS  redis read-only rootfs + no-new-privileges + cap_drop ALL
+  PASS  redis restart policy unless-stopped + memory limit
+  PASS  redis not privileged, no docker.sock mount
+  PASS  app healthy
+  PASS  app non-root user
+  PASS  app read-only rootfs + no-new-privileges + cap_drop ALL
+  PASS  app restart policy unless-stopped + memory limit
+  PASS  app not privileged, no docker.sock mount
+  PASS  caddy healthy
+  PASS  caddy non-root user
+  PASS  caddy read-only rootfs + no-new-privileges + cap_drop ALL
+  PASS  caddy restart policy unless-stopped + memory limit
+  PASS  caddy not privileged, no docker.sock mount
+  PASS  published ports bound to 127.0.0.1, except Caddy 80/443
+
+## 5. API tests
+  PASS  running /api/v1/version == git describe HEAD (v0.2.5-8-g159f44c)
+  PASS  app image built for v0.2.5-8-g159f44c
+  PASS  API smoke test (internal, expect v0.2.5-8-g159f44c)
+  PASS  public edge test https://sentra.bajastu.id (TLS, headers, proxy allowlist, version only)
+
+## 6. Backup & restore (isolated database)
+  PASS  backup
+  info  backup: /var/backups/sentra/20261013T172500Z_regression (52K)
+  PASS  backup checksums
+  PASS  backup files mode 0600, dir 0700
+  PASS  whole backup tree: owner sentra, dirs 0700, files 0600 (incl. .lock)
+  PASS  restore into empty database sentra_regress
+  PASS  row count system_info live == restored
+  PASS  row count ops_runs live == restored + 1
+
+## 7. Migrations up/down (restored copy, app binary)
+  info  migration target: database 'sentra_regress' in container sentra-db-1 (production database 'sentra' is never targeted)
+  PASS  migrate goto 0 (all down)
+  PASS  schema empty after down
+  PASS  migrate up (all 2)
+  PASS  version == latest (2), not dirty
+  PASS  production DB untouched: still at version 2
+  PASS  migrate down 1 + up (last migration reversible)
+  PASS  drop regression database
+  PASS  live /ready still 200
+
+## 8. Permissions
+  PASS  .env owner-only (+ admin ACL read), no group/other access
+  PASS  ops scripts not world-writable
+  PASS  DB rejects wrong password
+  PASS  Redis rejects unauthenticated command
+  PASS  app container has no shell (distroless)
+  PASS  DB port not reachable from non-loopback IP
+  PASS  Redis port not reachable from non-loopback IP
+  PASS  Caddy port not reachable from non-loopback IP
+
+## 9. Firewall & host hardening
+  info  sshd ports: 22; allowed inbound: 22 80 443
+  PASS  ufw active, default deny incoming
+  PASS  ufw allows only: 22 80 443
+  PASS  80/443 open in ufw (UFW_OPEN_HTTP=1)
+  PASS  only allowed ports listen on non-loopback addresses
+  PASS  fail2ban sshd jail active
+  PASS  sysctl hardening applied
+  PASS  unattended-upgrades enabled
+  PASS  backup timer scheduled
+  PASS  hardening idempotent (no changes on re-run)
+
+## 10. Host boot & fail2ban (v0.2.5, v0.2.9)
+  PASS  docker enabled + active at boot
+  PASS  containerd enabled + active at boot
+  PASS  fail2ban enabled + active at boot
+  PASS  fail2ban drop-in: After=/Requires=docker.service
+  PASS  fail2ban jail sentra-web active
+  PASS  DOCKER-USER jumps to f2b-sentra-web (80,443)
+  PASS  fail2ban real ban/unban (network namespace)
+  PASS  GRUB menu visible 10 s (serial console)
+  PASS  kernel 6.17.0-1020-oracle kept for rollback (manual + not autoremovable)
+  info  kernel: 7.0.0-1013-oracle; reboot pending: no
+
+## 11. Repository state
+  PASS  git status clean
+  PASS  HEAD pushed to GitHub (origin has this commit)
+  PASS  mandatory docs present
+
+## Result: 87 passed, 0 failed

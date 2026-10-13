@@ -4,6 +4,13 @@
 # Credentials: same sources as test/api/ui.sh (env SENTRA_WEB_USER/SENTRA_WEB_PASS, ~/.config/sentra/web-auth, prompt).
 set -euo pipefail
 
+# Whole body in main(): bash parses the entire file before running, so editing the script mid-run cannot make it
+# re-execute or skip parts (CLAUDE.md rule 13; the 43-vs-41 checks incident of v0.2.5, ISS-035).
+main() {
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../../scripts/lib/source-rev.sh"
+source_rev_line "$0"
+
 PLAYWRIGHT_IMAGE="mcr.microsoft.com/playwright:v1.64.0-noble" # multi-arch (amd64 + arm64)
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 if [[ -z "${BASE_URL:-}" ]]; then
@@ -57,3 +64,6 @@ docker run --rm --init --ipc=host --network host --env-file "$tmp/env" \
     cp -r /repo/web/src/test/fixtures /tmp/w/web/src/test/fixtures
     cd /tmp/w/test/e2e && npm ci --no-audit --no-fund --loglevel=error && npx playwright test'
 echo "screenshots: $artifacts"
+}
+
+main "$@"

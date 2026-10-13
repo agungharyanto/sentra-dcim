@@ -42,6 +42,11 @@ Aturan di bawah **wajib dipatuhi di setiap sesi**. Bila ada konflik, aturan ini 
 11. **Laporan ke user singkat:** tag, hasil test, issue terbuka, keputusan yang dibutuhkan.
 12. **Bahasa.** Komunikasi & dokumentasi (`docs/`, Pusat Bantuan, CHANGELOG, ISSUES) dalam Bahasa Indonesia.
     Kode, nama variabel, pesan commit, komentar kode dalam Bahasa Inggris.
+13. **Kode yang diuji = kode di GitHub.** Edit dilakukan di **git worktree terpisah** (`/opt/sentra-worktrees/<versi>`),
+    tidak pernah di working tree server `/opt/sentra-dcim` (yang tetap di `main` bersih). Pemilik diminta menjalankan test
+    **hanya setelah commit + push**. Setiap skrip test/ops membungkus isinya dalam `main "$@"` (bash mem-parse seluruh
+    file sebelum jalan) dan baris pertama outputnya mencetak commit + `clean`/`DIRTY` (`scripts/lib/source-rev.sh`).
+    Hasil dari kode `DIRTY` tidak sah sebagai bukti regresi (ISS-035).
 
 ## Ringkasan teknis
 

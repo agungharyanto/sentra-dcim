@@ -10,7 +10,7 @@ Sprint = 1 minggu.
 | Versi | Judul | Ruang lingkup | Status |
 |---|---|---|---|
 | v0.1 | Foundation | Scaffold repo, infra Docker, hardening server, backend skeleton (health/ready/version), Ops & DR (backup/restore/rollback/bootstrap), CI | Selesai (lihat docs/releases/v0.1.9.md) |
-| v0.2 | UI Shell & Design System | Shell UI, design system, kerangka Pusat Bantuan; status menu *Available / Coming Soon / Not Connected*; warna status *Normal / Warning / Critical / Offline / Maintenance*; keputusan framework frontend; **i18n wajib sejak awal** (lihat rincian) | Berjalan (v0.2.1–v0.2.5 selesai) |
+| v0.2 | UI Shell & Design System | Shell UI, design system, kerangka Pusat Bantuan; status menu *Available / Coming Soon / Not Connected*; warna status *Normal / Warning / Critical / Offline / Maintenance*; keputusan framework frontend; **i18n wajib sejak awal** (lihat rincian) | Selesai (lihat docs/releases/v0.2.9.md) |
 | v0.3 | Auth, RBAC & Audit Log | Login, sesi, RBAC (Admin, NOC, Security, Viewer, dll), audit log; detail `/api/v1/version` hanya role Admin; tambahan v0.3.5 Settings – Regional, v0.3.6 Settings – Allowed IP | Rencana |
 | v0.4 | Facility, Tenant & Asset | Hierarki Site > Gedung > Lantai > Ruang > Rack, tenant, aset | Rencana |
 | v0.5 | Dashboard & Alarm Engine | Dashboard, alarm (aktif / diakui / eskalasi / selesai), notifikasi | Rencana |
@@ -47,7 +47,7 @@ Sprint = 1 minggu.
 | v0.2.3 | UI Shell | Layout (sidebar registry bergrup + ciut + drawer mobile, header breadcrumb/jam/bahasa/tema, skip link), routing dari registry (modul/Segera hadir/Belum terhubung, 404, error boundary), Dasbor empty state; kontrak bootstrap `menu_groups` + `group` (breaking) | Selesai |
 | v0.2.4 | Pusat Bantuan di UI | Modul help (`/api/v1/help/*`, konten di-embed + divalidasi `go test`, 503 terisolasi bila konten rusak), halaman ID/EN dengan front matter, migrasi runbook ke `docs/ops/runbooks` & `docs/dev`, renderer Markdown aman, pencarian, tombol "?", viewer API read-only, govulncheck di CI, revisi CLAUDE.md aturan 2 & 7 | Selesai |
 | v0.2.5 | Mitigasi DoS basic_auth (cadangan) | bcrypt cost 10, access log Caddy ke file (rotasi, retensi 30 hari), jail fail2ban `sentra-web` di `DOCKER-USER` (REJECT), drop-in systemd setelah Docker, uji filter & ban nyata (ISS-026, D-045) | Selesai |
-| v0.2.9 | Penutup Sprint | Full regression (termasuk `test/e2e`, uji reboot server: fail2ban & DOCKER-USER pulih) + DoD | Rencana |
+| v0.2.9 | Penutup Sprint | Full regression 87/87 (sebelum & sesudah reboot), DoD, reboot ke kernel 7.0 (downtime ± 37 s, rollback 6.17 disiapkan), post-reboot check, recovery drill dari GitHub tanpa cache, aturan kerja worktree (CLAUDE.md aturan 13) | Selesai |
 
 ## Rincian v0.2 — wajib i18n sejak awal
 

@@ -267,3 +267,9 @@ sudo /opt/sentra-dcim/ops/bootstrap-new-server.sh --ref <tag> --admin-user ubunt
 |---|---|
 | Pemilik sistem | Diskominfo Provinsi Bali — *Pending* |
 | Engineer utama | *Pending* |
+
+## Rollback kernel
+
+Bila server tidak bisa boot atau rusak setelah pembaruan kernel: pilih kernel sebelumnya dari menu GRUB lewat serial
+console — [ops/runbooks/kernel-rollback.md](ops/runbooks/kernel-rollback.md) (v0.2.9). Kernel `6.17.0-1020-oracle`
+dipertahankan sebagai target rollback sampai penutup v0.3 (ISS-036). Setelah boot apa pun: `make post-reboot-check`.

@@ -4,6 +4,13 @@
 # BASE_URL is the internal listener (full /version details). EXPECT_TZ defaults to DISPLAY_TIMEZONE or Asia/Jakarta.
 set -uo pipefail
 
+# Whole body in main(): bash parses the entire file before running, so editing the script mid-run cannot make it
+# re-execute or skip parts (CLAUDE.md rule 13; the 43-vs-41 checks incident of v0.2.5, ISS-035).
+main() {
+# shellcheck source=/dev/null
+source "$(dirname "$0")/../../scripts/lib/source-rev.sh"
+source_rev_line "$0"
+
 BASE_URL="${BASE_URL:-http://127.0.0.1:8080}"
 EXPECT_VERSION="${EXPECT_VERSION:-}"
 EXPECT_TZ="${EXPECT_TZ:-${DISPLAY_TIMEZONE:-Asia/Jakarta}}"
@@ -71,3 +78,6 @@ sleep 3
 
 echo "Result: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]
+}
+
+main "$@"
