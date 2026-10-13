@@ -21,6 +21,10 @@ if [[ -z "$user" || -z "$pw" ]] && [[ -t 0 ]]; then
 fi
 [[ -n "$user" && -n "$pw" ]] || { echo "no basic_auth credentials (see header of $0)"; exit 2; }
 
+# Screenshots (design system showcase) land here; CI uploads them as an artifact. Never committed.
+artifacts="${E2E_ARTIFACTS:-$root/test/e2e/.artifacts}"
+mkdir -p "$artifacts"
+
 # Credentials reach the container through a mode-600 env file, never the process list.
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 umask 077
@@ -29,7 +33,9 @@ printf 'SENTRA_WEB_USER=%s\nSENTRA_WEB_PASS=%s\nBASE_URL=%s\n' "$user" "$pw" "${
 echo "Playwright smoke → ${BASE_URL%/} ($PLAYWRIGHT_IMAGE)"
 # Repo mounted read-only; the test package is copied to a scratch dir so npm can install there.
 docker run --rm --init --ipc=host --network host --env-file "$tmp/env" \
-  -v "$root:/repo:ro" "$PLAYWRIGHT_IMAGE" bash -euo pipefail -c '
+  --user "$(id -u):$(id -g)" -e HOME=/tmp -e E2E_ARTIFACTS=/artifacts \
+  -v "$root:/repo:ro" -v "$artifacts:/artifacts" "$PLAYWRIGHT_IMAGE" bash -euo pipefail -c '
     mkdir -p /tmp/w/test /tmp/w/web/src/i18n
     cp -r /repo/test/e2e /tmp/w/test/e2e && cp -r /repo/web/src/i18n/locales /tmp/w/web/src/i18n/locales
     cd /tmp/w/test/e2e && npm ci --no-audit --no-fund --loglevel=error && npx playwright test'
+echo "screenshots: $artifacts"

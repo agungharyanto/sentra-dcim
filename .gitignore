@@ -35,3 +35,6 @@ coverage.html
 
 # --- Local tooling ---
 .claude/settings.local.json
+
+# --- E2E screenshots (CI artifact only) ---
+/test/e2e/.artifacts/

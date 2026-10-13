@@ -1,37 +1,16 @@
-import { readFileSync } from "node:fs";
+import { expect, test } from "@playwright/test";
 
-import { type Page, expect, test } from "@playwright/test";
+import { catalog, pass, user, watchProblems } from "./helpers";
 
-// Expected texts come from the real catalogs, so the test follows translation changes.
-const catalog = (lng: string, ns: string) =>
-  JSON.parse(readFileSync(new URL(`../../web/src/i18n/locales/${lng}/${ns}.json`, import.meta.url), "utf8"));
 const id = { shell: catalog("id", "shell"), common: catalog("id", "common") };
 const en = { shell: catalog("en", "shell"), common: catalog("en", "common") };
-
-const user = process.env.SENTRA_WEB_USER ?? "";
-const pass = process.env.SENTRA_WEB_PASS ?? "";
-
-/** Collects console errors, uncaught exceptions and CSP violations for the whole page lifetime. */
-function watchProblems(page: Page) {
-  const problems: string[] = [];
-  page.on("console", (msg) => {
-    if (msg.type() === "error" || msg.type() === "warning") problems.push(`console.${msg.type()}: ${msg.text()}`);
-  });
-  page.on("pageerror", (err) => problems.push(`pageerror: ${err.message}`));
-  return problems;
-}
 
 test.describe("web UI smoke", () => {
   test.use({ httpCredentials: { username: user, password: pass } });
 
   test("loads behind basic auth and switches ID ↔ EN without console errors or CSP violations", async ({ page }) => {
     test.skip(!user || !pass, "SENTRA_WEB_USER / SENTRA_WEB_PASS not set");
-    const problems = watchProblems(page);
-    await page.addInitScript(() => {
-      document.addEventListener("securitypolicyviolation", (e) =>
-        console.error(`CSP violation: ${e.violatedDirective} ${e.blockedURI}`),
-      );
-    });
+    const problems = await watchProblems(page);
 
     const res = await page.goto("/");
     expect(res?.status()).toBe(200);
