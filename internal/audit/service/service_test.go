@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -33,7 +34,7 @@ func TestSanitizeDropsCredentials(t *testing.T) {
 func TestRecordUsesPrincipalAndMeta(t *testing.T) {
 	f := &fakeQ{}
 	r := New(f, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	req := httptest.NewRequest("POST", "/x", nil)
+	req := httptest.NewRequest(http.MethodPost, "/x", nil)
 	req.RemoteAddr = "203.0.113.7:4444"
 	req.Header.Set("User-Agent", "test-agent")
 	id := uuid.New()

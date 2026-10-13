@@ -64,7 +64,7 @@ func runUser(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stdout, "created user %q (id %s); the password must be changed at first login\n", u.Username, u.ID)
+	_, _ = fmt.Fprintf(os.Stdout, "created user %q (id %s); the password must be changed at first login\n", u.Username, u.ID)
 	return nil
 }
 
@@ -73,15 +73,15 @@ func runUser(args []string) error {
 func readNewPassword(in *os.File, out io.Writer) (string, error) {
 	fd := int(in.Fd()) //nolint:gosec // file descriptors fit in int
 	if term.IsTerminal(fd) {
-		fmt.Fprintf(out, "New password (%d–%d characters): ", password.MinLength, password.MaxLength)
+		_, _ = fmt.Fprintf(out, "New password (%d–%d characters): ", password.MinLength, password.MaxLength)
 		a, err := term.ReadPassword(fd)
-		fmt.Fprintln(out)
+		_, _ = fmt.Fprintln(out)
 		if err != nil {
 			return "", err
 		}
-		fmt.Fprint(out, "Repeat password: ")
+		_, _ = fmt.Fprint(out, "Repeat password: ")
 		b, err := term.ReadPassword(fd)
-		fmt.Fprintln(out)
+		_, _ = fmt.Fprintln(out)
 		if err != nil {
 			return "", err
 		}

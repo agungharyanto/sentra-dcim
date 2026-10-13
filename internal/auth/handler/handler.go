@@ -35,7 +35,7 @@ const (
 // Stable error codes (translated in the UI: errors:code.<code>).
 const (
 	CodeUnauthenticated        = "unauthenticated"
-	CodeInvalidCredentials     = "invalid_credentials"
+	CodeInvalidCredentials     = "invalid_credentials" //nolint:gosec // error code, not a credential
 	CodeRateLimited            = "rate_limited"
 	CodeCSRF                   = "csrf_failed"
 	CodePasswordChangeRequired = "password_change_required"
@@ -204,8 +204,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		httpserver.Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
 		return
 	}
-	setCookie(w, SessionCookie, res.Token, true)
-	setCookie(w, CSRFCookie, res.CSRF, false)
+	setSessionCookies(w, res.Token, res.CSRF)
 	httpserver.JSON(w, http.StatusOK, meResponse{User: res.Session.User, Session: res.Session.Info})
 }
 
@@ -291,16 +290,19 @@ func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	return true
 }
 
-// setCookie writes a browser-session cookie (no Max-Age: closing the browser ends it; the server enforces the
-// idle/absolute limits).
-func setCookie(w http.ResponseWriter, name, value string, httpOnly bool) {
-	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: "/", Secure: true, HttpOnly: httpOnly,
+// setSessionCookies writes the session (HttpOnly) and CSRF cookies as browser-session cookies (no Max-Age: closing
+// the browser ends them; the server enforces the idle/absolute limits).
+func setSessionCookies(w http.ResponseWriter, token, csrf string) {
+	http.SetCookie(w, &http.Cookie{Name: SessionCookie, Value: token, Path: "/", Secure: true, HttpOnly: true,
+		SameSite: http.SameSiteStrictMode})
+	// Not HttpOnly by design: the UI reads it to send X-Sentra-CSRF (double-submit). It grants nothing on its own.
+	http.SetCookie(w, &http.Cookie{Name: CSRFCookie, Value: csrf, Path: "/", Secure: true, //nolint:gosec // double-submit token
 		SameSite: http.SameSiteStrictMode})
 }
 
 func clearCookies(w http.ResponseWriter) {
-	for _, n := range []string{SessionCookie, CSRFCookie} {
-		http.SetCookie(w, &http.Cookie{Name: n, Value: "", Path: "/", Secure: true, HttpOnly: n == SessionCookie,
-			SameSite: http.SameSiteStrictMode, MaxAge: -1})
-	}
+	http.SetCookie(w, &http.Cookie{Name: SessionCookie, Value: "", Path: "/", Secure: true, HttpOnly: true,
+		SameSite: http.SameSiteStrictMode, MaxAge: -1})
+	http.SetCookie(w, &http.Cookie{Name: CSRFCookie, Value: "", Path: "/", Secure: true, //nolint:gosec // double-submit token
+		SameSite: http.SameSiteStrictMode, MaxAge: -1})
 }
