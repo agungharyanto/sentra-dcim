@@ -10,7 +10,7 @@ export function LanguageSwitcher({ serverLocales }: { serverLocales: readonly st
   const active = i18n.resolvedLanguage;
 
   return (
-    <div role="group" aria-label={t("language.label")} className="inline-flex rounded-md border p-0.5">
+    <div role="group" aria-label={t("language.label")} className="inline-flex rounded-md border border-input p-0.5">
       {locales.map((lng) => (
         <button
           key={lng}
@@ -20,7 +20,7 @@ export function LanguageSwitcher({ serverLocales }: { serverLocales: readonly st
           aria-label={t("language.switchTo", { language: t(`language.${lng}`) })}
           onClick={() => void setLocale(lng)}
           className={cn(
-            "rounded px-2.5 py-1 text-sm font-medium transition-colors",
+            "rounded px-2.5 py-1 text-sm font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
             active === lng ? "bg-primary text-primary-foreground" : "hover:bg-accent",
           )}
         >

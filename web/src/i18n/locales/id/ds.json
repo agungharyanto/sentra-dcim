@@ -1,0 +1,112 @@
+{
+  "status": {
+    "normal": "Normal",
+    "warning": "Peringatan",
+    "critical": "Kritis",
+    "offline": "Offline",
+    "maintenance": "Pemeliharaan"
+  },
+  "theme": {
+    "label": "Tema",
+    "dark": "Gelap",
+    "light": "Terang",
+    "system": "Ikuti sistem"
+  },
+  "showcase": {
+    "title": "Design System",
+    "subtitle": "Halaman internal developer: token, status, dan komponen Sentra DCIM. Tidak tampil di menu.",
+    "statusRule": "Status selalu tampil dengan ikon dan label — tidak pernah warna saja. Biru hanya untuk tautan/info.",
+    "sections": {
+      "tokens": "Token warna",
+      "status": "Status DCIM",
+      "menuStatus": "Status menu",
+      "typography": "Tipografi",
+      "buttons": "Tombol",
+      "badges": "Badge",
+      "forms": "Form",
+      "tabs": "Tab",
+      "table": "Tabel",
+      "overlays": "Overlay",
+      "feedback": "Umpan balik"
+    },
+    "status": {
+      "badge": "Badge",
+      "dot": "Indikator",
+      "compact": "Ringkas (label untuk pembaca layar & tooltip)"
+    },
+    "typography": {
+      "sans": "Inter — teks antarmuka: Suhu ruang server stabil.",
+      "mono": "JetBrains Mono — kode & data teknis",
+      "heading": "Judul halaman"
+    },
+    "buttons": {
+      "default": "Utama",
+      "secondary": "Sekunder",
+      "outline": "Garis",
+      "ghost": "Transparan",
+      "destructive": "Hapus",
+      "link": "Tautan",
+      "disabled": "Nonaktif"
+    },
+    "badges": {
+      "default": "Bawaan",
+      "secondary": "Sekunder",
+      "outline": "Garis",
+      "destructive": "Bahaya"
+    },
+    "form": {
+      "rackLabel": "Nama rak",
+      "rackPlaceholder": "mis. RAK-A01",
+      "siteLabel": "Lokasi",
+      "sitePlaceholder": "Pilih lokasi",
+      "sites": {
+        "main": "Data center utama",
+        "drc": "Data center cadangan (DRC)"
+      }
+    },
+    "tabs": {
+      "overview": "Ringkasan",
+      "power": "Daya",
+      "environment": "Lingkungan",
+      "overviewBody": "Ringkasan kondisi ruang server.",
+      "powerBody": "Beban daya per PDU dan UPS.",
+      "environmentBody": "Suhu, kelembapan, dan sensor kebocoran."
+    },
+    "table": {
+      "caption": "Contoh data rak (fiktif)",
+      "rack": "Rak",
+      "power": "Daya",
+      "temperature": "Suhu",
+      "status": "Status",
+      "kw": "{{value}} kW",
+      "celsius": "{{value}} °C"
+    },
+    "overlays": {
+      "openDialog": "Buka dialog",
+      "dialogTitle": "Tandai pemeliharaan?",
+      "dialogBody": "Rak akan ditandai pemeliharaan; alarm dari rak ini ditahan sementara.",
+      "openSheet": "Buka panel samping",
+      "sheetTitle": "Detail rak",
+      "sheetBody": "Panel samping untuk detail tanpa meninggalkan halaman.",
+      "tooltipTrigger": "Arahkan ke sini",
+      "tooltip": "Tooltip memakai warna primer.",
+      "menu": "Menu aksi",
+      "menuItems": {
+        "ack": "Akui alarm",
+        "assign": "Tugaskan teknisi",
+        "export": "Ekspor data"
+      },
+      "density": "Kepadatan",
+      "densityOptions": {
+        "comfortable": "Lega",
+        "compact": "Padat"
+      }
+    },
+    "feedback": {
+      "showToast": "Tampilkan toast",
+      "toastTitle": "Perubahan disimpan",
+      "toastBody": "Contoh notifikasi toast.",
+      "skeleton": "Memuat (skeleton)"
+    }
+  }
+}

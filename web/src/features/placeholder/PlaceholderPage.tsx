@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { LanguageSwitcher } from "@/components/domain/LanguageSwitcher";
 import { useBootstrap, useFormatters } from "@/features/bootstrap/regional";
 import type { resources } from "@/i18n/resources";
 
