@@ -3,6 +3,32 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [Unreleased] — v0.2.9 Penutup Sprint v0.2 (bagian 1: sebelum reboot)
+
+### Ditambahkan
+- `make boot-menu` (`scripts/host-boot-setup.sh`, idempoten): menu GRUB 10 detik di serial console
+  (`deploy/host/grub/99-sentra-boot-menu.cfg`), kernel 6.17 dipertahankan untuk rollback
+  (`deploy/host/apt/99sentra-keep-kernel-6.17` + `apt-mark manual`, ISS-036), docker/containerd/fail2ban enabled.
+- `make post-reboot-check` (`scripts/post-reboot-check.sh`): kernel & uptime, service, 4 container + restart policy,
+  jail fail2ban & `DOCKER-USER`, smoke, edge, uji ban nyata.
+- `make recovery-drill` (`scripts/recovery-drill.sh`): clone bersih dari GitHub → build semua image (termasuk web)
+  sebagai project `sentradrill` di port 28xxx → 4 healthy, migrasi, smoke, UI, help → dibersihkan total.
+- Runbook `docs/ops/runbooks/kernel-rollback.md` (pilih kernel lama lewat serial console, pin default).
+- `scripts/lib/source-rev.sh`: baris pertama setiap skrip test/ops = commit + clean/DIRTY.
+
+### Diubah
+- CLAUDE.md **aturan 13**: edit di git worktree terpisah, test pemilik hanya setelah commit+push, skrip dibungkus
+  `main "$@"`, hasil dari kode DIRTY tidak sah (ISS-035).
+- Skrip test & ops (`test/api/*.sh`, `test/e2e/run.sh`, `scripts/full-regression.sh`, `scripts/fail2ban-*.sh`)
+  dibungkus `main "$@"` + baris sumber.
+- `scripts/full-regression.sh`: + actionlint (Docker), govulncheck, web-check, fail2ban-regex, bagian **10. Host
+  boot & fail2ban** (service enabled, drop-in, jail, `DOCKER-USER`, ban nyata, GRUB, kernel 6.17), cek seluruh pohon
+  backup (pemilik, 0700/0600), HEAD sudah di GitHub; **penjaga keras** migrasi up/down: hanya DB uji `sentra_regress`
+  (exit 99 bila target kosong/produksi/lain) + cek versi skema produksi tidak berubah.
+
+### Diperbaiki
+- `ops/backup.sh`: `.lock` dibuat setelah `umask 077` dan di-`chmod 0600` (sebelumnya 0664).
+
 ## [v0.2.5] - 2026-10-13 — Mitigasi DoS basic_auth
 
 ### Ditambahkan
