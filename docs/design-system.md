@@ -95,7 +95,8 @@ Gunakan `font-mono` + `tabular-nums` untuk kolom angka.
 3. Tambah key di **semua** locale (`web/src/i18n/locales/{id,en}/*.json`); `pnpm i18n:check` harus lulus.
 4. Tampilkan di `/design-system` dan tambahkan interaksinya ke `test/e2e/design-system.spec.ts` (console bersih,
    tanpa pelanggaran CSP, axe lulus di kedua tema).
-5. Catat library baru di `docs/DEPENDENCIES.md`.
+5. Catat library baru di `docs/DEPENDENCIES.md`. Rilis yang berumur < 24 jam ditolak pnpm; **jangan** menambah
+   pengecualian (`pnpm supply:check` akan gagal) — pakai versi sebelumnya (ISS-031).
 
 ### Toast & overlay dan CSP
 

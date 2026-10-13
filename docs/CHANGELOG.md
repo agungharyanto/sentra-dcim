@@ -33,6 +33,8 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
 - Kebijakan supply chain pnpm `minimumReleaseAge` kini benar-benar ditegakkan: pengecualian otomatis yang ditulis
   pnpm (sejak v0.2.1) dihapus dan paket dipatok ke rilis > 24 jam — `radix-ui 1.8.0`, `lucide-react 1.55.0`,
   `typescript-eslint 8.71.1`, `@testing-library/user-event 14.6.7` (ISS-031).
+- Penjaga `pnpm supply:check` di `make web-check`, CI, dan build image: gagal bila ada pengecualian
+  `minimumReleaseAge` atau umur rilis diturunkan di bawah 24 jam (ISS-031).
 
 ### Keputusan pemilik dicatat
 - ROADMAP v0.2.2–v0.2.4, v0.2.9 final; fail2ban basic_auth dijadwalkan v0.2.5 (ISS-026). ISS-029: `/design-system`
