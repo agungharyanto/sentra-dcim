@@ -18,8 +18,13 @@ the browser.
 | Endpoint | Current access |
 |---|---|
 | `/api/v1/health`, `/api/v1/version` | Public, no sign-in |
-| `/api/v1/ui/bootstrap`, `/api/v1/help/*` | Signed-in users |
-| Other endpoints | Not public yet; integration access arrives with Auth (v0.3) |
+| `/api/v1/auth/login` | No session (Sign in page) |
+| `/api/v1/auth/*`, `/api/v1/ui/bootstrap`, `/api/v1/help/*` | Signed-in users (session cookie) |
+| Other endpoints | Not public yet; tokens for machine integrations follow (v0.6) |
+
+Requests that change data (`POST`, `DELETE`, …) must carry the `X-Sentra-CSRF` header with the value of the
+`__Host-sentra_csrf` cookie and come from the application's domain; otherwise the answer is `403 csrf_failed`. See
+[Signing in and out](../auth/login.md).
 
 ## Conventions
 

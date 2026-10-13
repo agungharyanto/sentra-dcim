@@ -3,6 +3,64 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [v0.3.1] - 2026-10-14 — Auth Core
+
+Sprint v0.3 "Auth, RBAC & Audit Log", sub-versi 1. Keputusan: ADR-003, D-046..D-052.
+
+### Ditambahkan
+- **Login aplikasi** dengan akun lokal (nama pengguna atau NIP): kata sandi argon2id (parameter di `.env`
+  `AUTH_ARGON2_*`, hash di-upgrade otomatis saat login), kebijakan 12–128 karakter tanpa aturan komposisi, pesan gagal
+  generik, waktu respons setara untuk pengguna tak dikenal (hash dummy).
+- **Sesi server-side opaque**: token acak 256-bit, DB hanya menyimpan SHA-256; cookie `__Host-sentra_session`
+  (Secure, HttpOnly, SameSite=Strict, Path=/); idle 30 menit, absolut 12 jam; rotasi saat login; pembersihan sesi
+  basi tiap jam.
+- **Lockout** 5 salah → 15 menit (terbuka otomatis) dan **rate limit login** per IP (30) & per nama pengguna (10) per
+  10 menit di Redis, gagal tertutup (`503 auth_unavailable`).
+- **CSRF**: metode yang mengubah data wajib `Origin` = domain aplikasi (`APP_ALLOWED_ORIGINS`) + header
+  `X-Sentra-CSRF` = cookie `__Host-sentra_csrf` (double-submit).
+- **Default-deny** `/api/v1/*` (`internal/api`): tanpa sesi hanya `health`, `version`, `auth/login` (+ `ready` di
+  listener internal). Tes enumerasi semua route gagal bila ada route di luar allowlist yang bisa diakses tanpa sesi.
+- Endpoint `POST /api/v1/auth/login`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/password`,
+  `GET /auth/sessions`, `DELETE /auth/sessions/{id}` (sesi sendiri saja). Selama wajib ganti kata sandi semua
+  endpoint lain menjawab `403 password_change_required`. Ganti kata sandi mencabut semua sesi lain.
+- **Audit log inti** (`audit_events`, append-only: UPDATE/DELETE/TRUNCATE ditolak trigger; kolom hash chain
+  disiapkan untuk v0.3.3): login berhasil/gagal, lockout, logout, ganti kata sandi, cabut sesi, create-admin. Kata
+  sandi, token, hash, dan cookie tidak pernah dicatat.
+- CLI `sentra user create-admin --username <nama> [--display-name …]` (kata sandi dari terminal tanpa echo atau satu
+  baris stdin; wajib diganti saat masuk pertama) — `docs/DISASTER_RECOVERY.md` *Pemulihan akses admin aplikasi*.
+- UI: halaman **Masuk**, **Ganti kata sandi** (paksa & sukarela), **Sesi saya** (tabel desktop, kartu ponsel), menu
+  pengguna (nama, Sesi saya, Ganti kata sandi, Keluar) di header; 401 dari API mana pun → halaman Masuk dengan
+  pesan sesi berakhir; namespace i18n `auth` (ID/EN) + kode error baru.
+- Pusat Bantuan: `auth` (Akun & masuk), `auth/login`, `auth/ganti-password`, `auth/sesi` (ID/EN); OpenAPI: tag
+  `auth`, skema keamanan `sessionCookie`, respons error `Unauthenticated`/`Forbidden`/…
+- Migrasi `000003_auth` (up/down): `users` (citext), `sessions`, `audit_events`.
+- Integration test auth (DB & Redis nyata, DB sekali pakai): login, pesan generik, CSRF, lockout + buka otomatis,
+  rate limit, idle & absolut, logout, cabut sesi, ganti kata sandi mencabut sesi lain, must-change, audit + tolak
+  UPDATE/DELETE/TRUNCATE, CLI create-admin. E2E: `auth.spec.ts` (screenshot login, error login, ganti kata sandi
+  paksa, shell, menu pengguna, Sesi saya desktop+mobile).
+
+### Diubah
+- **BREAKING (API):** `/api/v1/ui/bootstrap` dan `/api/v1/help/*` kini butuh sesi (401 `unauthenticated` tanpa
+  cookie), juga di listener internal; `/api/v1/ready` hanya tanpa sesi di listener internal.
+- Caddy meneruskan `/api/v1/auth/*` (masih di belakang basic_auth sementara sampai v0.3.4, ISS-026). Filter fail2ban
+  `sentra-web` mengabaikan 401 yang dijawab app (`X-Request-Id` di `resp_headers`) agar login aplikasi yang salah
+  atau sesi habis tidak mem-ban pengguna; sampel uji 9 → 11 baris (4 cocok, 1 diabaikan).
+- `test/api/smoke.sh`: cek default-deny & CSRF; `test/api/ui.sh` & `test/e2e`: akun aplikasi
+  (`SENTRA_APP_USER/PASS` atau `~/.config/sentra/app-auth`), probe kredensial lewat `/`; CI membuat akun sekali
+  pakai lewat CLI. Recovery drill: + langkah CLI → login → wajib ganti sandi → help.
+- `/design-system` kini juga butuh sesi (pembatasan role menyusul, ISS-029).
+
+### Diperbaiki
+- ISS-038: `source-rev.sh` di bawah `sudo` (*not a git checkout*) — `git -c safe.directory -C`, tanpa mengubah git
+  config global root.
+- ISS-037: recovery drill gagal keras (exit ≠ 0 di langkah pertama yang gagal, log disimpan) dan memverifikasi
+  versi di image = `git describe`.
+- ISS-025: `make version-check` mencoba ulang hingga 30 s setelah redeploy.
+
+### Keamanan
+- Backup DB kini berisi hash kata sandi & log audit (tetap 0700/0600). App memakai role DB pemilik migrasi —
+  dipisah di v0.3.3 (ISS-039).
+
 ## [v0.2.9] - 2026-10-14 — UI Shell & Design System Close (penutup sprint v0.2)
 
 Ringkasan sprint, DoD & bukti: `docs/releases/v0.2.9.md`.
