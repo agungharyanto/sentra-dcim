@@ -62,7 +62,7 @@ Header `Server` dan `Via` disembunyikan. TLS minimum 1.2 (1.0/1.1 ditolak); HTTP
 | GET/HEAD | `/api/v1/version` | Publik lewat domain |
 | GET | `/api/v1/ready` | Hanya lewat `http://127.0.0.1:8080` (internal) |
 
-Detail: [api/system.md](../api/system.md).
+Detail: [system-endpoints.md](system-endpoints.md).
 
 ## Pemecahan masalah
 | Gejala | Penyebab umum | Tindakan |

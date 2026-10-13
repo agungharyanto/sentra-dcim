@@ -38,7 +38,9 @@ zona waktu tampilan, dan **registry menu** (satu sumber di backend). UI tidak me
 3. Tambahkan label di **semua** katalog `web/src/i18n/locales/*/shell.json`: `sidebar.<key>`, `menuDescription.<key>`
    (dan `groups.<key>` untuk grup baru).
 4. Menu berstatus `available` **wajib** punya halaman di `moduleRegistry` (`web/src/app/routes.tsx`) — test
-   `routes.test.tsx` gagal bila belum. `coming_soon`/`not_connected` otomatis memakai halaman standar.
+   `routes.test.tsx` gagal bila belum — **dan** halaman bantuan `docs/help/{id,en}/<slug>/index.md` dengan
+   `menu: <key>` (`go test ./internal/help/...` gagal bila belum). `coming_soon`/`not_connected` otomatis memakai
+   halaman standar. Route modul = `<path>/*`.
 5. `go test ./internal/ui/...` dan `make web-check`.
 
 ## Endpoint API terkait
@@ -48,5 +50,5 @@ zona waktu tampilan, dan **registry menu** (satu sumber di backend). UI tidak me
 | GET | `/api/v1/version` | Versi publik; sama dengan `version` di bootstrap |
 
 ## Pertanyaan umum / pemecahan masalah
-- **401 di browser/curl**: basic_auth belum diisi atau salah — lihat [admin/web-basic-auth.md](../admin/web-basic-auth.md).
+- **401 di browser/curl**: basic_auth belum diisi atau salah — lihat [web-basic-auth.md](../ops/runbooks/web-basic-auth.md).
 - **UI menampilkan "Konfigurasi aplikasi gagal dimuat"**: cek `make ps` (app healthy?) dan endpoint di langkah 1.
