@@ -42,7 +42,7 @@ Aturan di bawah **wajib dipatuhi di setiap sesi**. Bila ada konflik, aturan ini 
   Caddy, Docker Compose. Lihat `docs/DECISIONS.md` dan `docs/DEPENDENCIES.md`.
 - **Struktur:** `cmd/sentra` (entrypoint), `internal/<modul>/{handler,service,repo}`, `internal/platform/...`
   (config, db, cache, httpserver, logging), `migrations/`, `api/openapi.yaml`, `deploy/`, `ops/`, `docs/`.
-- **Waktu:** simpan UTC, tampilkan menurut `DISPLAY_TIMEZONE` di `.env` (default Asia/Jakarta, WIB, UTC+7).
+- **Waktu:** simpan UTC, tampilkan menurut `DISPLAY_TIMEZONE` di `.env` (default Asia/Jakarta, WIB, UTC+7). Jam OS server = Asia/Jakarta (kosmetik, D-040); container & DB tetap UTC.
 - **Perintah:** `make help` — `up/down/logs/test/lint/migrate/backup/restore/rollback/release`.
 - **Server:** Oracle Cloud (Ubuntu 24.04 aarch64) sejak 2026-10-13; admin OS `ubuntu`, aplikasi milik user `sentra`,
   repo di `/opt/sentra-dcim`, backup di `/var/backups/sentra`; port sshd dibaca otomatis oleh `ops/harden/ufw.sh`.
