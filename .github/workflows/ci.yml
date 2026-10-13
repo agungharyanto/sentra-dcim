@@ -145,13 +145,13 @@ jobs:
           make test-api
       - name: UI edge test (basic_auth, SPA, headers, bootstrap)
         run: BASE_URL=https://localhost ./test/api/ui.sh
-      - name: Browser tests (Playwright + axe, design system screenshots)
+      - name: Browser tests (Playwright + axe, UI screenshots)
         run: BASE_URL=https://localhost ./test/e2e/run.sh
-      - name: Upload design system screenshots
+      - name: Upload UI screenshots (design system, shell)
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: design-system-screenshots
+          name: ui-screenshots
           path: test/e2e/artifacts/
           if-no-files-found: warn
           retention-days: 30

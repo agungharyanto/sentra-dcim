@@ -5,6 +5,15 @@ import { afterEach, beforeAll } from "vitest";
 
 import { initI18n } from "@/i18n";
 
+// jsdom lacks ResizeObserver (used by Radix popper: Tooltip, Select, DropdownMenu).
+if (!("ResizeObserver" in globalThis)) {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
 beforeAll(async () => {
   await initI18n("id");
 });

@@ -1,0 +1,126 @@
+{
+  "menu_groups": [
+    {
+      "key": "monitoring",
+      "order": 10
+    },
+    {
+      "key": "infrastructure",
+      "order": 20
+    },
+    {
+      "key": "operations",
+      "order": 30
+    },
+    {
+      "key": "system",
+      "order": 90
+    }
+  ],
+  "menus": [
+    {
+      "key": "dashboard",
+      "path": "/dashboard",
+      "icon": "layout-dashboard",
+      "status": "available",
+      "group": "monitoring",
+      "order": 10
+    },
+    {
+      "key": "alarms",
+      "path": "/alarms",
+      "icon": "siren",
+      "status": "coming_soon",
+      "group": "monitoring",
+      "order": 20
+    },
+    {
+      "key": "power",
+      "path": "/power",
+      "icon": "zap",
+      "status": "coming_soon",
+      "group": "monitoring",
+      "order": 30
+    },
+    {
+      "key": "environment",
+      "path": "/environment",
+      "icon": "thermometer",
+      "status": "coming_soon",
+      "group": "monitoring",
+      "order": 40
+    },
+    {
+      "key": "facility",
+      "path": "/facility",
+      "icon": "building-2",
+      "status": "coming_soon",
+      "group": "infrastructure",
+      "order": 10
+    },
+    {
+      "key": "assets",
+      "path": "/assets",
+      "icon": "server",
+      "status": "coming_soon",
+      "group": "infrastructure",
+      "order": 20
+    },
+    {
+      "key": "tenants",
+      "path": "/tenants",
+      "icon": "users",
+      "status": "coming_soon",
+      "group": "infrastructure",
+      "order": 30
+    },
+    {
+      "key": "access",
+      "path": "/access",
+      "icon": "door-closed",
+      "status": "coming_soon",
+      "group": "operations",
+      "order": 10
+    },
+    {
+      "key": "visitors",
+      "path": "/visitors",
+      "icon": "id-card",
+      "status": "coming_soon",
+      "group": "operations",
+      "order": 20
+    },
+    {
+      "key": "maintenance",
+      "path": "/maintenance",
+      "icon": "wrench",
+      "status": "coming_soon",
+      "group": "operations",
+      "order": 30
+    },
+    {
+      "key": "analytics",
+      "path": "/analytics",
+      "icon": "chart-line",
+      "status": "coming_soon",
+      "group": "operations",
+      "order": 40
+    },
+    {
+      "key": "help",
+      "path": "/help",
+      "icon": "circle-help",
+      "status": "coming_soon",
+      "group": "system",
+      "order": 10
+    },
+    {
+      "key": "settings",
+      "path": "/settings",
+      "icon": "settings",
+      "status": "coming_soon",
+      "group": "system",
+      "order": 20
+    }
+  ]
+}

@@ -1,12 +1,9 @@
 {
-  "placeholder": {
-    "title": "Antarmuka sedang disiapkan",
-    "subtitle": "Kerangka UI Sentra DCIM (v0.2). Menu dan modul akan tampil bertahap sesuai roadmap.",
-    "version": "Versi",
-    "locale": "Bahasa aktif",
-    "timezone": "Zona waktu tampilan",
-    "now": "Waktu sekarang",
-    "menus": "Menu terdaftar ({{count}})"
+  "groups": {
+    "monitoring": "Pemantauan",
+    "infrastructure": "Infrastruktur",
+    "operations": "Operasional",
+    "system": "Sistem"
   },
   "sidebar": {
     "dashboard": "Dasbor",
@@ -23,9 +20,62 @@
     "help": "Pusat Bantuan",
     "settings": "Pengaturan"
   },
+  "menuDescription": {
+    "dashboard": "Ringkasan kondisi data center: daya, lingkungan, dan alarm.",
+    "alarms": "Alarm aktif, diakui, eskalasi, dan riwayat penyelesaian.",
+    "power": "Pemantauan PDU, UPS, genset, dan tangki solar.",
+    "environment": "Suhu, kelembapan, asap, dan kebocoran air per ruang dan rak.",
+    "facility": "Hierarki site, gedung, lantai, ruang, dan rak.",
+    "assets": "Inventaris perangkat dan penempatannya di rak.",
+    "tenants": "Data tenant dan penggunaan ruang serta daya.",
+    "access": "Zona akses dan validasi pintu secara real-time.",
+    "visitors": "Visitor pass, pergerakan barang, dan cross-connect.",
+    "maintenance": "Jadwal pemeliharaan, work order, dan SLA.",
+    "analytics": "Analitik, deteksi anomali, dan ekspor laporan.",
+    "help": "Panduan penggunaan dan dokumentasi API Sentra DCIM.",
+    "settings": "Pengaturan regional, akses, dan sistem."
+  },
   "menuStatus": {
     "available": "Tersedia",
     "coming_soon": "Segera hadir",
     "not_connected": "Belum terhubung"
+  },
+  "layout": {
+    "skipToContent": "Lompat ke konten",
+    "mainNav": "Navigasi utama",
+    "breadcrumb": "Lokasi halaman",
+    "openMenu": "Buka menu navigasi",
+    "drawerTitle": "Menu",
+    "drawerDescription": "Navigasi modul Sentra DCIM",
+    "collapse": "Ciutkan sidebar",
+    "expand": "Bentangkan sidebar",
+    "version": "Versi {{version}}",
+    "clockLabel": "Waktu sekarang, zona {{timezone}}"
+  },
+  "pages": {
+    "comingSoon": {
+      "title": "Segera hadir",
+      "body": "Modul {{menu}} sedang disiapkan sesuai roadmap dan belum bisa dipakai.",
+      "back": "Kembali ke Dasbor"
+    },
+    "notConnected": {
+      "title": "Belum terhubung",
+      "body": "Modul {{menu}} sudah tersedia, tetapi sumber datanya belum terhubung. Hubungi administrator untuk mengaktifkan integrasinya.",
+      "back": "Kembali ke Dasbor"
+    },
+    "notFound": {
+      "title": "Halaman tidak ditemukan",
+      "body": "Alamat {{path}} tidak ada di Sentra DCIM.",
+      "back": "Kembali ke Dasbor"
+    },
+    "error": {
+      "title": "Terjadi kesalahan",
+      "body": "Halaman ini gagal ditampilkan. Coba muat ulang; bila terus berulang, laporkan ke administrator.",
+      "reload": "Muat ulang"
+    }
+  },
+  "dashboard": {
+    "emptyTitle": "Belum ada perangkat terhubung",
+    "emptyBody": "Dasbor akan menampilkan kondisi daya, lingkungan, dan alarm setelah perangkat atau simulator terhubung (Telemetry Ingestion, v0.6)."
   }
 }

@@ -3,6 +3,37 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [v0.2.3] - 2026-10-13 — UI Shell
+
+### ⚠️ BREAKING — kontrak `GET /api/v1/ui/bootstrap`
+- Field top-level baru **`menu_groups`** (`[{key, order}]`: monitoring, infrastructure, operations, system).
+- Field baru **`menus[].group`**; `menus[].order` kini urutan **di dalam grup**, dan `menus` diurutkan menurut grup.
+- Path Dasbor berubah **`/` → `/dashboard`** (UI mengarahkan `/` ke `/dashboard`).
+- Klien lain (bila ada) harus menyesuaikan; OpenAPI `0.2.3`.
+
+### Ditambahkan
+- Layout shell: sidebar dari registry (dikelompokkan, badge status untuk menu non-available, `aria-current`, versi
+  app), bisa diciutkan ke ikon + tooltip (tersimpan di browser); drawer di layar < lg; header dengan breadcrumb,
+  judul, jam live zona server (tanpa `aria-live`), bahasa, tema; skip link & landmark.
+- Routing dari registry: halaman modul / Segera hadir / Belum terhubung; `/` → `/dashboard`; 404 di dalam shell;
+  error boundary per halaman yang reset saat navigasi.
+- Dasbor: empty state "Belum ada perangkat terhubung" (tanpa data dummy).
+- Penjaga registry ↔ UI: fixture `web/src/test/fixtures/ui-registry.json` ditulis & diverifikasi `go test`
+  (`-update`), dan test UI gagal bila menu `available` tidak punya halaman.
+- Pusat Bantuan: `docs/help/{id,en}/dashboard/index.md`; `api/ui-bootstrap.md` diperbarui.
+- Test: Vitest 206 (shell, routes, error boundary, jam); Playwright `shell.spec.ts` (13 menu, deep link + 404,
+  collapse tersimpan, mobile 390 px tanpa scroll horizontal, keyboard, gelap/terang × ID/EN dengan axe).
+
+### Diubah
+- Halaman sementara v0.2.1 dihapus; info versi pindah ke sidebar.
+- `test/e2e/smoke.spec.ts` kini memeriksa shell & Dasbor; `test/api/{smoke,ui}.sh` mengikuti kontrak baru.
+- Artefak CI screenshot berganti nama `design-system-screenshots` → `ui-screenshots` (berisi design system + shell).
+
+### Diperbaiki (sebelum rilis)
+- Mode sidebar ciut kehilangan semua gaya: Radix `Slot` (Tooltip `asChild`) mengubah `className` berbentuk fungsi
+  milik `NavLink` menjadi string. Kini `className` string + `useMatch`; ada test regresinya.
+- Label menu terpotong di sidebar 16 rem karena badge status → lebar 18 rem.
+
 ## [v0.2.2] - 2026-10-13 — Design System & Komponen
 
 ### Ditambahkan

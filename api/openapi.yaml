@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sentra DCIM API
-  version: 0.2.1
+  version: 0.2.3
   summary: REST API Sentra DCIM — Diskominfo Provinsi Bali
   description: |
     Semua endpoint berada di bawah `/api/v1`. Waktu dikirim dalam UTC (RFC 3339);
@@ -117,8 +117,11 @@ paths:
         (`DEFAULT_LOCALE`, default `id`; `DISPLAY_TIMEZONE`, default `Asia/Jakarta`). Data tetap UTC; zona waktu
         hanya untuk tampilan.
 
-        `menus` adalah registry menu tunggal (backend), terurut menurut `order`. **Label tidak dikirim**: UI
-        menerjemahkan `key` lewat katalog `shell:sidebar.<key>`.
+        `menu_groups` (seksi sidebar, terurut `order`) dan `menus` adalah registry menu tunggal (backend). `menus`
+        terurut menurut urutan grupnya lalu `order` di dalam grup. **Label tidak dikirim**: UI menerjemahkan
+        `menu_groups[].key` lewat `shell:groups.<key>` dan `menus[].key` lewat `shell:sidebar.<key>`.
+
+        **Breaking sejak v0.2.3:** field `menu_groups` dan `menus[].group` baru; path Dasbor `/` → `/dashboard`.
 
         Lewat domain publik endpoint ini dilindungi basic_auth sementara (sampai Auth v0.3, ISS-026); listener
         internal `127.0.0.1:8080` tanpa auth.
@@ -135,13 +138,16 @@ paths:
               schema: { $ref: "#/components/schemas/UiBootstrap" }
               example:
                 app_name: Sentra DCIM
-                version: v0.2.1
+                version: v0.2.3
                 default_locale: id
                 supported_locales: [id, en]
                 timezone: Asia/Jakarta
+                menu_groups:
+                  - { key: monitoring, order: 10 }
+                  - { key: infrastructure, order: 20 }
                 menus:
-                  - { key: dashboard, path: /, icon: layout-dashboard, status: available, order: 10 }
-                  - { key: facility, path: /facility, icon: building-2, status: coming_soon, order: 20 }
+                  - { key: dashboard, path: /dashboard, icon: layout-dashboard, status: available, group: monitoring, order: 10 }
+                  - { key: facility, path: /facility, icon: building-2, status: coming_soon, group: infrastructure, order: 10 }
         "401":
           description: Kredensial basic_auth tidak ada/salah (dari proxy, hanya lewat domain publik)
         "429": { $ref: "#/components/responses/TooManyRequests" }
@@ -209,7 +215,7 @@ components:
     UiBootstrap:
       type: object
       additionalProperties: false
-      required: [app_name, version, default_locale, supported_locales, timezone, menus]
+      required: [app_name, version, default_locale, supported_locales, timezone, menu_groups, menus]
       properties:
         app_name: { type: string, example: Sentra DCIM }
         version: { type: string, example: v0.2.1, description: Sama dengan `/api/v1/version` publik }
@@ -219,13 +225,26 @@ components:
           items: { type: string, enum: [id, en] }
           example: [id, en]
         timezone: { type: string, description: Nama zona IANA untuk tampilan, example: Asia/Jakarta }
+        menu_groups:
+          type: array
+          items: { $ref: "#/components/schemas/MenuGroup" }
         menus:
           type: array
           items: { $ref: "#/components/schemas/MenuItem" }
+    MenuGroup:
+      type: object
+      additionalProperties: false
+      required: [key, order]
+      properties:
+        key:
+          type: string
+          enum: [monitoring, infrastructure, operations, system]
+          description: "Kunci terjemahan `shell:groups.<key>`"
+        order: { type: integer, example: 10 }
     MenuItem:
       type: object
       additionalProperties: false
-      required: [key, path, icon, status, order]
+      required: [key, path, icon, status, group, order]
       properties:
         key: { type: string, description: "Kunci terjemahan `shell:sidebar.<key>`", example: dashboard }
         path: { type: string, example: / }
@@ -233,7 +252,8 @@ components:
         status:
           type: string
           enum: [available, coming_soon, not_connected]
-        order: { type: integer, example: 10 }
+        group: { type: string, description: "`key` salah satu `menu_groups`", example: monitoring }
+        order: { type: integer, description: Urutan di dalam grup, example: 10 }
     ErrorBody:
       type: object
       required: [error]
