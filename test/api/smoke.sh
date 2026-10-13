@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # API smoke tests against a running stack (through Caddy).
-# Usage: BASE_URL=http://127.0.0.1:8080 EXPECT_VERSION=v0.1.3 test/api/smoke.sh
+# Usage: BASE_URL=http://127.0.0.1:8080 EXPECT_VERSION=v0.1.3 EXPECT_TZ=Asia/Jakarta test/api/smoke.sh
+# BASE_URL is the internal listener (full /version details). EXPECT_TZ defaults to DISPLAY_TIMEZONE or Asia/Jakarta.
 set -uo pipefail
 
 BASE_URL="${BASE_URL:-http://127.0.0.1:8080}"
 EXPECT_VERSION="${EXPECT_VERSION:-}"
+EXPECT_TZ="${EXPECT_TZ:-${DISPLAY_TIMEZONE:-Asia/Jakarta}}"
+EXPECT_OFFSET="$(TZ="$EXPECT_TZ" date +%:z)"
 pass=0 fail=0
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 
@@ -38,8 +41,10 @@ done
 req GET /api/v1/version
 check "GET /version = 200" "$([[ $code == 200 ]]; echo $?)"
 check "version fields" "$(jq -e '.version and .commit and .go_version and .server_time_utc and .server_time_display' "$tmp/b" >/dev/null; echo $?)"
-check "display_timezone = Asia/Makassar" "$(jq -e '.display_timezone=="Asia/Makassar"' "$tmp/b" >/dev/null; echo $?)"
-check "server_time_display is +08:00" "$(jq -e '.server_time_display|endswith("+08:00")' "$tmp/b" >/dev/null; echo $?)"
+check "Cache-Control no-store" "$([[ $(hdr Cache-Control) == no-store ]]; echo $?)"
+check "display_timezone = $EXPECT_TZ" "$(jq -e --arg tz "$EXPECT_TZ" '.display_timezone==$tz' "$tmp/b" >/dev/null; echo $?)"
+check "server_time_display offset $EXPECT_OFFSET" "$(jq -e --arg o "$EXPECT_OFFSET" '.server_time_display|endswith($o)' "$tmp/b" >/dev/null; echo $?)"
+check "server_time_utc is UTC (Z)" "$(jq -e '.server_time_utc|endswith("Z")' "$tmp/b" >/dev/null; echo $?)"
 if [[ -n "$EXPECT_VERSION" ]]; then
   check "version = $EXPECT_VERSION" "$(jq -e --arg v "$EXPECT_VERSION" '.version==$v' "$tmp/b" >/dev/null; echo $?)"
 fi

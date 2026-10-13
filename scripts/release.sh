@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Merge the current feature branch into main with --no-ff, create an annotated tag and push.
+# Merge the current feature branch into main with --no-ff, create an annotated tag, push and redeploy the
+# running stack so /api/v1/version reports the tag.
 # Usage: scripts/release.sh vX.Y.Z "Title"
 # Set NO_PUSH=1 to skip pushing (e.g. remote temporarily unreachable); push later with:
 #   git push origin main --follow-tags
@@ -27,6 +28,11 @@ else
   git push origin main "$version"
 fi
 git branch -d "$branch"
+
+# The running build must report the new tag (`/api/v1/version` == git describe), so redeploy if the stack is up.
+if docker compose ps --status running --services 2>/dev/null | grep -qx app; then
+  make --no-print-directory up
+fi
 
 echo "released $version \"$title\""
 git status --short --branch

@@ -2,13 +2,14 @@
 # Full regression + Definition of Done checks for sprint closing (.9) releases.
 # shellcheck disable=SC2016 # single-quoted snippets are evaluated by `bash -c` on purpose
 # Usage: scripts/full-regression.sh [expected-version]    (run from a clean checkout with the stack up)
+#        expected-version defaults to `git describe --tags --always --dirty` of HEAD.
 # Prints a PASS/FAIL report; exit code 0 only when every check passes.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT" || exit 1
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin"
-EXPECT_VERSION="${1:-}"
+EXPECT_VERSION="${1:-$(git describe --tags --always --dirty)}"
 REGRESS_DB="sentra_regress"
 pass=0 fail=0 failed=()
 out="$(mktemp)"; trap 'rm -f "$out"' EXIT
@@ -84,9 +85,14 @@ check "published ports bound to 127.0.0.1, except Caddy 80/443" bash -c \
   '! docker ps --format "{{.Names}} {{.Ports}}" | awk "{n=\$1; \$1=\"\"; gsub(/, /,\"\n\"n\" \"); print n\" \"\$0}" | grep -- "->" | grep -vE "^[^ ]+ +127\.0\.0\.1:" | grep -vE "^sentra-caddy-1 +(0\.0\.0\.0|\[::\]):(80|443)->(80|443)/tcp$"'
 
 section "5. API tests"
-check "API smoke test (internal)${EXPECT_VERSION:+ (expect $EXPECT_VERSION)}" env EXPECT_VERSION="$EXPECT_VERSION" ./test/api/smoke.sh
+check "running /api/v1/version == git describe HEAD ($EXPECT_VERSION)" bash -c \
+  "[[ \$(curl -fsS http://${CADDY_HTTP_BIND:-127.0.0.1:8080}/api/v1/version | jq -r .version) == '$EXPECT_VERSION' ]]"
+check "app image built for $EXPECT_VERSION" bash -c \
+  "[[ \$(docker inspect -f '{{.Config.Image}}' sentra-app-1) == 'sentra-app:$EXPECT_VERSION' ]]"
+check "API smoke test (internal, expect $EXPECT_VERSION)" env EXPECT_VERSION="$EXPECT_VERSION" ./test/api/smoke.sh
 if [[ -n "${DOMAIN:-}" ]]; then
-  check "public edge test https://$DOMAIN (TLS, headers, proxy allowlist)" ./test/api/public.sh
+  check "public edge test https://$DOMAIN (TLS, headers, proxy allowlist, version only)" \
+    env EXPECT_VERSION="$EXPECT_VERSION" ./test/api/public.sh
 fi
 
 section "6. Backup & restore (isolated database)"
