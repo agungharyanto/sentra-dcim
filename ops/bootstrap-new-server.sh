@@ -126,4 +126,4 @@ if [[ -n "$restore_from" ]]; then
 fi
 as_app make -C "$APP_DIR" test-api
 
-step "done — Sentra DCIM $(git -C "$APP_DIR" describe --tags --always 2>/dev/null || echo "$ref") is running"
+step "done — Sentra DCIM $(sudo -u "$APP_USER" git -C "$APP_DIR" describe --tags --always 2>/dev/null || echo "$ref") is running"
