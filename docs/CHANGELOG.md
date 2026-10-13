@@ -6,6 +6,8 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
 ## [Unreleased] — v0.1.9 Foundation Close (putaran 2)
 
 ### Diperbaiki
+- Uji firewall dari luar lulus: hanya 22/80/443 terbuka; `53/tcp` di nmap terbukti false positive ISP (ISS-005).
+- GitHub Release v0.1.9 dibuat pada tag lama `8aeaf87` (ISS-010).
 - Akses darurat server Oracle: key SSH cadangan terpasang dan password konsol `ubuntu` disetel
   pemilik, sehingga serial console OCI bisa dipakai (ISS-016). `docs/DISASTER_RECOVERY.md` kini memuat checklist
   langkah demi langkah "kalau SSH hilang" dan cara aman mengubah `ADMIN_IPS`.
@@ -15,6 +17,7 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
   dengan petunjuk `sudo -u <pemilik>` (ISS-024).
 
 ### Diubah
+- Fingerprint key tidak lagi dicatat di repo (D-041, `docs/DISASTER_RECOVERY.md`); disimpan di brankas pemilik.
 - Aturan regresi dipertegas (CLAUDE.md aturan 2–3, D-038): full regression **hanya** di penutup sprint `.9`;
   sub-versi `.1–.8` cukup regresi modul terkait. Catatan rilis v0.1.8 dikoreksi — hasil 72/72 dicatat sebagai
   verifikasi migrasi server, bukan full regression (ISS-023).
