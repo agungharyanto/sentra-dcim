@@ -6,12 +6,20 @@ import { ThemeProvider } from "@/components/domain/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BootstrapGate } from "@/features/bootstrap/BootstrapGate";
+import { ApiError } from "@/lib/api";
 
 import { AppRoutes } from "./AppRoutes";
 
 export function createQueryClient() {
   return new QueryClient({
-    defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
+    defaultOptions: {
+      queries: {
+        // One retry for network/server errors; a 4xx (not found, invalid locale) will not change on retry.
+        retry: (failures, error) =>
+          failures < 1 && !(error instanceof ApiError && error.status >= 400 && error.status < 500),
+        refetchOnWindowFocus: false,
+      },
+    },
   });
 }
 

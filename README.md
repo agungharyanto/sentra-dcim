@@ -25,5 +25,7 @@ Jalankan `make help` untuk daftar perintah lengkap.
 | [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) | Dependensi + versi + lisensi |
 | [docs/ISSUES.md](docs/ISSUES.md) | Issue open & solved |
 | [docs/DISASTER_RECOVERY.md](docs/DISASTER_RECOVERY.md) | Backup, restore, rollback, server baru |
-| [docs/help/](docs/help/README.md) | Pusat Bantuan |
+| [docs/help/](docs/help/README.md) | Pusat Bantuan (ID/EN, tampil di UI) |
+| [docs/ops/runbooks/](docs/ops/runbooks/) | Runbook ops server (tidak tampil di UI) |
+| [docs/dev/](docs/dev/) | Catatan developer |
 | [api/openapi.yaml](api/openapi.yaml) | Spesifikasi REST API |

@@ -110,7 +110,7 @@
       "key": "help",
       "path": "/help",
       "icon": "circle-help",
-      "status": "coming_soon",
+      "status": "available",
       "group": "system",
       "order": 10
     },

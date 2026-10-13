@@ -3,6 +3,52 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [v0.2.4] - 2026-10-13 — Pusat Bantuan di UI
+
+### Ditambahkan
+- Modul **help**: `GET /api/v1/help/index`, `GET /api/v1/help/pages/{slug}`, `GET /api/v1/help/openapi`
+  (di balik basic_auth sementara). Konten `docs/help/{id,en}` dan `api/openapi.yaml` di-embed ke binary
+  (`go:embed`); slug hanya dicocokkan ke whitelist di memori (path traversal → 404), locale tidak dikenal → 400.
+- Validasi konten sebagai gerbang CI (`go test ./internal/help/...`): front matter, audience, key menu, **slug ID =
+  EN**, menu `available` wajib punya halaman, tautan internal valid, tanpa HTML mentah di luar kode, tanpa detail
+  infrastruktur (IP, path server, `.env`, user OS, sudo/ssh). Bila konten rusak tetap ter-deploy, **hanya modul help
+  yang nonaktif (503 `help_unavailable`)** — app & healthcheck tetap jalan.
+- UI Pusat Bantuan (menu **Bantuan** kini *available*): daftar halaman per audience + pencarian (judul & subjudul),
+  renderer Markdown aman (react-markdown + remark-gfm; HTML mentah tampil sebagai teks, link eksternal
+  `noopener noreferrer`, `javascript:`/`http:` dinetralkan), ganti bahasa memuat ulang halaman yang sama.
+- Tombol **?** di header: membuka bantuan menu aktif (front matter `menu`), selain itu beranda Pusat Bantuan.
+- **Referensi API** read-only buatan sendiri dari OpenAPI (`/help/api/reference`): endpoint per tag, parameter,
+  skema (resolusi `$ref`), kode status; tanpa "Try it out".
+- Label akses di viewer API dari ekstensi OpenAPI **`x-sentra-access`** (`public` → Publik, `internal` → Internal,
+  `login` → Butuh login); test Go memastikan setiap operasi punya nilai sah dan `public` = allowlist edge Caddy.
+- Komponen domain **`CopyButton`** (navigator.clipboard, tanpa library): Copy → Check ±2 detik, `aria-live`
+  "Disalin", toast error bila clipboard gagal/tidak ada; tampil di showcase `/design-system`. Dipakai sebagai tombol
+  salin path di setiap endpoint viewer API (muncul saat hover/fokus keyboard, selalu terlihat di perangkat sentuh).
+- Header endpoint viewer API memakai pola disclosure + *stretched button* (tanpa elemen interaktif bersarang).
+- Halaman bantuan ID+EN: Pusat Bantuan, Memulai, Dasbor, Dokumentasi API (admin).
+- **govulncheck** di CI (`make vulncheck`).
+- Test: Go (kontrak, 25 uji negatif validator, traversal, 503 terisolasi, `x-sentra-access`), Vitest 237,
+  Playwright 24 (+ help: navigasi, cari, "?", viewer API, salin path dengan izin clipboard, ID↔EN, gelap/terang,
+  mobile/sentuh, axe).
+
+### Diubah
+- Dokumen ops/dev keluar dari Pusat Bantuan: runbook ke `docs/ops/runbooks/`, catatan developer ke `docs/dev/`;
+  konvensi Pusat Bantuan di `docs/help/README.md`.
+- CLAUDE.md aturan 7 (lokasi, front matter, ID+EN setara, wajib per menu available, tanpa detail infrastruktur) dan
+  aturan 2 (**pemeriksaan visual screenshot wajib**).
+- Route modul kini `<path>/*` (modul memiliki sub-route, mis. `/help/<slug>`).
+- Query UI tidak mengulang permintaan yang gagal 4xx (404/400 tidak berubah dengan retry).
+
+### Keamanan
+- `golang.org/x/text` 0.38.0 → 0.43.0: GO-2026-5970 & GO-2026-6629, jalur tercapai via pgx (ISS-033).
+
+### Diperbaiki (sebelum rilis, dari pemeriksaan visual)
+- Deskripsi OpenAPI di viewer tampil sebagai Markdown mentah (backtick, baris terputus) → dirender dengan renderer
+  aman versi ringkas.
+- Label "Publik" untuk endpoint tanpa autentikasi yang tidak dibuka di domain publik (`/ready`) → kini dari
+  `x-sentra-access` ("Internal").
+- Warna sukses tombol salin tertimpa warna hover di tema gelap → warna hover hanya saat idle.
+
 ## [v0.2.3] - 2026-10-13 — UI Shell
 
 ### ⚠️ BREAKING — kontrak `GET /api/v1/ui/bootstrap`

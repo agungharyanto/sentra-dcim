@@ -14,3 +14,8 @@ deploy/
 test/
 *.md
 web/
+# Embedded into the binary (go:embed): Help Center pages and the OpenAPI spec. Keep after the excludes above.
+!docs/help/
+!docs/help/**
+docs/help/README.md
+!api/openapi.yaml

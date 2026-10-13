@@ -51,7 +51,7 @@ for p in /api/v1/ready /api/v1/does-not-exist /api/v2/health "/api/v1/health/../
   check "GET $p rejected at proxy (403)" "$([[ $code == 403 ]] && jq -e '.error.code=="forbidden"' "$tmp/b" >/dev/null; echo $?)"
 done
 # Web UI (v0.2.1): behind temporary basic_auth until Auth v0.3 (ISS-026); full checks in test/api/ui.sh.
-for p in / /admin /api/v1/ui/bootstrap; do
+for p in / /admin /api/v1/ui/bootstrap /api/v1/help/index /api/v1/help/pages/dashboard /api/v1/help/openapi; do
   req "$BASE$p"
   check "GET $p requires basic auth (401)" "$([[ $code == 401 && $(hdr WWW-Authenticate) == Basic* ]]; echo $?)"
 done

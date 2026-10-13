@@ -84,7 +84,7 @@ Gunakan `font-mono` + `tabular-nums` untuk kolom angka.
 | Lapisan | Lokasi | Isi |
 |---|---|---|
 | Primitif (shadcn/ui, kode di repo) | `web/src/components/ui/` | Button, Card, Badge, Input, Select, Tabs, Table, Tooltip, DropdownMenu, Dialog, Sheet, Skeleton, Toast (`sonner.tsx`) |
-| Domain | `web/src/components/domain/` | StatusBadge, StatusDot, MenuStatusBadge, ThemeSwitcher (+ ThemeProvider), LanguageSwitcher, Logo |
+| Domain | `web/src/components/domain/` | StatusBadge, StatusDot, MenuStatusBadge, ThemeSwitcher (+ ThemeProvider), LanguageSwitcher, Logo, CopyButton |
 
 ### Menambah komponen
 
@@ -133,6 +133,20 @@ hanya di `/design-system`).
 
 Registry ↔ halaman dijaga test: `go test ./internal/ui/service` memastikan fixture `web/src/test/fixtures/ui-registry.json`
 sama dengan registry; `web/src/app/routes.test.tsx` gagal bila ada menu `available` tanpa halaman.
+
+### Pusat Bantuan (v0.2.4)
+
+- Tata letak modul dengan sub-navigasi: daftar halaman (≥ lg di kiri 16 rem, < lg di atas konten) + konten.
+- Markdown dirender `features/help/Markdown.tsx` (token warna; `h1` Markdown → `h2` karena `h1` milik header shell;
+  blockquote = gaya **info**). Varian `compact` untuk teks pendek (deskripsi OpenAPI).
+- Tautan: route app lewat router; eksternal `target=_blank` + `rel="noopener noreferrer"` + ikon & teks `sr-only`
+  "membuka tab baru".
+- Viewer API: disclosure per endpoint. **Tanpa interaktif bersarang**: `<button aria-expanded>` berisi method + path
+  dengan overlay `::after` selebar baris (seluruh baris bisa diklik), `CopyButton` sebagai sibling `relative z-10`.
+  Label akses dari `x-sentra-access`; tanpa tombol eksekusi.
+- **CopyButton**: ikon Copy → Check (`status-normal-solid`) ±2 detik, `aria-live="polite"`, toast error bila gagal.
+  Pola *reveal on hover*: `opacity-0 group-hover:opacity-100 focus-visible:opacity-100` + varian `no-hover:`
+  (`@media (hover: none)`, didefinisikan di `globals.css`) agar selalu terlihat di perangkat sentuh.
 
 ## 7. Logo
 

@@ -75,7 +75,7 @@ var registry = []Menu{
 	{Key: "visitors", Path: "/visitors", Icon: "id-card", Status: StatusComingSoon, Group: GroupOperations, Order: 20},
 	{Key: "maintenance", Path: "/maintenance", Icon: "wrench", Status: StatusComingSoon, Group: GroupOperations, Order: 30},
 	{Key: "analytics", Path: "/analytics", Icon: "chart-line", Status: StatusComingSoon, Group: GroupOperations, Order: 40},
-	{Key: "help", Path: "/help", Icon: "circle-help", Status: StatusComingSoon, Group: GroupSystem, Order: 10},
+	{Key: "help", Path: "/help", Icon: "circle-help", Status: StatusAvailable, Group: GroupSystem, Order: 10},
 	{Key: "settings", Path: "/settings", Icon: "settings", Status: StatusComingSoon, Group: GroupSystem, Order: 20},
 }
 

@@ -8,6 +8,9 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY cmd ./cmd
 COPY internal ./internal
 COPY migrations ./migrations
+# Embedded content: Help Center pages (docs/help/{id,en}) and the OpenAPI spec.
+COPY api ./api
+COPY docs/help ./docs/help
 ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_DATE=

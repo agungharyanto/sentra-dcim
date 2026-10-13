@@ -75,7 +75,7 @@ build: ## Build backend binary to bin/sentra
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/sentra ./cmd/sentra
 
 ## ---------- Quality ----------
-.PHONY: web-check test test-integration test-api test-ui test-e2e lint gitleaks openapi-lint sqlc fmt
+.PHONY: web-check test test-integration test-api test-ui test-e2e lint vulncheck gitleaks openapi-lint sqlc fmt
 test: ## Run unit tests with race detector and coverage
 	CGO_ENABLED=1 go test -race -count=1 -coverprofile=coverage.out ./...
 
@@ -96,6 +96,10 @@ test-e2e: ## Browser smoke test (Playwright in Docker) against the public site; 
 
 lint: ## Run golangci-lint
 	golangci-lint run ./...
+
+vulncheck: ## Scan Go dependencies for known, reachable vulnerabilities (same version as CI)
+	go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+	govulncheck ./...
 
 gitleaks: ## Scan full git history and all non-ignored working tree files for secrets
 	gitleaks git --redact --no-banner --config .gitleaks.toml .

@@ -1,23 +1,26 @@
-import { ChevronRight, Menu } from "lucide-react";
+import { ChevronRight, CircleHelp, Menu } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation } from "react-router";
+import { Link, useLocation } from "react-router";
 
 import { LanguageSwitcher } from "@/components/domain/LanguageSwitcher";
 import { ThemeSwitcher } from "@/components/domain/ThemeSwitcher";
 import { Button } from "@/components/ui/button";
 import { useBootstrap } from "@/features/bootstrap/regional";
+import { helpPathForMenu, useHelpIndex } from "@/features/help/api";
 
 import { Clock } from "./Clock";
 import { findMenu, useMenuText } from "./menu";
 
 /** Page title + breadcrumb, live clock, language & theme. No user menu until Auth (v0.3). */
 export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
-  const { t } = useTranslation(["shell", "common"]);
+  const { t } = useTranslation(["shell", "common", "help"]);
   const boot = useBootstrap();
   const { menuLabel, groupLabel } = useMenuText();
   const { pathname } = useLocation();
   const menu = findMenu(boot.menus, pathname);
+  const helpIndex = useHelpIndex();
+  const helpPath = helpPathForMenu(helpIndex.data?.pages, menu?.key);
   const title = menu ? menuLabel(menu.key) : t("pages.notFound.title");
   const crumbs = [t("common:app.name"), ...(menu ? [groupLabel(menu.group)] : []), title];
 
@@ -45,6 +48,11 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Clock />
+        <Button asChild variant="outline" size="icon" title={t("help:openHelp")}>
+          <Link to={helpPath} aria-label={t("help:openHelp")} data-testid="help-button">
+            <CircleHelp aria-hidden />
+          </Link>
+        </Button>
         <LanguageSwitcher serverLocales={boot.supported_locales} />
         <ThemeSwitcher />
       </div>

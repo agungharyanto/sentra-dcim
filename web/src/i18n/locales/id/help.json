@@ -1,0 +1,43 @@
+{
+  "pagesNav": "Daftar halaman bantuan",
+  "searchLabel": "Cari bantuan",
+  "searchPlaceholder": "Cari judul atau subjudul…",
+  "noResults": "Tidak ada halaman yang cocok.",
+  "loading": "Memuat halaman bantuan",
+  "loadError": "Pusat Bantuan gagal dimuat. Coba lagi beberapa saat lagi.",
+  "notFoundTitle": "Halaman bantuan tidak ditemukan",
+  "notFoundBody": "Halaman ini tidak tersedia dalam bahasa yang dipilih atau sudah dipindahkan. Pilih halaman lain dari daftar.",
+  "openHelp": "Bantuan untuk halaman ini",
+  "newTab": "(membuka tab baru)",
+  "audience": {
+    "user": "Pengguna",
+    "admin": "Administrator"
+  },
+  "api": {
+    "title": "Referensi API",
+    "intro": "{{title}} — versi spesifikasi {{version}}.",
+    "readOnly": "Hanya baca: halaman ini tidak mengirim permintaan ke API.",
+    "parameters": "Parameter",
+    "noParameters": "Tanpa parameter.",
+    "name": "Nama",
+    "in": "Lokasi",
+    "type": "Tipe",
+    "description": "Keterangan",
+    "required": "wajib",
+    "requestBody": "Isi permintaan",
+    "responses": "Respons",
+    "oneOf": "Salah satu dari bentuk berikut:",
+    "copyPath": "Salin path {{path}}",
+    "toggle": "Tampilkan detail {{method}} {{path}}",
+    "access": {
+      "public": "Publik",
+      "internal": "Internal",
+      "login": "Butuh login"
+    },
+    "accessHint": {
+      "public": "Dapat dipanggil tanpa login lewat domain publik.",
+      "internal": "Hanya dari listener internal server; ditolak di domain publik.",
+      "login": "Perlu masuk (sementara basic_auth sampai Auth v0.3)."
+    }
+  }
+}
