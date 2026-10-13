@@ -36,6 +36,8 @@ import (
 	systemhandler "github.com/agungharyanto/sentra-dcim/internal/system/handler"
 	systemrepo "github.com/agungharyanto/sentra-dcim/internal/system/repo"
 	systemservice "github.com/agungharyanto/sentra-dcim/internal/system/service"
+	uihandler "github.com/agungharyanto/sentra-dcim/internal/ui/handler"
+	uiservice "github.com/agungharyanto/sentra-dcim/internal/ui/service"
 )
 
 func main() {
@@ -98,6 +100,8 @@ func serve() error {
 		systemservice.MigrationChecker(systemrepo.NewStore(pool), latest),
 	)
 
+	ui := uiservice.New(cfg.DefaultLocale, config.SupportedLocales, cfg.DisplayTZ)
+
 	rl := httpserver.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
 	go rl.Janitor(ctx)
 
@@ -106,9 +110,11 @@ func serve() error {
 	servers := []*http.Server{
 		httpserver.NewServer(cfg.HTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, func(r chi.Router) {
 			systemhandler.New(sys).Routes(r)
+			uihandler.New(ui).Routes(r)
 		}), log),
 		httpserver.NewServer(cfg.InternalHTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, func(r chi.Router) {
 			systemhandler.NewInternal(sys).Routes(r)
+			uihandler.New(ui).Routes(r)
 		}), log),
 	}
 

@@ -50,6 +50,11 @@ if [[ -n "$EXPECT_VERSION" ]]; then
 fi
 echo "  info  version=$(jq -r .version "$tmp/b") commit=$(jq -r .commit "$tmp/b")"
 
+req GET /api/v1/ui/bootstrap
+check "GET /ui/bootstrap = 200" "$([[ $code == 200 ]]; echo $?)"
+check "bootstrap timezone = $EXPECT_TZ, locale supported" "$(jq -e --arg tz "$EXPECT_TZ" '.timezone==$tz and (.default_locale as $l | .supported_locales|index($l))!=null' "$tmp/b" >/dev/null; echo $?)"
+check "bootstrap menus have no labels" "$(jq -e 'all(.menus[]; keys==["icon","key","order","path","status"])' "$tmp/b" >/dev/null; echo $?)"
+
 req GET /api/v1/does-not-exist
 check "unknown path = 404 JSON error" "$([[ $code == 404 ]] && jq -e '.error.code=="not_found" and (.error.request_id|length>0)' "$tmp/b" >/dev/null; echo $?)"
 
