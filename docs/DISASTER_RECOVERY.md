@@ -192,7 +192,7 @@ Aturan migrasi (CLAUDE.md aturan 9): setiap migrasi wajib punya `down` dan backw
 
 ## Server baru (Ubuntu 24.04 kosong) — maksimal 5 perintah
 
-Prasyarat: deploy key SSH server baru sudah ditambahkan ke repo GitHub (read-only cukup), dan file `.env`
+Prasyarat: deploy key SSH server baru sudah ditambahkan ke repo GitHub (read-only cukup untuk clone; *Allow write access* bila server ini juga push — lihat D-041; bila langsung `Permission denied`, tunggu sebentar lalu ulangi `ssh -T git@github.com`), dan file `.env`
 lama + direktori backup terakhir sudah disalin ke server (mis. `/root/sentra.env`, `/root/restore/<dir>`).
 
 ```bash

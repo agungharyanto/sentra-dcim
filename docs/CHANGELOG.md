@@ -6,6 +6,8 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
 ## [Unreleased] — v0.1.9 Foundation Close (putaran 2)
 
 ### Diperbaiki
+- Push ke GitHub dari server Oracle via deploy key baru `sentra-oracle-deploy` (ISS-019, D-041); key lama
+  `sentra-dcim-server` tidak dipakai lagi.
 - `ops/backup.sh` tidak lagi meng-`chown` direktori backup yang sudah ada bila dijalankan user lain; kini menolak
   dengan petunjuk `sudo -u <pemilik>` (ISS-024).
 

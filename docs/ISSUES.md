@@ -6,7 +6,6 @@ Format: ID, judul, prioritas (P1 kritis – P4 rendah), versi ditemukan, versi d
 
 | ID | Judul | Prioritas | Ditemukan | Diperbaiki | Catatan |
 |---|---|---|---|---|---|
-| ISS-019 | Server baru (Oracle) belum punya kredensial push ke GitHub: remote HTTPS tanpa token/deploy key, `git push` gagal | P1 | v0.1.8 | — | Commit & tag tersimpan lokal; push menunggu deploy key (write) atau token dari pemilik. Lihat laporan v0.1.8 |
 | ISS-016 | Hanya satu key SSH terpasang, password `ubuntu` terkunci: serial console OCI belum bisa login | P1 | v0.1.8 | — | Keputusan pemilik: pasang key cadangan + set password konsol (prosedur di `docs/DISASTER_RECOVERY.md` → Akses darurat). `PasswordAuthentication` sudah `no` bawaan image Oracle — tidak diubah |
 | ISS-010 | GitHub Release v0.1.9 belum dibuat: deploy key tidak bisa membuat Release, perlu `gh auth login` (token akun) | P3 | v0.1.9 | — | Lihat perintah di `docs/releases/v0.1.9.md` |
 | ISS-025 | `make up` sekali gagal di `version-check` tepat setelah container app dibuat ulang; diulang langsung lulus, belum bisa direproduksi | P3 | v0.1.9 (putaran 2) | — | Dugaan: Caddy internal belum terhubung ke app baru saat `curl -f`. Pantau; bila terulang tambahkan retry singkat di `version-check` |
@@ -16,6 +15,7 @@ Format: ID, judul, prioritas (P1 kritis – P4 rendah), versi ditemukan, versi d
 
 | ID | Judul | Prioritas | Ditemukan | Diperbaiki | Catatan |
 |---|---|---|---|---|---|
+| ISS-019 | Server baru (Oracle) belum punya kredensial push ke GitHub | P1 | v0.1.8 | v0.1.9 (putaran 2) | Deploy key `sentra-oracle-deploy` (write, `~ubuntu/.ssh/github_deploy`) terdaftar 2026-10-13; remote `origin` kini SSH. Penolakan pertama = key belum aktif sesaat setelah didaftarkan. `main` (16 commit) + tag `v0.1.8` ter-push tanpa force; tag `v0.1.9` lama tidak berubah (D-041) |
 | ISS-024 | `ops/backup.sh` yang dijalankan user lain (mis. `ubuntu`) diam-diam meng-`chown` `/var/backups/sentra` ke user tsb (`install -d` pada direktori yang sudah ada), lalu gagal di `.lock` milik `sentra`. Pemicu: `.env` sempat menjadi milik `ubuntu` setelah diedit dengan `sed -i` (mengganti file), sehingga full regression menjalankan backup sebagai `ubuntu` | P2 | v0.1.9 (putaran 2) | v0.1.9 (putaran 2) | `.env` & direktori backup dikembalikan ke `sentra` (ACL `ubuntu:r` sesuai bootstrap); `backup.sh` kini hanya membuat direktori bila belum ada dan menolak (dengan petunjuk `sudo -u <owner>`) bila tidak bisa ditulis. Pelajaran: jangan edit `.env` dengan `sed -i` sebagai admin — gunakan `sudo -u sentra` |
 | ISS-015 | Sertifikat Let's Encrypt belum diterbitkan di server baru | P2 | v0.1.8 | v0.1.9 (putaran 2) | DNS ns2 Rumahweb & OCI Security List diperbaiki pemilik; sertifikat LE terbit 2026-10-13, `test/api/public.sh` 26/26 |
 | ISS-023 | v0.1.8 (sub-versi) menjalankan full regression 72/72 — menyalahi aturan: full regression hanya di `.9` | P3 | v0.1.8 | v0.1.9 | Aturan dipertegas di CLAUDE.md (D-038); catatan v0.1.8 dikoreksi; verifikasi penuh server Oracle dipindah ke v0.1.9 Foundation Close putaran 2 |
