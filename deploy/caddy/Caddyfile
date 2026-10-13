@@ -21,11 +21,47 @@
 		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "geolocation=(), microphone=(), camera=()"
-		Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 		Cross-Origin-Opener-Policy "same-origin"
 		Cross-Origin-Resource-Policy "same-origin"
 		-Server
 		-Via
+	}
+	# Kept out of the block above: header deletions make that block deferred (applied at write time), which would
+	# overwrite the UI's own CSP. Set immediately here so (web_static) can replace it.
+	header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+}
+
+# Temporary gate for the web UI and /api/v1/ui/bootstrap until Auth (v0.3) — MUST be removed then (ISS-026, D-043).
+# Credentials come from .env (WEB_BASIC_AUTH_USER / WEB_BASIC_AUTH_HASH, bcrypt from `caddy hash-password`).
+# Without them docker-compose.yml supplies a lockout hash of a discarded random string: every login fails.
+(web_auth) {
+	basic_auth {
+		{$WEB_BASIC_AUTH_USER} {$WEB_BASIC_AUTH_HASH}
+	}
+}
+
+# Static SPA from the web image (web/Dockerfile → /srv/web). Strict CSP without 'unsafe-inline' (Vite emits no
+# inline scripts or styles); hashed assets are immutable, everything else — index.html above all — is revalidated.
+(web_static) {
+	# route keeps the written order (plain directives are re-sorted by Caddy).
+	route {
+		root * /srv/web
+		header {
+			Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+			Cache-Control "no-cache"
+		}
+		@assets {
+			path /assets/*
+			file
+		}
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		# Deep links (/anything) fall back to index.html; missing hashed assets stay 404 (never cached as HTML).
+		@spa {
+			not path /assets/*
+			not file
+		}
+		rewrite @spa /index.html
+		file_server
 	}
 }
 
@@ -36,6 +72,8 @@
 		header_up -True-Client-IP
 		header_down -Server
 		header_down -Via
+		# Caddy already set the edge CSP; drop the app's copy so responses carry exactly one policy.
+		header_down -Content-Security-Policy
 		health_uri /api/v1/health
 		health_interval 15s
 	}
@@ -52,7 +90,7 @@
 		max_size 1MB
 	}
 
-	# Until Auth (v0.3) only these endpoints are public; everything else is rejected at the proxy.
+	# Until Auth (v0.3) only these endpoints are public; other API paths are rejected at the proxy.
 	@public {
 		method GET HEAD
 		path /api/v1/health /api/v1/version
@@ -61,9 +99,40 @@
 		# Public app listener: /api/v1/version returns only {"version"}.
 		import app_proxy app:8080
 	}
-	handle {
+
+	# UI bootstrap document behind the temporary basic_auth (ISS-026).
+	@bootstrap {
+		method GET HEAD
+		path /api/v1/ui/bootstrap
+	}
+	handle @bootstrap {
+		import web_auth
+		import app_proxy app:8080
+	}
+
+	handle /api/* {
 		header Content-Type "application/json; charset=utf-8"
 		respond `{"error":{"code":"forbidden","message":"not publicly available"}}` 403
+	}
+
+	# Web UI (SPA) behind the temporary basic_auth (ISS-026).
+	handle {
+		import web_auth
+		import web_static
+	}
+
+	# Errors raised by handlers (basic_auth 401, file_server 404/405) bypass the deferred header block above;
+	# re-apply the security headers and answer with the standard JSON error envelope.
+	handle_errors {
+		import security_headers
+		map {err.status_code} {err_code} {
+			401 unauthorized
+			404 not_found
+			405 method_not_allowed
+			default error
+		}
+		header Content-Type "application/json; charset=utf-8"
+		respond `{"error":{"code":"{err_code}","message":"{err.status_text}"}}` {err.status_code}
 	}
 }
 

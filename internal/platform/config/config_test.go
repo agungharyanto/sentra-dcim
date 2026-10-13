@@ -26,6 +26,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.DisplayTZ.String() != "Asia/Jakarta" {
 		t.Fatalf("display tz = %s", cfg.DisplayTZ)
 	}
+	if cfg.DefaultLocale != "id" {
+		t.Fatalf("default locale = %s", cfg.DefaultLocale)
+	}
 	if len(cfg.TrustedProxies) != 5 {
 		t.Fatalf("trusted proxies = %v", cfg.TrustedProxies)
 	}
@@ -83,6 +86,7 @@ func TestLoadInvalidValues(t *testing.T) {
 		"DB_MAX_CONNS":           "5000",
 		"APP_RATE_LIMIT_RPS":     "0",
 		"APP_TRUSTED_PROXIES":    "not-a-cidr",
+		"DEFAULT_LOCALE":         "fr",
 	}
 	for k, v := range cases {
 		t.Run(k, func(t *testing.T) {

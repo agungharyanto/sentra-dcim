@@ -6,12 +6,15 @@ Format: ID, judul, prioritas (P1 kritis – P4 rendah), versi ditemukan, versi d
 
 | ID | Judul | Prioritas | Ditemukan | Diperbaiki | Catatan |
 |---|---|---|---|---|---|
+| ISS-026 | basic_auth Caddy **sementara** untuk UI web (`/`) dan `/api/v1/ui/bootstrap` (D-043) — wajib dicabut saat Auth v0.3 | P2 | v0.2.1 | — (target v0.3) | Saat dicabut: hapus snippet `(web_auth)` di Caddyfile, `WEB_BASIC_AUTH_*` di compose/.env/.env.example/preflight, dan cek 401 di `test/api/{public,ui}.sh` + `test/e2e`. Selama aktif: basic_auth Caddy tidak punya rate limit/lockout — gunakan password panjang acak; pertimbangkan jail fail2ban untuk 401 di log Caddy bila ada percobaan brute force |
+| ISS-027 | Watch item v0.2.2: CSP `style-src 'self'` (tanpa `unsafe-inline`) vs komponen Radix / `react-remove-scroll` yang menyuntik elemen `<style>`; font wajib self-hosted | P3 | v0.2.1 | — (cek di v0.2.2) | Uji tiap komponen shadcn/Radix dengan `test/e2e` (gagal bila ada CSP violation). Opsi bila bentrok: nonce lewat Caddy, hash style, atau komponen alternatif — **jangan** menambah `unsafe-inline` tanpa keputusan. Font: paket lokal (mis. `@fontsource`), tidak dari CDN |
 | ISS-025 | `make up` sekali gagal di `version-check` tepat setelah container app dibuat ulang; diulang langsung lulus, belum bisa direproduksi | P3 | v0.1.9 (putaran 2) | — | Dugaan: Caddy internal belum terhubung ke app baru saat `curl -f`. Pantau; bila terulang tambahkan retry singkat di `version-check` |
 
 ## Solved
 
 | ID | Judul | Prioritas | Ditemukan | Diperbaiki | Catatan |
 |---|---|---|---|---|---|
+| ISS-028 | Tag `v0.1.8` (dibuat ulang di server Oracle, commit `f6fef0b`, 2026-10-13) adalah **turunan** tag `v0.1.9` (`6434b76`, 2026-10-12), sehingga `git describe` memilih `v0.1.8` (mis. `v0.1.8-18-g…`) walau `v0.1.9` versi lebih tinggi | P4 | v0.2.1 | v0.2.1 | Tidak mengubah tag yang sudah di-push (keputusan pemilik); hanya didokumentasikan. Selesai dengan sendirinya: sejak tag `v0.2.1`, `git describe` = `v0.2.x`. Penyebab: tag v0.1.8 dibuat ulang setelah putaran 1 v0.1.9 (D-031/D-039) |
 | ISS-005 | Uji firewall dari luar (nmap) belum dijalankan | P3 | v0.1.9 | v0.1.9 (putaran 2) | nmap pemilik dari luar Oracle: hanya 22, 80, 443 open. `53/tcp open` yang muncul adalah false positive ISP (Telkom mencegat port 53): uji ke `203.0.113.10` (alamat dokumentasi, tanpa server) juga menampilkan `53/tcp open syn-ack`. Di server port 53 hanya `systemd-resolved` di loopback (`127.0.0.53`, `127.0.0.54`) |
 | ISS-010 | GitHub Release v0.1.9 belum dibuat: deploy key tidak bisa membuat Release, perlu `gh auth login` (token akun) | P3 | v0.1.9 | v0.1.9 (putaran 2) | Release dibuat pemilik: `releases/tag/v0.1.9`, menempel pada tag lama (objek `8aeaf87` → commit `6434b76`); tag tidak diubah |
 | ISS-016 | Hanya satu key SSH terpasang, password `ubuntu` terkunci: serial console OCI belum bisa login | P1 | v0.1.8 | v0.1.9 (putaran 2) | Pemilik memasang key SSH cadangan dan menyetel password konsol `ubuntu` (2026-10-13). `PasswordAuthentication` tetap `no`. Checklist pemulihan ditambahkan di `docs/DISASTER_RECOVERY.md` → Akses darurat |

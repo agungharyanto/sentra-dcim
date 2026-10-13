@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sentra DCIM API
-  version: 0.1.8
+  version: 0.2.1
   summary: REST API Sentra DCIM — Diskominfo Provinsi Bali
   description: |
     Semua endpoint berada di bawah `/api/v1`. Waktu dikirim dalam UTC (RFC 3339);
@@ -12,7 +12,8 @@ info:
     Endpoint `GET` juga melayani `HEAD`.
 
     **Akses publik:** lewat `https://sentra.bajastu.id` hanya `/api/v1/health` dan `/api/v1/version` yang
-    diteruskan; permintaan lain ditolak proxy dengan `403`. API lengkap tersedia di listener internal server
+    diteruskan tanpa autentikasi. `/api/v1/ui/bootstrap` (dan UI web di `/`) dilindungi **basic_auth sementara** di
+    proxy sampai Auth v0.3 (ISS-026); permintaan API lain ditolak proxy dengan `403`. API lengkap tersedia di listener internal server
     (`127.0.0.1:8080`, hanya dari server itu sendiri). Detail operasional (mis. commit & waktu server pada
     `/api/v1/version`) hanya dikirim oleh listener internal; mulai v0.3 juga mensyaratkan role Admin.
   license:
@@ -26,6 +27,8 @@ servers:
 tags:
   - name: system
     description: Status layanan dan informasi build
+  - name: ui
+    description: Data pendukung UI web (bootstrap, registry menu)
 paths:
   /api/v1/health:
     get:
@@ -104,7 +107,50 @@ paths:
                     display_timezone: Asia/Jakarta
                     server_time_display: "2026-10-13T15:00:00+07:00"
         "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/ui/bootstrap:
+    get:
+      tags: [ui]
+      operationId: getUiBootstrap
+      summary: Konfigurasi awal UI (bahasa, zona waktu, registry menu)
+      description: |
+        Dipanggil UI web saat start. `default_locale` dan `timezone` berasal dari konfigurasi server
+        (`DEFAULT_LOCALE`, default `id`; `DISPLAY_TIMEZONE`, default `Asia/Jakarta`). Data tetap UTC; zona waktu
+        hanya untuk tampilan.
+
+        `menus` adalah registry menu tunggal (backend), terurut menurut `order`. **Label tidak dikirim**: UI
+        menerjemahkan `key` lewat katalog `shell:sidebar.<key>`.
+
+        Lewat domain publik endpoint ini dilindungi basic_auth sementara (sampai Auth v0.3, ISS-026); listener
+        internal `127.0.0.1:8080` tanpa auth.
+      security:
+        - basicAuth: []
+      responses:
+        "200":
+          description: Dokumen bootstrap UI
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UiBootstrap" }
+              example:
+                app_name: Sentra DCIM
+                version: v0.2.1
+                default_locale: id
+                supported_locales: [id, en]
+                timezone: Asia/Jakarta
+                menus:
+                  - { key: dashboard, path: /, icon: layout-dashboard, status: available, order: 10 }
+                  - { key: facility, path: /facility, icon: building-2, status: coming_soon, order: 20 }
+        "401":
+          description: Kredensial basic_auth tidak ada/salah (dari proxy, hanya lewat domain publik)
+        "429": { $ref: "#/components/responses/TooManyRequests" }
 components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: Sementara, diterapkan di proxy Caddy sampai Auth v0.3 (ISS-026, D-043)
   headers:
     X-Request-Id:
       description: ID unik request untuk penelusuran log
@@ -160,6 +206,34 @@ components:
         server_time_utc: { type: string, format: date-time }
         display_timezone: { type: string, example: Asia/Jakarta }
         server_time_display: { type: string, format: date-time, example: "2026-10-13T15:00:00+07:00" }
+    UiBootstrap:
+      type: object
+      additionalProperties: false
+      required: [app_name, version, default_locale, supported_locales, timezone, menus]
+      properties:
+        app_name: { type: string, example: Sentra DCIM }
+        version: { type: string, example: v0.2.1, description: Sama dengan `/api/v1/version` publik }
+        default_locale: { type: string, enum: [id, en], example: id }
+        supported_locales:
+          type: array
+          items: { type: string, enum: [id, en] }
+          example: [id, en]
+        timezone: { type: string, description: Nama zona IANA untuk tampilan, example: Asia/Jakarta }
+        menus:
+          type: array
+          items: { $ref: "#/components/schemas/MenuItem" }
+    MenuItem:
+      type: object
+      additionalProperties: false
+      required: [key, path, icon, status, order]
+      properties:
+        key: { type: string, description: "Kunci terjemahan `shell:sidebar.<key>`", example: dashboard }
+        path: { type: string, example: / }
+        icon: { type: string, description: Nama ikon lucide, example: layout-dashboard }
+        status:
+          type: string
+          enum: [available, coming_soon, not_connected]
+        order: { type: integer, example: 10 }
     ErrorBody:
       type: object
       required: [error]

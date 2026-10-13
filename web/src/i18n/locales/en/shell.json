@@ -1,0 +1,31 @@
+{
+  "placeholder": {
+    "title": "The interface is being prepared",
+    "subtitle": "Sentra DCIM UI shell (v0.2). Menus and modules will appear step by step following the roadmap.",
+    "version": "Version",
+    "locale": "Active language",
+    "timezone": "Display time zone",
+    "now": "Current time",
+    "menus": "Registered menus ({{count}})"
+  },
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "facility": "Facility",
+    "assets": "Assets",
+    "tenants": "Tenants",
+    "alarms": "Alarms",
+    "power": "Power",
+    "environment": "Environment",
+    "access": "Access Control",
+    "visitors": "Visitors",
+    "maintenance": "Maintenance",
+    "analytics": "Analytics",
+    "help": "Help Center",
+    "settings": "Settings"
+  },
+  "menuStatus": {
+    "available": "Available",
+    "coming_soon": "Coming soon",
+    "not_connected": "Not connected"
+  }
+}

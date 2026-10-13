@@ -3,7 +3,44 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
-## [Unreleased] — v0.1.9 Foundation Close (putaran 2)
+## [v0.2.1] - 2026-10-13 — Frontend Scaffold & i18n Foundation
+
+### Ditambahkan
+- UI web di `web/`: React 19 + Vite 8 + TypeScript strict, Tailwind v4 + dasar shadcn/ui, React Router 7, TanStack
+  Query (D-042, [ADR-001](decisions/ADR-001-frontend-stack.md)). Build hanya di Docker multi-stage (Node 22, ARM64);
+  host tidak butuh Node.
+- i18n sejak awal: Bahasa Indonesia (default) & English, namespace `common`/`shell`/`errors`, key bertipe;
+  ESLint `i18next/no-literal-string` = error; `pnpm i18n:check` menolak key yang hilang/berlebih.
+- Endpoint `GET /api/v1/ui/bootstrap`: nama app, versi, locale & timezone default dari server (`DEFAULT_LOCALE`
+  baru, `DISPLAY_TIMEZONE`), registry menu tunggal di backend (Dashboard *available*, modul lain *coming soon*;
+  label diterjemahkan di UI). OpenAPI diperbarui.
+- Halaman sementara: nama app, versi, bahasa & zona waktu aktif, jam sekarang (UTC → zona tampilan), daftar menu,
+  tombol ganti bahasa ID/EN.
+- Caddy menyajikan UI di `/` dengan SPA fallback, CSP ketat tanpa `unsafe-inline`, `index.html` `no-cache`, aset
+  ber-hash `immutable`.
+- **basic_auth sementara** untuk UI & bootstrap sampai Auth v0.3 (D-043, ISS-026). `make preflight` menolak mode
+  publik tanpa hash; tanpa hash UI terkunci.
+- Test: Vitest (10), Go unit test bootstrap, `test/api/ui.sh` (edge UI), `test/e2e` Playwright (ID↔EN, console &
+  CSP), `make web-check`, `make test-ui`, `make test-e2e`; job CI `web` + uji UI & e2e di job build.
+- Kerangka Pusat Bantuan dua bahasa `docs/help/{id,en}/` (diisi di v0.2.4).
+
+### Regresi modul v0.2.1
+- Web: lint, typecheck, `i18n:check`, Vitest 10/10 (+ uji negatif lint & katalog); Go unit test + golangci-lint 0 issue.
+- Server produksi: 4 container healthy; smoke internal 27/27; edge publik 30/30; `test-ui` 32/32 dan `test-e2e`
+  Playwright 2/2 (dijalankan pemilik); browser: login, ID↔EN, deep link, console bersih, jam WIB benar.
+- CI GitHub (run `38390860588`): semua job lulus, termasuk UI edge 32/32 dan Playwright 2/2.
+
+### Diperbaiki
+- Respons error dari handler Caddy (401 basic_auth, 404/405 statis) kini tetap membawa header keamanan (HSTS,
+  nosniff, tanpa `Server`) dan body `ErrorBody` JSON (`handle_errors`) — ditemukan saat uji `curl -I` v0.2.1.
+- Header CSP ganda (Caddy + app) pada respons API: CSP dari app dibuang di proxy, tinggal satu kebijakan.
+
+### Diubah
+- `test/api/public.sh`: `/` dan `/admin` kini 401 (basic_auth), bukan 403. API selain health/version tetap 403.
+- Image Caddy kini ditag per versi (`sentra-caddy:<git describe>`), sama seperti app.
+- `make caddy-validate` memvalidasi Caddyfile dengan image Caddy resmi (tanpa build UI).
+
+## [v0.1.9 putaran 2] - 2026-10-13 — Foundation Close (tanpa tag baru)
 
 ### Diperbaiki
 - Uji firewall dari luar lulus: hanya 22/80/443 terbuka; `53/tcp` di nmap terbukti false positive ISP (ISS-005).

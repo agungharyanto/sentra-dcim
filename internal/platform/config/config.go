@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +16,12 @@ import (
 
 // DefaultDisplayTimezone is the display timezone when DISPLAY_TIMEZONE is not set (WIB, UTC+7).
 const DefaultDisplayTimezone = "Asia/Jakarta"
+
+// DefaultLocale is the UI locale when DEFAULT_LOCALE is not set.
+const DefaultLocale = "id"
+
+// SupportedLocales lists the UI locales with a complete translation catalog (web/src/i18n/locales).
+var SupportedLocales = []string{"id", "en"}
 
 // Config is the full application configuration.
 type Config struct {
@@ -27,11 +34,13 @@ type Config struct {
 	InternalHTTPAddr string
 	ShutdownTimeout  time.Duration
 	DisplayTZ        *time.Location
-	RateLimitRPS     float64
-	RateLimitBurst   int
-	TrustedProxies   []netip.Prefix
-	DB               DB
-	Redis            Redis
+	// DefaultLocale is the server-wide UI locale (one of SupportedLocales); users may switch in the UI.
+	DefaultLocale  string
+	RateLimitRPS   float64
+	RateLimitBurst int
+	TrustedProxies []netip.Prefix
+	DB             DB
+	Redis          Redis
 }
 
 // DB holds PostgreSQL connection settings.
@@ -76,6 +85,7 @@ func LoadFrom(lookup func(string) (string, bool)) (Config, error) {
 		HTTPAddr:         p.str("APP_HTTP_ADDR", ":8080"),
 		InternalHTTPAddr: p.str("APP_INTERNAL_HTTP_ADDR", ":8081"),
 		ShutdownTimeout:  p.duration("APP_SHUTDOWN_TIMEOUT", 15*time.Second),
+		DefaultLocale:    strings.ToLower(p.str("DEFAULT_LOCALE", DefaultLocale)),
 		RateLimitRPS:     p.float("APP_RATE_LIMIT_RPS", 20),
 		RateLimitBurst:   p.int("APP_RATE_LIMIT_BURST", 40),
 		DB: DB{
@@ -109,6 +119,11 @@ func LoadFrom(lookup func(string) (string, bool)) (Config, error) {
 
 	if cfg.HTTPAddr == cfg.InternalHTTPAddr {
 		p.errs = append(p.errs, errors.New("APP_HTTP_ADDR and APP_INTERNAL_HTTP_ADDR must differ"))
+	}
+
+	if !slices.Contains(SupportedLocales, cfg.DefaultLocale) {
+		p.errs = append(p.errs, fmt.Errorf("DEFAULT_LOCALE: unsupported locale %q (want one of %s)",
+			cfg.DefaultLocale, strings.Join(SupportedLocales, ", ")))
 	}
 
 	switch cfg.LogLevel {

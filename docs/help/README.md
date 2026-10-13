@@ -38,7 +38,12 @@ Apa yang diselesaikan fitur ini dan untuk siapa.
 | Ops | Backup, restore & rollback | [ops/backup-restore.md](ops/backup-restore.md) | v0.1.4 |
 | Ops | Akses darurat server (SSH hilang) | [ops/akses-darurat.md](ops/akses-darurat.md) | v0.1.8 |
 | Admin | Domain & HTTPS | [admin/domain-https.md](admin/domain-https.md) | v0.1.6 |
+| Admin | Akses UI web sementara (basic_auth) | [admin/web-basic-auth.md](admin/web-basic-auth.md) | v0.2.1 |
 | API | Endpoint sistem (health, ready, version) | [api/system.md](api/system.md) | v0.1.3 |
+| API | Bootstrap UI (bahasa, zona waktu, registry menu) | [api/ui-bootstrap.md](api/ui-bootstrap.md) | v0.2.1 |
+
+Mulai v0.2 Pusat Bantuan dua bahasa: konvensi di [id/README.md](id/README.md) dan [en/README.md](en/README.md);
+halaman di atas dipindah ke `id/` pada v0.2.4.
 
 ## Dokumentasi API
 

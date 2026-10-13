@@ -47,7 +47,8 @@ Nilai di `.env` (tidak di-commit; contoh ada di `.env.example`):
 | Permintaan | Hasil |
 |---|---|
 | `GET`/`HEAD` `/api/v1/health`, `/api/v1/version` | Diteruskan ke aplikasi |
-| Path atau metode lain (termasuk `/api/v1/ready`, `/`) | `403` `{"error":{"code":"forbidden",...}}` |
+| `GET`/`HEAD` `/api/v1/ui/bootstrap` dan UI web (`/`, path non-API) — sejak v0.2.1 | basic_auth sementara: `401` tanpa kredensial ([web-basic-auth.md](web-basic-auth.md)) |
+| Path `/api/...` lain (termasuk `/api/v1/ready`) | `403` `{"error":{"code":"forbidden",...}}` |
 | `http://...` | `308` ke `https://...` |
 
 Header pada setiap respons HTTPS: `Strict-Transport-Security` (1 tahun), `Content-Security-Policy`,

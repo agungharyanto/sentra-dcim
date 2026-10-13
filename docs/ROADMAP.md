@@ -10,7 +10,7 @@ Sprint = 1 minggu.
 | Versi | Judul | Ruang lingkup | Status |
 |---|---|---|---|
 | v0.1 | Foundation | Scaffold repo, infra Docker, hardening server, backend skeleton (health/ready/version), Ops & DR (backup/restore/rollback/bootstrap), CI | Selesai (lihat docs/releases/v0.1.9.md) |
-| v0.2 | UI Shell & Design System | Shell UI, design system, kerangka Pusat Bantuan; status menu *Available / Coming Soon / Not Connected*; warna status *Normal / Warning / Critical / Offline / Maintenance*; keputusan framework frontend; **i18n wajib sejak awal** (lihat rincian) | Rencana |
+| v0.2 | UI Shell & Design System | Shell UI, design system, kerangka Pusat Bantuan; status menu *Available / Coming Soon / Not Connected*; warna status *Normal / Warning / Critical / Offline / Maintenance*; keputusan framework frontend; **i18n wajib sejak awal** (lihat rincian) | Berjalan (v0.2.1 selesai) |
 | v0.3 | Auth, RBAC & Audit Log | Login, sesi, RBAC (Admin, NOC, Security, Viewer, dll), audit log; detail `/api/v1/version` hanya role Admin; tambahan v0.3.5 Settings – Regional, v0.3.6 Settings – Allowed IP | Rencana |
 | v0.4 | Facility, Tenant & Asset | Hierarki Site > Gedung > Lantai > Ruang > Rack, tenant, aset | Rencana |
 | v0.5 | Dashboard & Alarm Engine | Dashboard, alarm (aktif / diakui / eskalasi / selesai), notifikasi | Rencana |
@@ -36,7 +36,17 @@ Sprint = 1 minggu.
 | v0.1.6 | Domain & HTTPS (tambahan scope) | `sentra.bajastu.id`, Let's Encrypt, ufw 80/443, redirect, HSTS & security headers, allowlist endpoint publik | Selesai |
 | v0.1.7 | Caddy Empty Env Fix (hotfix) | Perbaikan CI v0.1.6 (DOMAIN/ACME_EMAIL kosong) | Selesai |
 | v0.1.8 | Timezone & Version Fix | Zona tampilan `DISPLAY_TIMEZONE` (default Asia/Jakarta, DB tetap UTC), timer backup 02:00 Asia/Jakarta; `/api/v1/version` == `git describe` (`make up` selalu rebuild + `version-check`, dicek di full regression .9); `/version` publik hanya `{version}`, detail via listener internal. Termasuk pekerjaan migrasi server Oracle (akses darurat, bootstrap nyata — D-031) | Selesai |
-| v0.1.9 | Foundation Close (Full Regression & DoD) | Semua test, uji restore, uji rollback, uji firewall, release notes, GitHub Release. Putaran 1 (2026-10-12, server lama). Putaran 2 (server Oracle): **go public** `sentra.bajastu.id` (Let's Encrypt, ufw + OCI Security List 80/443) + full regression & DoD lengkap — D-039 | Selesai putaran 2 (72/72, go public); nmap luar (ISS-005), push & GitHub Release menunggu ISS-019/ISS-010 |
+| v0.1.9 | Foundation Close (Full Regression & DoD) | Semua test, uji restore, uji rollback, uji firewall, release notes, GitHub Release. Putaran 1 (2026-10-12, server lama). Putaran 2 (server Oracle): **go public** `sentra.bajastu.id` (Let's Encrypt, ufw + OCI Security List 80/443) + full regression & DoD lengkap — D-039 | Selesai (putaran 2: 72/72, go public, nmap luar, GitHub Release) |
+
+## Rincian v0.2 UI Shell & Design System
+
+| Versi | Judul | Isi | Status |
+|---|---|---|---|
+| v0.2.1 | Frontend Scaffold & i18n Foundation | `web/` (React 19, Vite, TS strict, Tailwind v4 + dasar shadcn, Router 7, TanStack Query; D-042/ADR-001), i18n ID/EN + lint `no-literal-string` + `i18n:check`, `GET /api/v1/ui/bootstrap` (registry menu backend), halaman sementara + ganti bahasa, Caddy SPA + CSP ketat, basic_auth sementara (D-043, ISS-026), e2e Playwright, kerangka `docs/help/{id,en}` | Selesai |
+| v0.2.2 | Design System & Komponen | Komponen shadcn/Radix, warna status, uji CSP Radix (ISS-027), font self-hosted | Usulan (perlu konfirmasi pemilik) |
+| v0.2.3 | UI Shell | Layout, sidebar dari registry menu (status Available/Coming Soon/Not Connected) | Usulan (perlu konfirmasi pemilik) |
+| v0.2.4 | Pusat Bantuan di UI | Render `docs/help/{id,en}`, migrasi halaman lama ke `id/`, revisi CLAUDE.md aturan 7, render OpenAPI | Usulan (perlu konfirmasi pemilik) |
+| v0.2.9 | Penutup Sprint | Full regression (termasuk `test/e2e`) + DoD | Usulan (perlu konfirmasi pemilik) |
 
 ## Rincian v0.2 — wajib i18n sejak awal
 

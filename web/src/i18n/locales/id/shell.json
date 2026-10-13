@@ -1,0 +1,31 @@
+{
+  "placeholder": {
+    "title": "Antarmuka sedang disiapkan",
+    "subtitle": "Kerangka UI Sentra DCIM (v0.2). Menu dan modul akan tampil bertahap sesuai roadmap.",
+    "version": "Versi",
+    "locale": "Bahasa aktif",
+    "timezone": "Zona waktu tampilan",
+    "now": "Waktu sekarang",
+    "menus": "Menu terdaftar ({{count}})"
+  },
+  "sidebar": {
+    "dashboard": "Dasbor",
+    "facility": "Fasilitas",
+    "assets": "Aset",
+    "tenants": "Tenant",
+    "alarms": "Alarm",
+    "power": "Daya",
+    "environment": "Lingkungan",
+    "access": "Kontrol Akses",
+    "visitors": "Pengunjung",
+    "maintenance": "Pemeliharaan",
+    "analytics": "Analitik",
+    "help": "Pusat Bantuan",
+    "settings": "Pengaturan"
+  },
+  "menuStatus": {
+    "available": "Tersedia",
+    "coming_soon": "Segera hadir",
+    "not_connected": "Belum terhubung"
+  }
+}

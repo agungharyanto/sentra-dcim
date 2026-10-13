@@ -29,6 +29,41 @@ ditambah, diubah versinya, atau dihapus.
 | golang.org/x/time | 0.16.0 | BSD-3-Clause | Token bucket rate limiter |
 | Dependensi tidak langsung (pgpassfile, pgservicefile, puddle, xxhash, x/sys, x/text, x/sync, atomic) | lihat `go.sum` | MIT / BSD | Dipakai oleh pgx, go-redis, migrate |
 
+## Frontend (web/, v0.2.1 — D-042, ADR-001)
+
+Versi = hasil resolusi `web/pnpm-lock.yaml`. Build hanya di Docker (`web/Dockerfile`), host tidak butuh Node.
+
+| Nama | Versi | Lisensi | Fungsi / alasan |
+|---|---|---|---|
+| Node.js (`node:22.23.3-alpine`) | 22.23.3 (LTS) | MIT | Runtime build & test UI di Docker (multi-arch, ARM64) |
+| pnpm (via corepack, `packageManager`) | 12.11.2 | MIT | Package manager; lockfile ketat, `--frozen-lockfile` |
+| react, react-dom | 19.3.0 | MIT | Library UI |
+| react-router | 7.18.4 | MIT | Routing SPA (library mode) |
+| @tanstack/react-query | 5.104.2 | MIT | Fetch/cache state API (bootstrap, nanti semua modul) |
+| i18next | 26.4.4 | MIT | Mesin i18n (katalog, interpolasi, fallback `id`) |
+| react-i18next | 17.0.16 | MIT | Binding i18next untuk React (`useTranslation`) |
+| tailwindcss, @tailwindcss/vite | 4.3.3 | MIT | Utility CSS + plugin Vite (design system) |
+| tw-animate-css | 1.4.0 | MIT | Animasi standar shadcn/ui (Tailwind v4) |
+| class-variance-authority | 0.7.1 | Apache-2.0 | Varian komponen (konvensi shadcn/ui) |
+| clsx | 2.1.1 | MIT | Gabung className kondisional (`cn()`) |
+| tailwind-merge | 3.7.0 | MIT | Resolusi konflik kelas Tailwind (`cn()`) |
+| lucide-react | 1.56.0 | ISC | Ikon (nama ikon menu dari registry backend) |
+| shadcn/ui | — (kode disalin, `components.json`) | MIT | Pola komponen di atas Radix; komponen + Radix ditambahkan di v0.2.2 |
+| vite | 8.3.4 | MIT | Bundler & dev server; output statis ber-hash tanpa inline script |
+| @vitejs/plugin-react | 6.1.2 | MIT | Dukungan React/JSX di Vite |
+| typescript | 6.0.3 | Apache-2.0 | Type checking strict (7.0 belum didukung typescript-eslint) |
+| @types/react, @types/react-dom | 19.3.0 | MIT | Tipe React |
+| @types/node | 22.20.5 | MIT | Tipe Node (config & skrip `i18n:check`) |
+| eslint, @eslint/js | 10.12.0 / 10.0.1 | MIT | Linter |
+| typescript-eslint | 8.71.2 | MIT | Aturan ESLint untuk TypeScript (`strict`) |
+| eslint-plugin-react-hooks | 7.1.1 | MIT | Aturan hooks React |
+| eslint-plugin-i18next | 6.1.5 | ISC | `no-literal-string` = error: tidak ada teks UI hardcode |
+| globals | 17.13.0 | MIT | Definisi global browser/node untuk ESLint |
+| vitest | 5.0.4 | MIT | Unit test (i18n, format, render halaman ID/EN) |
+| jsdom | 30.1.2 | MIT | DOM untuk Vitest |
+| @testing-library/react, user-event, jest-dom | 16.3.3 / 14.6.8 / 7.0.1 | MIT | Render & interaksi komponen di test |
+| @playwright/test + image `mcr.microsoft.com/playwright:v1.64.0-noble` | 1.64.0 | Apache-2.0 | Smoke test browser (Chromium) `test/e2e/`, multi-arch |
+
 ## Tools pengembangan & CI
 
 | Nama | Versi | Lisensi | Fungsi |
