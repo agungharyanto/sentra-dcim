@@ -7,6 +7,14 @@ export function catalog(lng: string, ns: string) {
   return JSON.parse(readFileSync(new URL(`../../web/src/i18n/locales/${lng}/${ns}.json`, import.meta.url), "utf8"));
 }
 
+/** Backend menu registry fixture (kept in sync by `go test ./internal/ui/service`). */
+export function registry(): {
+  menu_groups: { key: string; order: number }[];
+  menus: { key: string; path: string; status: string; group: string }[];
+} {
+  return JSON.parse(readFileSync(new URL("../../web/src/test/fixtures/ui-registry.json", import.meta.url), "utf8"));
+}
+
 export const user = process.env.SENTRA_WEB_USER ?? "";
 export const pass = process.env.SENTRA_WEB_PASS ?? "";
 

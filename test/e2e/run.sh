@@ -35,7 +35,8 @@ echo "Playwright smoke → ${BASE_URL%/} ($PLAYWRIGHT_IMAGE)"
 docker run --rm --init --ipc=host --network host --env-file "$tmp/env" \
   --user "$(id -u):$(id -g)" -e HOME=/tmp -e E2E_ARTIFACTS=/artifacts \
   -v "$root:/repo:ro" -v "$artifacts:/artifacts" "$PLAYWRIGHT_IMAGE" bash -euo pipefail -c '
-    mkdir -p /tmp/w/test /tmp/w/web/src/i18n
+    mkdir -p /tmp/w/test /tmp/w/web/src/i18n /tmp/w/web/src/test
     cp -r /repo/test/e2e /tmp/w/test/e2e && cp -r /repo/web/src/i18n/locales /tmp/w/web/src/i18n/locales
+    cp -r /repo/web/src/test/fixtures /tmp/w/web/src/test/fixtures
     cd /tmp/w/test/e2e && npm ci --no-audit --no-fund --loglevel=error && npx playwright test'
 echo "screenshots: $artifacts"

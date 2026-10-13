@@ -1,12 +1,9 @@
 {
-  "placeholder": {
-    "title": "The interface is being prepared",
-    "subtitle": "Sentra DCIM UI shell (v0.2). Menus and modules will appear step by step following the roadmap.",
-    "version": "Version",
-    "locale": "Active language",
-    "timezone": "Display time zone",
-    "now": "Current time",
-    "menus": "Registered menus ({{count}})"
+  "groups": {
+    "monitoring": "Monitoring",
+    "infrastructure": "Infrastructure",
+    "operations": "Operations",
+    "system": "System"
   },
   "sidebar": {
     "dashboard": "Dashboard",
@@ -23,9 +20,62 @@
     "help": "Help Center",
     "settings": "Settings"
   },
+  "menuDescription": {
+    "dashboard": "Data center overview: power, environment and alarms.",
+    "alarms": "Active, acknowledged and escalated alarms and their resolution history.",
+    "power": "PDU, UPS, generator and fuel tank monitoring.",
+    "environment": "Temperature, humidity, smoke and water leaks per room and rack.",
+    "facility": "Site, building, floor, room and rack hierarchy.",
+    "assets": "Equipment inventory and rack placement.",
+    "tenants": "Tenant records and their space and power usage.",
+    "access": "Access zones and real-time door validation.",
+    "visitors": "Visitor passes, goods movement and cross-connects.",
+    "maintenance": "Maintenance schedules, work orders and SLAs.",
+    "analytics": "Analytics, anomaly detection and report export.",
+    "help": "User guides and Sentra DCIM API documentation.",
+    "settings": "Regional, access and system settings."
+  },
   "menuStatus": {
     "available": "Available",
     "coming_soon": "Coming soon",
     "not_connected": "Not connected"
+  },
+  "layout": {
+    "skipToContent": "Skip to content",
+    "mainNav": "Main navigation",
+    "breadcrumb": "Breadcrumb",
+    "openMenu": "Open navigation menu",
+    "drawerTitle": "Menu",
+    "drawerDescription": "Sentra DCIM module navigation",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "version": "Version {{version}}",
+    "clockLabel": "Current time, {{timezone}} time zone"
+  },
+  "pages": {
+    "comingSoon": {
+      "title": "Coming soon",
+      "body": "The {{menu}} module is being prepared according to the roadmap and is not available yet.",
+      "back": "Back to Dashboard"
+    },
+    "notConnected": {
+      "title": "Not connected",
+      "body": "The {{menu}} module is available, but its data source is not connected yet. Contact your administrator to enable the integration.",
+      "back": "Back to Dashboard"
+    },
+    "notFound": {
+      "title": "Page not found",
+      "body": "The address {{path}} does not exist in Sentra DCIM.",
+      "back": "Back to Dashboard"
+    },
+    "error": {
+      "title": "Something went wrong",
+      "body": "This page could not be displayed. Try reloading; if it keeps happening, report it to your administrator.",
+      "reload": "Reload"
+    }
+  },
+  "dashboard": {
+    "emptyTitle": "No devices connected yet",
+    "emptyBody": "The dashboard will show power, environment and alarm status once devices or simulators are connected (Telemetry Ingestion, v0.6)."
   }
 }

@@ -8,34 +8,35 @@ const en = { shell: catalog("en", "shell"), common: catalog("en", "common") };
 test.describe("web UI smoke", () => {
   test.use({ httpCredentials: { username: user, password: pass } });
 
-  test("loads behind basic auth and switches ID ↔ EN without console errors or CSP violations", async ({ page }) => {
+  test("loads behind basic auth, opens the dashboard and switches ID ↔ EN without console/CSP errors", async ({ page }) => {
     test.skip(!user || !pass, "SENTRA_WEB_USER / SENTRA_WEB_PASS not set");
     const problems = await watchProblems(page);
 
     const res = await page.goto("/");
     expect(res?.status()).toBe(200);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(id.shell.placeholder.title);
+    await expect(page).toHaveURL(/\/dashboard$/);
+    const h1 = page.getByRole("heading", { level: 1 });
+    await expect(h1).toHaveText(id.shell.sidebar.dashboard);
+    await expect(page.getByTestId("dashboard-empty")).toContainText(id.shell.dashboard.emptyTitle);
     await expect(page.locator("html")).toHaveAttribute("lang", "id");
-    await expect(page.getByText(id.shell.sidebar.dashboard)).toBeVisible();
-    await expect(page.getByTestId("timezone")).not.toBeEmpty();
-    await expect(page.getByTestId("version")).toHaveText(/^v\d+\.\d+\.\d+/);
+    await expect(page.getByTestId("app-version")).toContainText(/v\d+\.\d+\.\d+/);
+    await expect(page.getByTestId("clock")).not.toBeEmpty();
 
     await page.getByRole("button", { name: new RegExp(en.common.language.en) }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(en.shell.placeholder.title);
+    await expect(h1).toHaveText(en.shell.sidebar.dashboard);
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
-    await expect(page.getByText(en.shell.sidebar.dashboard)).toBeVisible();
 
     // The choice survives a reload (stored in this browser).
     await page.reload();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(en.shell.placeholder.title);
-
+    await expect(h1).toHaveText(en.shell.sidebar.dashboard);
     await page.getByRole("button", { name: new RegExp(id.common.language.id) }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(id.shell.placeholder.title);
+    await expect(h1).toHaveText(id.shell.sidebar.dashboard);
 
-    // Deep link is served by the SPA fallback.
+    // Unknown deep link: served by the SPA fallback, rendered as 404 inside the shell.
     const deep = await page.goto("/apa-saja/deep/link");
     expect(deep?.status()).toBe(200);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText(id.shell.placeholder.title);
+    await expect(h1).toHaveText(id.shell.pages.notFound.title);
+    await expect(page.getByTestId("not-found")).toContainText("/apa-saja/deep/link");
 
     expect(problems).toEqual([]);
   });
