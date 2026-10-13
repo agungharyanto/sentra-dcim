@@ -28,7 +28,7 @@ set +a
 
 # Backups belong to the app user (owner of .env, `sentra`); an admin user (e.g. `ubuntu`, see
 # ops/bootstrap-new-server.sh --admin-user) runs the regression and executes backup/restore as that user.
-APP_USER="$(stat -c %U .env)"
+APP_USER="$(stat -L -c %U .env)"   # -L: in a separate worktree .env is a symlink owned by the admin user
 as_app() { if [[ "$(id -un)" == "$APP_USER" ]]; then "$@"; else sudo -u "$APP_USER" -H "$@"; fi; }
 export APP_USER
 export -f as_app
