@@ -51,6 +51,8 @@ preflight: .env ## Validate .env before starting (domain/ACME settings)
 	  echo "preflight: DOMAIN=$$DOMAIN requires WEB_BASIC_AUTH_USER/WEB_BASIC_AUTH_HASH in .env (UI stays locked otherwise)" >&2; exit 1; fi; \
 	if [[ -n "$${WEB_BASIC_AUTH_HASH:-}" && ! "$$WEB_BASIC_AUTH_HASH" =~ ^\$$2[aby]\$$[0-9]{2}\$$[./A-Za-z0-9]{53}$$ ]]; then \
 	  echo "preflight: WEB_BASIC_AUTH_HASH is not a bcrypt hash (use single quotes in .env, see .env.example)" >&2; exit 1; fi; \
+	if [[ "$${WEB_BASIC_AUTH_HASH:-}" =~ ^\$$2[aby]\$$([0-9]{2})\$$ ]] && (( 10#$${BASH_REMATCH[1]} > 12 )); then \
+	  echo "preflight: WARNING bcrypt cost $${BASH_REMATCH[1]} > 12: each wrong basic_auth login costs ~1 s CPU at 14 (DoS risk, ISS-026). Regenerate with --bcrypt-cost 10 (docs/ops/runbooks/web-basic-auth.md)" >&2; fi; \
 	if [[ ! '$(VERSION)' =~ ^[A-Za-z0-9._-]+$$ ]]; then echo "preflight: invalid VERSION '$(VERSION)'" >&2; exit 1; fi
 
 CADDY_VALIDATE := docker run --rm -v "$$PWD/deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
@@ -75,7 +77,7 @@ build: ## Build backend binary to bin/sentra
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/sentra ./cmd/sentra
 
 ## ---------- Quality ----------
-.PHONY: web-check test test-integration test-api test-ui test-e2e lint vulncheck gitleaks openapi-lint sqlc fmt
+.PHONY: web-check test test-integration test-api test-ui test-e2e lint vulncheck fail2ban-test fail2ban-web fail2ban-web-remove fail2ban-ban-test gitleaks openapi-lint sqlc fmt
 test: ## Run unit tests with race detector and coverage
 	CGO_ENABLED=1 go test -race -count=1 -coverprofile=coverage.out ./...
 
@@ -96,6 +98,18 @@ test-e2e: ## Browser smoke test (Playwright in Docker) against the public site; 
 
 lint: ## Run golangci-lint
 	golangci-lint run ./...
+
+fail2ban-test: ## Test the fail2ban filter against synthetic Caddy log samples (host fail2ban-regex or Docker)
+	./scripts/fail2ban-regex-test.sh
+
+fail2ban-web: ## Install/update the fail2ban jail sentra-web for wrong basic_auth logins (idempotent; sudo)
+	sudo ./scripts/fail2ban-web-install.sh
+
+fail2ban-web-remove: ## Remove the sentra-web jail, filter and systemd drop-in (v0.3, with basic_auth; sudo)
+	sudo ./scripts/fail2ban-web-install.sh --remove
+
+fail2ban-ban-test: ## Real ban/unban test from a throwaway container network against this host (sudo)
+	sudo ./scripts/fail2ban-ban-test.sh
 
 vulncheck: ## Scan Go dependencies for known, reachable vulnerabilities (same version as CI)
 	go install golang.org/x/vuln/cmd/govulncheck@v1.9.0

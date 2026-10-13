@@ -1,0 +1,23 @@
+# Sentra DCIM — installed by `make fail2ban-web` (scripts/fail2ban-web-install.sh). Do not edit on the server.
+# HOST_RE and LOGPATH placeholders are filled by the installer. Remove together with basic_auth in v0.3 (ISS-026).
+
+[sentra-web]
+enabled   = true
+filter    = sentra-caddy-auth[sentra_host="@HOST_RE@"]
+# Caddy access log on the caddy_logs volume (resolved with `docker volume inspect` at install time).
+logpath   = @LOGPATH@
+backend   = polling
+# 10 wrong logins within 10 minutes → 1 h ban, growing on repeat offences up to 24 h.
+maxretry  = 10
+findtime  = 10m
+bantime   = 1h
+bantime.increment = true
+bantime.maxtime   = 24h
+# Only localhost is exempt; overrides the [DEFAULT] ignoreip of the sshd jail (admin IPs are NOT exempt here).
+ignoreip  = 127.0.0.1/8 ::1
+# Published ports are DNAT'ed to the caddy container, so traffic goes through FORWARD → DOCKER-USER, not INPUT.
+# REJECT (icmp-port-unreachable) so clients fail fast. IPv4 only: no IPv6 is published (see runbook fail2ban.md).
+banaction = iptables-multiport
+# actionstart_on_demand=false: create the chain and the DOCKER-USER jump when the jail starts (verifiable, and
+# re-created on every fail2ban restart — e.g. after Docker restarts, see the systemd drop-in).
+action    = iptables-multiport[name=sentra-web, chain=DOCKER-USER, port="80,443", protocol=tcp, blocktype="REJECT --reject-with icmp-port-unreachable", actionstart_on_demand=false]
