@@ -103,6 +103,7 @@ pilih versi terbaru yang sudah melewati jendela itu.
 | govulncheck (`golang.org/x/vuln`) | 1.9.0 | BSD-3-Clause | Pemindaian kerentanan dependensi Go yang benar-benar terpanggil (CI job Lint, `make vulncheck`, v0.2.4) |
 | GCC | (paket Ubuntu) | GPL-3.0 | Dibutuhkan race detector (`go test -race`, CGO) |
 | actionlint | 1.7.12 | MIT | Validasi workflow GitHub Actions (lokal, `/usr/local/bin`) |
+| GitHub CLI (`gh`) | 2.102.0 | MIT | Membuat GitHub Release penutup sprint dari server, user `ubuntu` (D-081, v0.3.9) |
 | actions/checkout | v7 | MIT | CI: checkout repo |
 | actions/setup-go | v7 | MIT | CI: instal Go |
 | golangci/golangci-lint-action | v9 | MIT | CI: jalankan golangci-lint |
