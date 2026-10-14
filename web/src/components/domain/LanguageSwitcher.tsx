@@ -4,10 +4,10 @@ import { isLocale, type Locale, setLocale, supportedLocales } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 /**
- * ID/EN toggle. Offers only locales that both the server and the bundled catalogs support. onSelect (signed in)
- * additionally saves the choice as the user's language preference; without it the choice stays in this browser.
+ * ID/EN toggle for this browser. Offers only locales that both the server and the bundled catalogs support. The
+ * account's language preference (Account › Preferences) applies at sign-in.
  */
-export function LanguageSwitcher({ serverLocales, onSelect }: { serverLocales: readonly string[]; onSelect?: ((lng: Locale) => void) | undefined }) {
+export function LanguageSwitcher({ serverLocales }: { serverLocales: readonly string[] }) {
   const { t, i18n } = useTranslation();
   const locales = supportedLocales.filter((l: Locale) => serverLocales.filter(isLocale).includes(l));
   const active = i18n.resolvedLanguage;
@@ -21,10 +21,7 @@ export function LanguageSwitcher({ serverLocales, onSelect }: { serverLocales: r
           lang={lng}
           aria-pressed={active === lng}
           aria-label={t("language.switchTo", { language: t(`language.${lng}`) })}
-          onClick={() => {
-            void setLocale(lng);
-            onSelect?.(lng);
-          }}
+          onClick={() => void setLocale(lng)}
           className={cn(
             "rounded px-2.5 py-1 text-sm font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
             active === lng ? "bg-primary text-primary-foreground" : "hover:bg-accent",

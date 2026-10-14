@@ -21,7 +21,8 @@ Semua pengguna yang sudah masuk (tanpa izin khusus).
 2. Untuk setiap isian pilih nilai sendiri, atau **Ikuti sistem** (nilai sistem saat ini ditampilkan di sampingnya).
 3. Pilih **Simpan**. Tampilan langsung berganti; **Contoh tampilan** menunjukkan hasilnya.
 
-Tombol bahasa **ID/EN** di header juga menyimpan pilihan bahasa sebagai preferensi akun Anda.
+Preferensi bahasa diterapkan setiap kali Anda **masuk** dan saat preferensi disimpan. Tombol **ID/EN** di header
+hanya mengganti bahasa di browser yang sedang dipakai (tidak mengubah preferensi akun).
 
 Selama sebuah isian "Ikuti sistem", perubahan oleh Admin di [Pengaturan Regional](../settings/regional.md) ikut
 berlaku untuk Anda. Setiap perubahan preferensi tercatat di Audit Log (`user.preferences.update`).

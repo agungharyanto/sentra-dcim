@@ -1,19 +1,15 @@
 import { ChevronRight, CircleHelp, Menu } from "lucide-react";
-import { useContext, useEffect } from "react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 
 import { LanguageSwitcher } from "@/components/domain/LanguageSwitcher";
 import { ThemeSwitcher } from "@/components/domain/ThemeSwitcher";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/toast";
 import { accountPageTitleKey } from "@/features/auth/account";
-import { AuthContext } from "@/features/auth/auth-context";
 import { UserMenu } from "@/features/auth/UserMenu";
 import { useBootstrap } from "@/features/bootstrap/regional";
 import { helpPathForMenu, useHelpIndex } from "@/features/help/api";
-import { updatePreferences } from "@/features/settings/api";
-import type { Locale } from "@/i18n";
 
 import { Clock } from "./Clock";
 import { findMenu, useMenuText } from "./menu";
@@ -21,13 +17,6 @@ import { findMenu, useMenuText } from "./menu";
 /** Page title + breadcrumb, live clock, help, language & theme, signed-in user menu. */
 export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
   const { t } = useTranslation(["shell", "common", "help", "auth"]);
-  const auth = useContext(AuthContext); // absent in isolated shell tests
-  // The header language buttons also save the language as the user's preference (Settings – Regional, v0.3.5).
-  const saveLanguage = (lng: Locale) => {
-    updatePreferences({ "regional.language": lng })
-      .then(() => auth?.refresh())
-      .catch(() => toast.error(t("shell:layout.languageNotSaved")));
-  };
   const boot = useBootstrap();
   const { menuLabel, groupLabel } = useMenuText();
   const { pathname } = useLocation();
@@ -68,7 +57,7 @@ export function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
             <CircleHelp aria-hidden />
           </Link>
         </Button>
-        <LanguageSwitcher serverLocales={boot.supported_locales} onSelect={auth?.me ? saveLanguage : undefined} />
+        <LanguageSwitcher serverLocales={boot.supported_locales} />
         {/* Icons only below 2xl so title, breadcrumb and the user menu fit on one row at 1280 px. */}
         <ThemeSwitcher labelsFrom="2xl" />
         <UserMenu />

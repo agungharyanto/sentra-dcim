@@ -16,7 +16,7 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
   diatur Admin di **Pengaturan › Regional** (pratinjau langsung, *Kembalikan ke default*).
 - **Preferensi pengguna** (Akun › Preferensi, `GET/PUT /api/v1/me/preferences`): keempat nilai bisa "Ikuti sistem"
   atau nilai sendiri; tercatat `user.preferences.update`. `/api/v1/auth/me` mengembalikan nilai efektif (`regional`).
-  Tombol ID/EN di header menyimpan bahasa sebagai preferensi.
+  Bahasa preferensi diterapkan saat masuk; tombol ID/EN di header tetap pilihan browser.
 - **Satu helper format** (D-077) untuk semua tanggal/jam di UI (Audit Log, Sesi saya, Keamanan, Pengguna, jam header)
   dari nilai efektif; DB tetap UTC. Ekspor CSV audit: kolom UTC ISO-8601 + kolom lokal dalam zona efektif pengekspor.
 - **Pemilih tanggal & jam** design system (kalender Senin-pertama, navigasi panah/Page Up/Down, 12/24 jam, ID/EN)

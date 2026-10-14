@@ -54,8 +54,7 @@
     "collapse": "Ciutkan sidebar",
     "expand": "Bentangkan sidebar",
     "version": "Versi {{version}}",
-    "clockLabel": "Waktu sekarang, zona {{timezone}}",
-    "languageNotSaved": "Bahasa diganti, tetapi gagal disimpan sebagai preferensi akun."
+    "clockLabel": "Waktu sekarang, zona {{timezone}}"
   },
   "pages": {
     "comingSoon": {

@@ -21,7 +21,8 @@ Every signed-in user (no special permission).
 2. For each field choose your own value, or **Follow system** (the current system value is shown next to it).
 3. Choose **Save**. The display changes immediately; the **Preview** shows the result.
 
-The **ID/EN** language buttons in the header also save the language as your account preference.
+The language preference applies every time you **sign in** and when you save your preferences. The **ID/EN** buttons
+in the header only switch the language in the browser you are using (they do not change your account preference).
 
 While a field is on "Follow system", changes an Admin makes in [Regional settings](../settings/regional.md) apply to
 you as well. Every preference change is recorded in the Audit Log (`user.preferences.update`).

@@ -148,10 +148,15 @@ describe("account › preferences", () => {
     expect(within(tz).getByRole("option", { name: "Ikuti sistem (Asia/Jakarta)" })).toBeInTheDocument();
     await userEvent.selectOptions(tz, "UTC");
     await userEvent.selectOptions(within(page).getByTestId("regional-date_format"), "YYYY-MM-DD");
+    await userEvent.selectOptions(within(page).getByTestId("regional-language"), "en");
     await userEvent.click(screen.getByTestId("preferences-save"));
     await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
-    expect(calls.find((c) => c.method === "PUT")?.body).toEqual({ values: { "regional.timezone": "UTC", "regional.date_format": "YYYY-MM-DD" } });
-    expect(await screen.findByText(tx.preferences.saved)).toBeInTheDocument();
+    expect(calls.find((c) => c.method === "PUT")?.body).toEqual({
+      values: { "regional.timezone": "UTC", "regional.date_format": "YYYY-MM-DD", "regional.language": "en" },
+    });
+    // Saving applies the language at once.
+    await waitFor(() => expect(i18n.resolvedLanguage).toBe("en"));
+    expect(await screen.findByText(new RegExp(`${tx.preferences.saved}|${resources.en.settings.preferences.saved}`))).toBeInTheDocument();
     // Back to "follow system" sends null.
     await userEvent.selectOptions(await within(await screen.findByTestId("preferences-page")).findByTestId("regional-timezone"), "");
     await userEvent.click(screen.getByTestId("preferences-save"));
@@ -162,8 +167,7 @@ describe("account › preferences", () => {
   it("effective values from /auth/me drive every date in the UI (own preference over system)", async () => {
     api({ regional: { language: "en", timezone: "UTC", time_format: "12h", date_format: "YYYY-MM-DD" } });
     renderAt("/account/sessions");
-    // testMe session: created 2026-10-14T01:00:00Z → UTC, 12 h, ISO date; language follows the preference.
-    expect((await screen.findAllByText(/2026-10-14 1:00 AM/)).length).toBeGreaterThan(0);
-    await waitFor(() => expect(i18n.resolvedLanguage).toBe("en"));
+    // testMe session: created 2026-10-14T01:00:00Z → UTC, 12 h, ISO date (UI language id: "1.00").
+    expect((await screen.findAllByText(/2026-10-14 1\.00 AM/)).length).toBeGreaterThan(0);
   });
 });

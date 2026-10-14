@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/features/auth/auth-context";
 import { useBootstrap } from "@/features/bootstrap/regional";
+import { isLocale, setLocale } from "@/i18n";
 import { toErrorCode } from "@/i18n/errors";
 import { ApiError } from "@/lib/api";
 
@@ -46,7 +47,8 @@ function PreferencesForm({ prefs }: { prefs: Preferences }) {
     mutationFn: (values: Record<string, string | null>) => updatePreferences(values),
     onSuccess: async (p) => {
       qc.setQueryData(preferencesKey, p);
-      await refresh(); // effective values (and the language) follow immediately
+      await refresh(); // effective time zone and formats follow immediately
+      if (isLocale(p.effective.language)) await setLocale(p.effective.language);
       toast.success(t("preferences.saved"));
     },
     onError: (err) => {

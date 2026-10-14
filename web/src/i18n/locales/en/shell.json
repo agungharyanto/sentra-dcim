@@ -54,8 +54,7 @@
     "collapse": "Collapse sidebar",
     "expand": "Expand sidebar",
     "version": "Version {{version}}",
-    "clockLabel": "Current time, {{timezone}} time zone",
-    "languageNotSaved": "Language switched, but it could not be saved as your account preference."
+    "clockLabel": "Current time, {{timezone}} time zone"
   },
   "pages": {
     "comingSoon": {
