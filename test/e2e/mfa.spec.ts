@@ -58,12 +58,12 @@ test.describe("MFA", () => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(tx.mfa.enrolTitle);
     await expectAccessible(page, "mfa intro");
     await page.screenshot({ path: `${artifactsDir}/mfa-enrol-intro.png`, fullPage: true });
-    await page.getByTestId("mfa-enrol-page").screenshot({ path: `${artifactsDir}/help-mfa-intro.png` });
+    await page.getByTestId("mfa-enrol-page").screenshot({ path: `${artifactsDir}/help-mfa-intro-id.png` });
     await page.getByTestId("mfa-start").click();
     await expect(page.getByTestId("mfa-qr")).toBeVisible();
     await expectAccessible(page, "mfa qr");
     await page.screenshot({ path: `${artifactsDir}/mfa-enrol-qr.png`, fullPage: true });
-    await page.getByTestId("mfa-enrol-page").screenshot({ path: `${artifactsDir}/help-mfa-qr.png` });
+    await page.getByTestId("mfa-enrol-page").screenshot({ path: `${artifactsDir}/help-mfa-qr-id.png` });
     await page.setViewportSize(mobile);
     expect(await noHorizontalScroll(page)).toBe(true);
     await page.screenshot({ path: `${artifactsDir}/mfa-enrol-qr-mobile.png`, fullPage: true });
@@ -73,13 +73,13 @@ test.describe("MFA", () => {
     await expect(page.getByTestId("recovery-code")).toHaveCount(10);
     await expectAccessible(page, "recovery codes");
     await page.screenshot({ path: `${artifactsDir}/mfa-recovery-codes.png`, fullPage: true });
-    await page.getByTestId("mfa-enrol-page").screenshot({ path: `${artifactsDir}/help-mfa-recovery.png` });
+    await page.getByTestId("mfa-enrol-page").screenshot({ path: `${artifactsDir}/help-mfa-recovery-id.png` });
 
     mode = "verify";
     await page.goto("/dashboard");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(tx.mfa.verifyTitle);
     await page.getByLabel(tx.mfa.codeLabel).fill("123456");
-    await page.getByTestId("mfa-verify-page").screenshot({ path: `${artifactsDir}/help-mfa-verify.png` });
+    await page.getByTestId("mfa-verify-page").screenshot({ path: `${artifactsDir}/help-mfa-verify-id.png` });
     await page.getByLabel(tx.mfa.codeLabel).fill("000000");
     await page.getByRole("button", { name: tx.mfa.verify }).click();
     await expect(page.getByTestId("mfa-error")).toHaveText(tx.mfa.invalid);
@@ -89,6 +89,41 @@ test.describe("MFA", () => {
     expect(await noHorizontalScroll(page)).toBe(true);
     await page.screenshot({ path: `${artifactsDir}/mfa-verify-mobile.png`, fullPage: true });
     expect(problems.filter((p) => !/status of 401/.test(p))).toEqual([]);
+  });
+
+  test("Help Center illustrations in English (mocked)", async ({ page }) => {
+    const en = catalog("en", "auth");
+    let verify = false;
+    await page.addInitScript(() => {
+      window.localStorage.setItem("sentra.theme", "light");
+      window.localStorage.setItem("sentra.locale", "en");
+    });
+    await page.route("**/api/v1/auth/me", async (route) => {
+      const res = await route.fetch();
+      const body = await res.json();
+      body.session.mfa_verified = false;
+      body.user.mfa_enabled = verify;
+      await route.fulfill({ response: res, json: body });
+    });
+    await page.route("**/api/v1/auth/mfa/enrol", (route) =>
+      route.fulfill({ json: { issuer: "Sentra DCIM", account: "contoh.pengguna", secret: demo.secret, otpauth_uri: demo.uri, qr: demo.qr } }),
+    );
+    await page.route("**/api/v1/auth/mfa/enrol/confirm", (route) => route.fulfill({ json: { recovery_codes: FAKE_CODES } }));
+    await page.goto("/dashboard");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(en.mfa.enrolTitle);
+    await page.getByTestId("mfa-enrol-page").screenshot({ path: `${artifactsDir}/help-mfa-intro-en.png` });
+    await page.getByTestId("mfa-start").click();
+    await expect(page.getByTestId("mfa-qr")).toBeVisible();
+    await page.getByTestId("mfa-enrol-page").screenshot({ path: `${artifactsDir}/help-mfa-qr-en.png` });
+    await page.getByLabel(en.mfa.codeLabel).fill("123456");
+    await page.getByTestId("mfa-confirm").click();
+    await expect(page.getByTestId("recovery-code")).toHaveCount(10);
+    await page.getByTestId("mfa-enrol-page").screenshot({ path: `${artifactsDir}/help-mfa-recovery-en.png` });
+    verify = true;
+    await page.goto("/dashboard");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(en.mfa.verifyTitle);
+    await page.getByLabel(en.mfa.codeLabel).fill("123456");
+    await page.getByTestId("mfa-verify-page").screenshot({ path: `${artifactsDir}/help-mfa-verify-en.png` });
   });
 
   test("account security page (read-only), desktop + mobile, axe", async ({ page }) => {

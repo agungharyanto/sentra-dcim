@@ -3,7 +3,7 @@
  * need. Black on white in both themes (dark-mode inverted QR codes are not read by every authenticator app). No
  * image data URL: nothing to relax in the CSP.
  */
-export function QrCode({ rows, label, size = 208 }: { rows: string[]; label: string; size?: number }) {
+export function QrCode({ rows, label, size = 240 }: { rows: string[]; label: string; size?: number }) {
   const n = rows.length + 8;
   let d = "";
   rows.forEach((row, y) => {
