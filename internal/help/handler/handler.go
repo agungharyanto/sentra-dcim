@@ -1,5 +1,8 @@
 // Package handler exposes the Help Center under /api/v1/help (pages, images, OpenAPI). Every route needs a session
-// that passed MFA (default-deny, internal/api); filtering pages by role via their audience follows in v0.3.4 (ISS-032).
+// that passed MFA (default-deny, internal/api). Pages are filtered by the caller's permissions (ISS-032, D-074):
+// audience "admin" needs rbac.HelpAdmin, and a page bound to a menu that needs a permission — or any page below it —
+// needs that permission too. Hidden pages are neither listed nor fetchable (404), and the OpenAPI document follows
+// the admin page "api".
 package handler
 
 import (
@@ -12,6 +15,9 @@ import (
 
 	"github.com/agungharyanto/sentra-dcim/internal/help/service"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/httpserver"
+	"github.com/agungharyanto/sentra-dcim/internal/platform/principal"
+	"github.com/agungharyanto/sentra-dcim/internal/platform/rbac"
+	uiservice "github.com/agungharyanto/sentra-dcim/internal/ui/service"
 )
 
 // Handler serves the help index, pages and the OpenAPI document.
@@ -19,12 +25,51 @@ type Handler struct {
 	cat           *service.Catalog // nil = help module disabled (content failed validation at startup)
 	defaultLocale string
 	locales       []string
+	menuPerms     map[string]rbac.Permission // menu key → permission needed to see it (UI registry)
 }
 
 // New creates a Handler. A nil catalog disables the module: every endpoint answers 503 while the rest of the API
 // keeps working.
 func New(cat *service.Catalog, defaultLocale string, locales []string) *Handler {
-	return &Handler{cat: cat, defaultLocale: defaultLocale, locales: slices.Clone(locales)}
+	_, menus := uiservice.Registry()
+	perms := map[string]rbac.Permission{}
+	for _, m := range menus {
+		if m.Permission != "" {
+			perms[m.Key] = rbac.Permission(m.Permission)
+		}
+	}
+	return &Handler{cat: cat, defaultLocale: defaultLocale, locales: slices.Clone(locales), menuPerms: perms}
+}
+
+// can reports whether the caller holds perm (no principal = nothing).
+func can(r *http.Request, perm rbac.Permission) bool {
+	p, ok := principal.From(r.Context())
+	return ok && p.Can(perm)
+}
+
+// allowed applies the rules of one page's metadata.
+func (h *Handler) allowed(r *http.Request, m service.Meta) bool {
+	if m.Audience == service.AudienceAdmin && !can(r, rbac.HelpAdmin) {
+		return false
+	}
+	if perm, ok := h.menuPerms[m.Menu]; ok && !can(r, perm) {
+		return false
+	}
+	return true
+}
+
+// visible checks a page and every ancestor ("users/roles" → "users"): a sub-page inherits its parent's restrictions.
+func (h *Handler) visible(r *http.Request, loc string, m service.Meta) bool {
+	if !h.allowed(r, m) {
+		return false
+	}
+	for slug := m.Slug; strings.Contains(slug, "/"); {
+		slug = slug[:strings.LastIndex(slug, "/")]
+		if parent, ok := h.cat.Page(loc, slug); ok && !h.allowed(r, parent.Meta) {
+			return false
+		}
+	}
+	return true
 }
 
 // Routes registers the help endpoints on r (mounted at /api/v1).
@@ -67,7 +112,13 @@ func (h *Handler) index(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	pages, _ := h.cat.Index(loc)
+	all, _ := h.cat.Index(loc)
+	pages := make([]service.Meta, 0, len(all))
+	for _, m := range all {
+		if h.visible(r, loc, m) {
+			pages = append(pages, m)
+		}
+	}
 	httpserver.JSON(w, http.StatusOK, map[string]any{"locale": loc, "pages": pages})
 }
 
@@ -79,14 +130,18 @@ func (h *Handler) page(w http.ResponseWriter, r *http.Request) {
 	// The slug is looked up in the in-memory whitelist only; it never reaches the filesystem.
 	slug := strings.TrimSuffix(chi.URLParam(r, "*"), "/")
 	page, found := h.cat.Page(loc, slug)
-	if !found {
+	if !found || !h.visible(r, loc, page.Meta) { // hidden pages are indistinguishable from missing ones
 		httpserver.Error(w, r, http.StatusNotFound, "not_found", "help page not found")
 		return
 	}
 	httpserver.JSON(w, http.StatusOK, page)
 }
 
-func (h *Handler) openAPI(w http.ResponseWriter, _ *http.Request) {
+func (h *Handler) openAPI(w http.ResponseWriter, r *http.Request) {
+	if !can(r, rbac.HelpAdmin) { // the API reference is the admin page "api"
+		httpserver.Error(w, r, http.StatusNotFound, "not_found", "help page not found")
+		return
+	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(h.cat.OpenAPI())

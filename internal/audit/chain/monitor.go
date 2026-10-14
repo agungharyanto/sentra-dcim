@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -33,6 +34,7 @@ type Monitor struct {
 	sink  Sink
 	every time.Duration
 	run   sync.Mutex // one verification at a time
+	busy  atomic.Bool
 	mu    sync.RWMutex
 	last  *Result
 }
@@ -67,6 +69,8 @@ func (m *Monitor) VerifyNow(ctx context.Context) (Result, error) {
 		return Result{}, ErrBusy
 	}
 	defer m.run.Unlock()
+	m.busy.Store(true)
+	defer m.busy.Store(false)
 	res, err := Verify(ctx, m.db, nil, time.Now())
 	if err != nil {
 		return res, err
@@ -81,6 +85,9 @@ func (m *Monitor) VerifyNow(ctx context.Context) (Result, error) {
 	}
 	return res, nil
 }
+
+// Running reports whether a verification is in progress.
+func (m *Monitor) Running() bool { return m.busy.Load() }
 
 // Last returns the latest result (nil before the first run).
 func (m *Monitor) Last() *Result {

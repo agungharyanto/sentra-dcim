@@ -31,6 +31,7 @@ import (
 	helpdocs "github.com/agungharyanto/sentra-dcim/docs/help"
 	"github.com/agungharyanto/sentra-dcim/internal/api"
 	"github.com/agungharyanto/sentra-dcim/internal/audit/chain"
+	audithandler "github.com/agungharyanto/sentra-dcim/internal/audit/handler"
 	auditrepo "github.com/agungharyanto/sentra-dcim/internal/audit/repo"
 	auditservice "github.com/agungharyanto/sentra-dcim/internal/audit/service"
 	authhandler "github.com/agungharyanto/sentra-dcim/internal/auth/handler"
@@ -131,6 +132,9 @@ func serve() error {
 	help := helphandler.New(helpCat, cfg.DefaultLocale, config.SupportedLocales)
 
 	rec := auditservice.New(auditrepo.New(pool), log)
+	// Daily hash-chain verification of the audit log (D-073); failures are logged at error level (Alarm Engine v0.5).
+	integrity := chain.NewMonitor(pool, log, nil, 24*time.Hour)
+	go integrity.Run(ctx)
 	auth, err := authservice.New(authrepo.New(pool), authservice.NewRedisLimiter(rdb, authservice.DefaultLimiterPrefix), rec, log, cfg.Auth)
 	if err != nil {
 		return fmt.Errorf("auth: %w", err)
@@ -138,9 +142,6 @@ func serve() error {
 	authH := authhandler.New(auth, log, cfg.Auth.AllowedOrigins)
 	go cleanupSessions(ctx, auth, log)
 	go rec.RunThrottle(ctx) // summaries of repeated denials (authz.denied.repeated, security.csrf_denied.repeated)
-	// Daily hash-chain verification of the audit log (D-073); failures are logged at error level (Alarm Engine v0.5).
-	integrity := chain.NewMonitor(pool, log, nil, 24*time.Hour)
-	go integrity.Run(ctx)
 
 	rl := httpserver.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
 	go rl.Janitor(ctx)
@@ -149,7 +150,8 @@ func serve() error {
 	// modules; they differ only in the unauthenticated allowlist (internal adds /ready for ops scripts). Everything
 	// else requires a session and, per route, a permission (internal/api, default-deny; D-053, D-054).
 	users := usershandler.New(usersservice.New(pool, rec, log, cfg.Auth), log)
-	mods := api.Modules{System: systemhandler.New(sys), UI: uihandler.New(ui), Help: help, Auth: authH, Users: users}
+	mods := api.Modules{System: systemhandler.New(sys), UI: uihandler.New(ui), Help: help, Auth: authH, Users: users,
+		Audit: audithandler.New(auditrepo.New(pool), rec, integrity, cfg.DisplayTZ, log)}
 	servers := []*http.Server{
 		httpserver.NewServer(cfg.HTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, api.Mount(mods, false)), log),
 		httpserver.NewServer(cfg.InternalHTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, api.Mount(mods, true)), log),

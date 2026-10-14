@@ -136,6 +136,15 @@
       "permission": "users.read"
     },
     {
+      "key": "audit",
+      "path": "/audit",
+      "icon": "scroll-text",
+      "status": "available",
+      "group": "system",
+      "order": 17,
+      "permission": "audit.read"
+    },
+    {
       "key": "settings",
       "path": "/settings",
       "icon": "settings",

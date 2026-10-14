@@ -197,8 +197,6 @@ else
   check "help page traversal rejected (403 at proxy or 404)" "$([[ $code == 403 || $code == 404 ]]; echo $?)"
   sreq "$BASE/api/v1/help/index?locale=fr"
   check "help unknown locale → 400 invalid_locale" "$([[ $code == 400 ]] && jq -e '.error.code=="invalid_locale"' "$tmp/b" >/dev/null; echo $?)"
-  sreq "$BASE/api/v1/help/openapi"
-  check "GET /api/v1/help/openapi = 200 JSON spec" "$([[ $code == 200 ]] && jq -e '.openapi and .paths["/api/v1/auth/login"]' "$tmp/b" >/dev/null; echo $?)"
   sreq -X POST "$BASE/api/v1/help/index"
   check "POST /api/v1/help/index rejected (403)" "$([[ $code == 403 ]]; echo $?)"
 
@@ -220,6 +218,29 @@ else
   check "PATCH /api/v1/users/<unknown> = $exp (proxy + CSRF pass, users.manage)" "$([[ $code == "$exp" ]]; echo $?)"
   sreq -X DELETE -H "X-Sentra-CSRF: $csrf" "$BASE/api/v1/users/00000000-0000-4000-8000-000000000000"
   check "DELETE /api/v1/users/* rejected at proxy (403, users are disabled, never deleted)" "$([[ $code == 403 ]] && jq -e '.error.message=="not publicly available"' "$tmp/b" >/dev/null; echo $?)"
+  # Help Center filtered by permission (ISS-032): the API reference and admin pages only with help.admin.
+  sreq "$BASE/api/v1/help/openapi"
+  if has help.admin; then
+    check "GET /api/v1/help/openapi = 200 JSON spec (help.admin)" "$([[ $code == 200 ]] && jq -e '.openapi and .paths["/api/v1/audit/events"]' "$tmp/b" >/dev/null; echo $?)"
+  else
+    check "GET /api/v1/help/openapi = 404 without help.admin" "$([[ $code == 404 ]]; echo $?)"
+  fi
+  if has help.admin; then exp=200; else exp=404; fi
+  sreq "$BASE/api/v1/help/pages/users/roles"
+  check "GET /api/v1/help/pages/users/roles = $exp (audience admin)" "$([[ $code == "$exp" ]]; echo $?)"
+
+  # Audit log (v0.3.4): viewer, integrity, CSV export (an empty future window: no rows, but audited).
+  if has audit.read; then exp=200; else exp=403; fi
+  sreq "$BASE/api/v1/audit/events?limit=5"
+  check "GET /api/v1/audit/events = $exp (audit.read)" "$([[ $code == "$exp" ]] && { [[ $exp == 403 ]] || jq -e '(.events|length >= 1) and all(.events[]; .seq and .hash)' "$tmp/b" >/dev/null; }; echo $?)"
+  sreq "$BASE/api/v1/audit/integrity"
+  check "GET /api/v1/audit/integrity = $exp (audit.read)" "$([[ $code == "$exp" ]] && { [[ $exp == 403 ]] || jq -e 'has("last") and has("running")' "$tmp/b" >/dev/null; }; echo $?)"
+  sreq -X POST -H "X-Sentra-CSRF: $csrf" "$BASE/api/v1/audit/integrity/verify"
+  check "POST /api/v1/audit/integrity/verify = $exp, chain intact (audit.read)" "$([[ $code == "$exp" ]] && { [[ $exp == 403 ]] || jq -e '.ok == true' "$tmp/b" >/dev/null; }; echo $?)"
+  if has audit.export; then exp=200; else exp=403; fi
+  sreq "$BASE/api/v1/audit/events/export.csv?since=2099-01-01T00:00:00Z"
+  check "GET /api/v1/audit/events/export.csv = $exp (audit.export)" "$([[ $code == "$exp" ]] && { [[ $exp == 403 ]] || head -1 "$tmp/b" | grep -q '^seq,occurred_at_utc,'; }; echo $?)"
+
   sreq "$BASE/api/v1/version"
   if has system.version.read; then
     check "GET /version with Admin session = build details" "$(jq -e '.commit and .server_time_display' "$tmp/b" >/dev/null; echo $?)"

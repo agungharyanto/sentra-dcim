@@ -82,6 +82,8 @@ var registry = []Menu{
 	{Key: "help", Path: "/help", Icon: "circle-help", Status: StatusAvailable, Group: GroupSystem, Order: 10},
 	{Key: "users", Path: "/users", Icon: "user-cog", Status: StatusAvailable, Group: GroupSystem, Order: 15,
 		Permission: string(rbac.UsersRead)},
+	{Key: "audit", Path: "/audit", Icon: "scroll-text", Status: StatusAvailable, Group: GroupSystem, Order: 17,
+		Permission: string(rbac.AuditRead)},
 	{Key: "settings", Path: "/settings", Icon: "settings", Status: StatusComingSoon, Group: GroupSystem, Order: 20},
 }
 

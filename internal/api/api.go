@@ -5,6 +5,7 @@ package api
 import (
 	"github.com/go-chi/chi/v5"
 
+	audithandler "github.com/agungharyanto/sentra-dcim/internal/audit/handler"
 	authhandler "github.com/agungharyanto/sentra-dcim/internal/auth/handler"
 	helphandler "github.com/agungharyanto/sentra-dcim/internal/help/handler"
 	systemhandler "github.com/agungharyanto/sentra-dcim/internal/system/handler"
@@ -19,6 +20,7 @@ type Modules struct {
 	Help   *helphandler.Handler
 	Auth   *authhandler.Handler
 	Users  *usershandler.Handler
+	Audit  *audithandler.Handler
 }
 
 // PublicRoutes is the allowlist of "METHOD /path" reachable without a session on the public listener.
@@ -73,6 +75,7 @@ var AuditedRoutes = map[string][]string{
 	"POST /api/v1/users/{id}/enable":         {"user.enable"},
 	"POST /api/v1/users/{id}/password-reset": {"user.password.reset"},
 	"POST /api/v1/users/{id}/mfa-reset":      {"user.mfa.reset"},
+	"POST /api/v1/audit/integrity/verify":    {"audit.verify"},
 }
 
 // Mount returns the /api/v1 mount function. internal selects the loopback listener variant.
@@ -97,6 +100,7 @@ func Mount(m Modules, internal bool) func(r chi.Router) {
 			m.UI.Routes(r)
 			m.Help.Routes(r)
 			m.Users.Routes(r, m.Auth.Require)
+			m.Audit.Routes(r, m.Auth.Require)
 		})
 	}
 }

@@ -59,7 +59,7 @@ func TestRegistryGrouping(t *testing.T) {
 		GroupMonitoring:     {"dashboard", "alarms", "power", "environment"},
 		GroupInfrastructure: {"facility", "assets", "tenants"},
 		GroupOperations:     {"access", "visitors", "maintenance", "analytics"},
-		GroupSystem:         {"help", "users", "settings"},
+		GroupSystem:         {"help", "users", "audit", "settings"},
 	}
 	got := map[string][]string{}
 	for _, m := range menus {

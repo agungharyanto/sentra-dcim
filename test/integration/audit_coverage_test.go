@@ -96,6 +96,7 @@ func TestAuditCoverage(t *testing.T) {
 		}
 	}
 	want(t, "mfa reset", admin.post("/api/v1/users/"+id+"/mfa-reset", nil), http.StatusNoContent, "")
+	want(t, "verify chain", admin.post("/api/v1/audit/integrity/verify", nil), http.StatusOK, "")
 	if r := admin.post("/api/v1/auth/logout", nil); r.code != http.StatusNoContent {
 		t.Fatalf("logout: %d", r.code)
 	}

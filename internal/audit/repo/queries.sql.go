@@ -58,3 +58,120 @@ func (q *Queries) InsertEvent(ctx context.Context, arg InsertEventParams) (Inser
 	err := row.Scan(&i.ID, &i.OccurredAt)
 	return i, err
 }
+
+const listActions = `-- name: ListActions :many
+SELECT DISTINCT action FROM audit_events ORDER BY action
+`
+
+func (q *Queries) ListActions(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, listActions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var action string
+		if err := rows.Scan(&action); err != nil {
+			return nil, err
+		}
+		items = append(items, action)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEvents = `-- name: ListEvents :many
+SELECT chain_seq, occurred_at, actor_type, actor_id, actor_username, action, target_type, target_id, result,
+       coalesce(host(ip), '')::text AS ip, user_agent, request_id, metadata, hash
+FROM audit_events
+WHERE ($1::bigint IS NULL OR chain_seq < $1::bigint)
+  AND ($2::timestamptz IS NULL OR occurred_at >= $2::timestamptz)
+  AND ($3::timestamptz IS NULL OR occurred_at < $3::timestamptz)
+  AND ($4::text = '' OR actor_username ILIKE '%' || $4 || '%' ESCAPE '\')
+  AND ($5::text = '' OR action = $5 OR starts_with(action, $5 || '.'))
+  AND ($6::text = '' OR result = $6)
+  AND ($7::text = '' OR target_type = $7)
+  AND ($8::text = '' OR target_id = $8)
+ORDER BY chain_seq DESC
+LIMIT $9
+`
+
+type ListEventsParams struct {
+	Before     pgtype.Int8
+	Since      pgtype.Timestamptz
+	Until      pgtype.Timestamptz
+	Actor      string
+	Action     string
+	Result     string
+	TargetType string
+	TargetID   string
+	Lim        int32
+}
+
+type ListEventsRow struct {
+	ChainSeq      int64
+	OccurredAt    pgtype.Timestamptz
+	ActorType     string
+	ActorID       *uuid.UUID
+	ActorUsername string
+	Action        string
+	TargetType    string
+	TargetID      string
+	Result        string
+	Ip            string
+	UserAgent     string
+	RequestID     string
+	Metadata      []byte
+	Hash          []byte
+}
+
+// ListEvents is the audit viewer (v0.3.4): newest first, keyset pagination on chain_seq (before = exclusive upper
+// bound). Empty/NULL filters are ignored; actor is a literal substring (LIKE wildcards escaped by the caller);
+// action matches exactly or as a dotted prefix ("auth" → auth.*).
+func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]ListEventsRow, error) {
+	rows, err := q.db.Query(ctx, listEvents,
+		arg.Before,
+		arg.Since,
+		arg.Until,
+		arg.Actor,
+		arg.Action,
+		arg.Result,
+		arg.TargetType,
+		arg.TargetID,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEventsRow
+	for rows.Next() {
+		var i ListEventsRow
+		if err := rows.Scan(
+			&i.ChainSeq,
+			&i.OccurredAt,
+			&i.ActorType,
+			&i.ActorID,
+			&i.ActorUsername,
+			&i.Action,
+			&i.TargetType,
+			&i.TargetID,
+			&i.Result,
+			&i.Ip,
+			&i.UserAgent,
+			&i.RequestID,
+			&i.Metadata,
+			&i.Hash,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

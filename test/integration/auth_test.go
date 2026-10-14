@@ -24,6 +24,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/agungharyanto/sentra-dcim/internal/api"
+	"github.com/agungharyanto/sentra-dcim/internal/audit/chain"
+	audithandler "github.com/agungharyanto/sentra-dcim/internal/audit/handler"
 	auditrepo "github.com/agungharyanto/sentra-dcim/internal/audit/repo"
 	auditservice "github.com/agungharyanto/sentra-dcim/internal/audit/service"
 	authhandler "github.com/agungharyanto/sentra-dcim/internal/auth/handler"
@@ -146,6 +148,7 @@ func newAuthEnv(t *testing.T, mod func(*config.Auth)) *authEnv {
 	}
 	usr := usersservice.New(appPool, rec, log, cfg)
 	mods.Users = usershandler.New(usr, log)
+	mods.Audit = audithandler.New(auditrepo.New(appPool), rec, chain.NewMonitor(appPool, log, nil, time.Hour), time.UTC, log)
 	srv.Config.Handler = httpserver.NewRouter(log, nil, nil, api.Mount(mods, false))
 	return &authEnv{t: t, srv: srv, pool: pool, svc: svc, usr: usr, dsn: dsn, appDSN: appDSN, totp: map[string][]byte{}}
 }

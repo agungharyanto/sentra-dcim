@@ -17,10 +17,13 @@ const (
 	RolesRead         Permission = "roles.read"          // list roles and their permissions
 	SystemVersionRead Permission = "system.version.read" // build details of /api/v1/version (commit, Go, server clock)
 	UIDesignSystem    Permission = "ui.design_system"    // developer showcase /design-system (UI only, ISS-029)
+	AuditRead         Permission = "audit.read"          // audit log viewer and hash-chain integrity status/verification
+	AuditExport       Permission = "audit.export"        // CSV export of the audit log (itself audited)
+	HelpAdmin         Permission = "help.admin"          // Help Center pages for administrators (audience admin, ISS-032)
 )
 
 // All lists every permission (stable order, used by docs and tests).
-var All = []Permission{UsersRead, UsersManage, RolesRead, SystemVersionRead, UIDesignSystem}
+var All = []Permission{UsersRead, UsersManage, RolesRead, SystemVersionRead, UIDesignSystem, AuditRead, AuditExport, HelpAdmin}
 
 // System role keys (seeded by migration 000004; labels are translated by the UI: users:roles.<key>).
 const (
@@ -44,7 +47,7 @@ var systemRoles = map[string][]Permission{
 	RoleSecurity:   {},
 	RoleTechnician: {},
 	RoleViewer:     {},
-	RoleAuditor:    {UsersRead, RolesRead},
+	RoleAuditor:    {UsersRead, RolesRead, AuditRead, AuditExport},
 }
 
 // RolePermissions returns the permissions of a role (nil for an unknown role).

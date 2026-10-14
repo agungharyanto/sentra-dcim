@@ -169,8 +169,12 @@ func (s *Service) Login(ctx context.Context, username, pw, oldToken string, meta
 
 	if err := s.rateLimit(ctx, username, meta); err != nil {
 		if errors.Is(err, ErrRateLimited) {
+			name := username
+			if !usernameRE.MatchString(name) { // possibly a password typed into the username field: never store it
+				name = ""
+			}
 			_ = s.audit.Record(ctx, audit.Event{Action: ActionLoginFailure, Result: audit.ResultDenied,
-				ActorUsername: username, Meta: meta, Metadata: map[string]any{"reason": "rate_limited"}})
+				ActorUsername: name, Meta: meta, Metadata: map[string]any{"reason": "rate_limited"}})
 		}
 		return LoginResult{}, err
 	}
