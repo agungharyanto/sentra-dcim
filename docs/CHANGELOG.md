@@ -32,8 +32,17 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
   diringkas menjadi satu event `….repeated` (jumlah, waktu pertama/terakhir) — log tidak bisa dibanjiri.
   Sanitasi metadata kini rekursif dan juga membuang kunci OTP/recovery code/kunci API; diuji bahwa kata sandi,
   token sesi/CSRF, secret TOTP, kode MFA, dan recovery code tidak pernah masuk audit log.
+- **Menu Audit Log** (`/audit`, D-075, izin `audit.read` untuk Admin & Auditor): status integritas hash chain +
+  *Verifikasi sekarang*, filter waktu (WIB), pelaku, aksi (atau awalan), hasil, target; tabel/kartu dengan waktu WIB,
+  detail event (metadata, hash), *Muat lebih banyak* (keyset). **Ekspor CSV** (`audit.export`) dengan filter yang
+  sama, injeksi formula dinetralkan, ekspor tercatat. API `/api/v1/audit/{events,events/export.csv,actions,integrity,
+  integrity/verify}` + OpenAPI. Pusat Bantuan *Audit Log* & *Verifikasi integritas* (ID/EN).
+- **Pusat Bantuan disaring per izin** (ISS-032, D-074): panduan Admin dan referensi API hanya untuk Admin; panduan
+  menu berizin hanya untuk pemegang izinnya; selebihnya 404. Izin baru `help.admin` (Admin).
 
 ### Diperbaiki
+- Event login gagal karena rate limit tidak lagi menyimpan "username" yang salah format (bisa berupa kata sandi
+  yang salah ketik di kolom nama pengguna).
 - **ISS-042**: pengaman "Admin aktif terakhir" memakai advisory lock (sebelumnya `FOR UPDATE` yang butuh hak
   UPDATE di `roles`).
 - **ISS-041**: `make release` kini bisa merilis versi yang mengganti file jail fail2ban — cek pra-merge memakai

@@ -23,12 +23,12 @@ sempit untuk setiap pengguna (*least privilege*).
 
 | Role | Untuk siapa | Izin saat ini |
 |---|---|---|
-| Admin | Pengelola aplikasi | Semua izin: `users.read`, `users.manage`, `roles.read`, `system.version.read`, `ui.design_system` |
+| Admin | Pengelola aplikasi | Semua izin: `users.read`, `users.manage`, `roles.read`, `system.version.read`, `ui.design_system`, `audit.read`, `audit.export`, `help.admin` |
 | NOC | Operator pemantauan 24/7 | — (bertambah saat modul monitoring & alarm hadir) |
 | Security | Petugas keamanan & akses fisik | — (bertambah saat modul akses & pengunjung hadir) |
 | Teknisi | Teknisi fasilitas & perangkat | — (bertambah saat modul aset & pemeliharaan hadir) |
 | Viewer | Pimpinan/pemangku kepentingan, hanya melihat | — (bertambah saat modul baca hadir) |
-| Auditor | Pemeriksa internal/eksternal | `users.read`, `roles.read` (log audit menyusul) |
+| Auditor | Pemeriksa internal/eksternal | `users.read`, `roles.read`, `audit.read`, `audit.export` |
 
 Daftar terkini selalu tampil di tab **Role** pada menu Pengguna & Role, beserta jumlah pengguna per role.
 
@@ -41,6 +41,9 @@ Daftar terkini selalu tampil di tab **Role** pada menu Pengguna & Role, beserta 
 | `roles.read` | Melihat daftar role dan izinnya |
 | `system.version.read` | Melihat detail build aplikasi (commit, versi Go, jam server) |
 | `ui.design_system` | Membuka halaman showcase komponen tampilan (untuk pengembang) |
+| `audit.read` | Melihat audit log, status integritas hash chain, dan menjalankan verifikasi ([Audit Log](../audit/index.md)) |
+| `audit.export` | Mengekspor audit log ke CSV (ekspornya sendiri tercatat) |
+| `help.admin` | Membaca panduan khusus Admin di Pusat Bantuan, termasuk referensi API |
 
 ## Endpoint API terkait
 
