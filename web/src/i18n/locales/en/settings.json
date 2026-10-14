@@ -79,7 +79,7 @@
     "kept": "Enforce kept.",
     "listTitle": "Allowed IPs ({{count}})",
     "cidr": "IP or network (CIDR)",
-    "cidrPlaceholder": "e.g. 203.0.113.10 or 203.0.113.0/24",
+    "cidrPlaceholder": "e.g. 203.0.113.0/24",
     "cidrHint": "IPv4 or IPv6. A single address is stored as /32 or /128. At most /8 (IPv4) or /16 (IPv6) wide.",
     "label": "Label",
     "labelPlaceholder": "e.g. NOC room, 2nd floor",

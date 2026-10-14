@@ -3,7 +3,7 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
-## [Unreleased] — v0.3.6 Settings – Allowed IP
+## [v0.3.6] - 2026-10-15 — Settings – Allowed IP
 
 ### Ditambahkan
 - **Allowed IP untuk panel web** (D-078, migrasi 000009): daftar IP/jaringan (IPv4 + IPv6, keterangan, tanpa

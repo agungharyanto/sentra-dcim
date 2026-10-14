@@ -79,7 +79,7 @@
     "kept": "Mode Tegakkan dipertahankan.",
     "listTitle": "Daftar IP yang diizinkan ({{count}})",
     "cidr": "IP atau jaringan (CIDR)",
-    "cidrPlaceholder": "mis. 203.0.113.10 atau 203.0.113.0/24",
+    "cidrPlaceholder": "mis. 203.0.113.0/24",
     "cidrHint": "IPv4 atau IPv6. Satu alamat tersimpan sebagai /32 atau /128. Paling luas /8 (IPv4) atau /16 (IPv6).",
     "label": "Keterangan",
     "labelPlaceholder": "mis. Ruang NOC lantai 2",

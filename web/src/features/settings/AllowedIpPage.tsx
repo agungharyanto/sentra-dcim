@@ -81,7 +81,7 @@ function YourIp({ state }: { state: AllowlistState }) {
   const Icon = state.your_ip_in_list ? ShieldCheck : ShieldAlert;
   return (
     <Card data-testid="allowlist-your-ip" data-covered={state.your_ip_in_list}>
-      <CardContent className="flex flex-wrap items-center gap-3 pt-6">
+      <CardContent className="flex flex-wrap items-center gap-3">
         <div className="min-w-0">
           <p className="text-sm text-muted-foreground">{t("allowlist.yourIp")}</p>
           <p className="font-mono text-lg font-medium break-all">{state.your_ip || t("allowlist.unknownIp")}</p>
