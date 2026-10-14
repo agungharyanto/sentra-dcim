@@ -1,12 +1,12 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 import { CopyButton } from "@/components/domain/CopyButton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { initI18n } from "@/i18n";
 import { resources } from "@/i18n/resources";
 
-vi.mock("sonner", async (orig) => ({ ...(await orig<typeof import("sonner")>()), toast: { error: vi.fn() } }));
+vi.mock("@/components/ui/toast", async (orig) => ({ ...(await orig<typeof import("@/components/ui/toast")>()), toast: { error: vi.fn() } }));
 
 function renderButton(onParentClick = vi.fn()) {
   render(

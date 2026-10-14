@@ -61,7 +61,8 @@ step() {
 }
 
 # drill_login proves the auth path end to end on the throwaway stack: `sentra user create-admin` (password on
-# stdin), login through Caddy (basic_auth + session cookie + CSRF), the forced password change, the help API, and
+# stdin), login through Caddy (basic_auth + session cookie + CSRF), MFA enrolment (v0.3.3), the forced password
+# change, the help API, and
 # the Admin role granted by create-admin (user list, /version details; v0.3.2).
 # Passwords are random, exist only in this drill and are never printed.
 drill_login() {
@@ -74,6 +75,16 @@ drill_login() {
     "$base/api/v1/auth/login")"
   echo "login: $code"; [[ $code == 200 ]] || return 1
   csrf="$(awk '$6=="__Host-sentra_csrf"{print $7}' "$jar")"
+  code="$("${c[@]}" "$base/api/v1/help/index")"
+  echo "help before MFA: $code $(jq -r .error.code "$dir/body")"
+  [[ $code == 403 ]] && jq -e '.error.code=="mfa_required"' "$dir/body" >/dev/null || return 1
+  code="$("${c[@]}" -X POST -H "X-Sentra-CSRF: $csrf" "$base/api/v1/auth/mfa/enrol")"
+  echo "mfa enrol: $code"; [[ $code == 200 ]] || return 1
+  local secret totp
+  secret="$(jq -r .secret "$dir/body")"; rm -f "$dir/body"
+  totp="$(printf '%s' "$secret" | ./test/lib/totp.py)"
+  code="$("${c[@]}" -H "X-Sentra-CSRF: $csrf" -d "{\"code\":\"$totp\"}" "$base/api/v1/auth/mfa/enrol/confirm")"
+  echo "mfa confirm: $code $(jq '.recovery_codes|length' "$dir/body")"; [[ $code == 200 ]] || return 1
   code="$("${c[@]}" "$base/api/v1/help/index")"
   echo "help before password change: $code $(jq -r .error.code "$dir/body")"
   [[ $code == 403 ]] && jq -e '.error.code=="password_change_required"' "$dir/body" >/dev/null || return 1
@@ -110,6 +121,7 @@ pw="drill-$(gen)"
 hash="$(docker run --rm caddy:2.11.7-alpine caddy hash-password --bcrypt-cost 10 --plaintext "$pw")"
 umask 077
 sed -e "s/^POSTGRES_PASSWORD=CHANGE_ME/POSTGRES_PASSWORD=$(gen)/" -e "s/^REDIS_PASSWORD=CHANGE_ME/REDIS_PASSWORD=$(gen)/" \
+    -e "s|^MFA_ENC_KEY=$|MFA_ENC_KEY=$(openssl rand -base64 32)|" \
     -e "s/^DOMAIN=.*/DOMAIN=/" -e "s/^ACME_EMAIL=.*/ACME_EMAIL=/" \
     -e "s/^CADDY_PUBLIC_HTTP_BIND=.*/CADDY_PUBLIC_HTTP_BIND=127.0.0.1:28080/" \
     -e "s/^CADDY_PUBLIC_HTTPS_BIND=.*/CADDY_PUBLIC_HTTPS_BIND=127.0.0.1:28443/" \
@@ -146,7 +158,7 @@ tail -n 1 "$dir/smoke.log" | sed 's/^/        | /'
 step "web UI behind basic_auth (401 without, 200 with credentials)" "$dir/ui.log" bash -c \
   "[[ \$(curl -sk -o /dev/null -w '%{http_code}' https://localhost:28443/) == 401 &&
      \$(curl -sk -u 'drill:$pw' -o /dev/null -w '%{http_code}' https://localhost:28443/dashboard) == 200 ]]"
-step "admin via CLI, login, forced password change, help API, Admin role (session)" "$dir/login.log" drill_login
+step "admin via CLI, login, MFA enrolment, forced password change, help API, Admin role (session)" "$dir/login.log" drill_login
 # shellcheck disable=SC2016 # evaluated by the inner bash
 step "production stack untouched (project sentra still 4 healthy)" "$dir/prod.log" \
   bash -c '[[ $(docker ps --filter label=com.docker.compose.project=sentra --filter health=healthy -q | wc -l) -eq 4 ]]'

@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 import type { Page } from "@playwright/test";
@@ -41,4 +42,25 @@ export async function watchProblems(page: Page) {
     );
   });
   return problems;
+}
+
+/**
+ * MFA for the test account (v0.3.3): SENTRA_APP_TOTP_SECRET exists only for the CI throwaway account; against
+ * production run.sh passes ONE code typed by the owner (SENTRA_APP_TOTP), used by global-setup.ts.
+ */
+export const appTotpSecret = process.env.SENTRA_APP_TOTP_SECRET ?? "";
+export const appTotpCode = process.env.SENTRA_APP_TOTP ?? "";
+
+/** RFC 6238 TOTP (SHA1, 6 digits, 30 s) of a base32 secret; offset in 30 s steps (anti-replay: use a new step). */
+export function totp(secret: string, offset = 0): string {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits = "";
+  for (const ch of secret.replace(/[\s=]/g, "").toUpperCase()) bits += alphabet.indexOf(ch).toString(2).padStart(5, "0");
+  const key = Buffer.from((bits.match(/.{8}/g) ?? []).map((b) => parseInt(b, 2)));
+  const step = Math.floor(Date.now() / 30000) + offset;
+  const msg = Buffer.alloc(8);
+  msg.writeBigUInt64BE(BigInt(step));
+  const mac = createHmac("sha1", key).update(msg).digest();
+  const off = (mac[mac.length - 1] ?? 0) & 0x0f;
+  return String((mac.readUInt32BE(off) & 0x7fffffff) % 1_000_000).padStart(6, "0");
 }

@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/base32"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
@@ -25,6 +27,7 @@ import (
 	auditrepo "github.com/agungharyanto/sentra-dcim/internal/audit/repo"
 	auditservice "github.com/agungharyanto/sentra-dcim/internal/audit/service"
 	authhandler "github.com/agungharyanto/sentra-dcim/internal/auth/handler"
+	"github.com/agungharyanto/sentra-dcim/internal/auth/mfa"
 	authrepo "github.com/agungharyanto/sentra-dcim/internal/auth/repo"
 	authservice "github.com/agungharyanto/sentra-dcim/internal/auth/service"
 	helphandler "github.com/agungharyanto/sentra-dcim/internal/help/handler"
@@ -41,10 +44,11 @@ import (
 	usersservice "github.com/agungharyanto/sentra-dcim/internal/users/service"
 )
 
-// Test passwords are generated per run; they only exist in the throwaway database.
+// Test passwords and the MFA key are generated per run; they only exist in the throwaway database.
 var (
-	pwInitial = "initial-" + randHex(8)
-	pwNew     = "changed-" + randHex(8)
+	pwInitial  = "initial-" + randHex(8)
+	pwNew      = "changed-" + randHex(8)
+	testMFAKey = func() []byte { b := make([]byte, 32); _, _ = rand.Read(b); return b }()
 )
 
 func randHex(n int) string {
@@ -59,6 +63,9 @@ type authEnv struct {
 	pool *pgxpool.Pool
 	svc  *authservice.Service
 	usr  *usersservice.Service
+	dsn  string
+	// totp holds the MFA secret of each account enrolled through the API in this test (lower-case username).
+	totp map[string][]byte
 }
 
 func testAuthConfig() config.Auth {
@@ -68,6 +75,7 @@ func testAuthConfig() config.Auth {
 		SessionIdle: 30 * time.Minute, SessionAbsolute: 12 * time.Hour,
 		LockThreshold: 5, LockDuration: 15 * time.Minute,
 		RateIPLimit: 1000, RateUserLimit: 1000, RateWindow: 10 * time.Minute,
+		MFAKey: testMFAKey, MFAIssuer: "Sentra DCIM",
 	}
 }
 
@@ -130,7 +138,7 @@ func newAuthEnv(t *testing.T, mod func(*config.Auth)) *authEnv {
 	usr := usersservice.New(pool, rec, log, cfg)
 	mods.Users = usershandler.New(usr, log)
 	srv.Config.Handler = httpserver.NewRouter(log, nil, nil, api.Mount(mods, false))
-	return &authEnv{t: t, srv: srv, pool: pool, svc: svc, usr: usr}
+	return &authEnv{t: t, srv: srv, pool: pool, svc: svc, usr: usr, dsn: dsn, totp: map[string][]byte{}}
 }
 
 // createUser creates an account through the CLI code path; ready=true clears must_change_password.
@@ -236,8 +244,75 @@ func (c *client) do(method, p string, body any, opts ...reqOpt) resp {
 	return out
 }
 
-func (c *client) login(user, pw string) resp {
+// loginPassword is only the password step: a 200 leaves the session mfa_pending.
+func (c *client) loginPassword(user, pw string) resp {
 	return c.post("/api/v1/auth/login", map[string]string{"username": user, "password": pw})
+}
+
+// login signs in completely like a user would: password, then MFA — enrolment on the account's first sign-in in
+// this test, a TOTP code afterwards. Returns the response of the password step.
+func (c *client) login(user, pw string) resp {
+	r := c.loginPassword(user, pw)
+	if r.code == http.StatusOK {
+		c.completeMFA(strings.ToLower(user))
+	}
+	return r
+}
+
+// completeMFA passes the MFA step of the current pending session.
+func (c *client) completeMFA(user string) {
+	c.e.t.Helper()
+	if secret, ok := c.e.totp[user]; ok {
+		// Tests sign in the same account several times within one 30 s step: allow the current step again (the
+		// anti-replay rule itself is covered by TestMFAReplayAndWindow).
+		c.e.exec(`UPDATE user_mfa SET last_used_step = 0 WHERE user_id = (SELECT id FROM users WHERE username = $1)`, user)
+		r := c.post("/api/v1/auth/mfa/verify", map[string]string{"code": mfa.Code(secret, mfa.Step(time.Now()))})
+		if r.code == http.StatusNoContent {
+			return
+		}
+		if r.errCode() != "mfa_not_enrolled" { // MFA was reset meanwhile: enrol again below
+			c.e.t.Fatalf("mfa verify %s: %d %v", user, r.code, r.body)
+		}
+	}
+	c.e.totp[user] = c.enrol()
+}
+
+// enrol runs the enrolment of the current pending session and returns the secret.
+func (c *client) enrol() []byte {
+	c.e.t.Helper()
+	r := c.post("/api/v1/auth/mfa/enrol", nil)
+	if r.code != http.StatusOK {
+		c.e.t.Fatalf("mfa enrol: %d %v", r.code, r.body)
+	}
+	secret := decodeSecret(c.e.t, r.body["secret"].(string))
+	cr := c.post("/api/v1/auth/mfa/enrol/confirm", map[string]string{"code": mfa.Code(secret, mfa.Step(time.Now()))})
+	if cr.code != http.StatusOK {
+		c.e.t.Fatalf("mfa confirm: %d %v", cr.code, cr.body)
+	}
+	return secret
+}
+
+// cliEnv is the environment of the sentra binary for the throwaway database dsn (same MFA key as the test server).
+func cliEnv(t *testing.T, dsn string) []string {
+	t.Helper()
+	u, err := url.Parse(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pass, _ := u.User.Password()
+	return []string{"DB_HOST=" + u.Hostname(), "DB_PORT=" + u.Port(), "DB_NAME=" + strings.TrimPrefix(u.Path, "/"),
+		"DB_USER=" + u.User.Username(), "DB_PASSWORD=" + pass, "REDIS_PASSWORD=unused-by-cli",
+		"AUTH_ARGON2_MEMORY_KIB=8192", "AUTH_ARGON2_TIME=1", "AUTH_ARGON2_THREADS=1",
+		"MFA_ENC_KEY=" + base64.StdEncoding.EncodeToString(testMFAKey)}
+}
+
+func decodeSecret(t *testing.T, grouped string) []byte {
+	t.Helper()
+	b, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(strings.ReplaceAll(grouped, " ", ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
 }
 
 func want(t *testing.T, what string, r resp, code int, errCode string) {
@@ -568,12 +643,7 @@ func TestCLICreateAdmin(t *testing.T) {
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
 	}
-	u, _ := url.Parse(dsn)
-	pass, _ := u.User.Password()
-	env := append(os.Environ(),
-		"DB_HOST="+u.Hostname(), "DB_PORT="+u.Port(), "DB_NAME="+strings.TrimPrefix(u.Path, "/"),
-		"DB_USER="+u.User.Username(), "DB_PASSWORD="+pass, "REDIS_PASSWORD=unused-by-cli",
-		"AUTH_ARGON2_MEMORY_KIB=8192", "AUTH_ARGON2_TIME=1", "AUTH_ARGON2_THREADS=1")
+	env := append(os.Environ(), cliEnv(t, dsn)...)
 	run := func(stdin string, args ...string) (string, error) {
 		cmd := exec.Command(bin, append([]string{"user", "create-admin"}, args...)...)
 		cmd.Env = env

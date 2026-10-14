@@ -2,6 +2,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
@@ -59,6 +60,11 @@ type Auth struct {
 	RateWindow      time.Duration
 	// AllowedOrigins are the exact origins (scheme://host[:port]) accepted for unsafe requests (CSRF).
 	AllowedOrigins []string
+	// MFAKey (MFA_ENC_KEY, 32 bytes base64) encrypts TOTP secrets (AES-256-GCM) and keys the recovery-code HMAC
+	// (D-063, D-064). Never logged.
+	MFAKey []byte `json:"-"`
+	// MFAIssuer is the account label prefix shown by authenticator apps.
+	MFAIssuer string
 }
 
 // DB holds PostgreSQL connection settings.
@@ -134,6 +140,8 @@ func LoadFrom(lookup func(string) (string, bool)) (Config, error) {
 		RateUserLimit:   int(p.int32("AUTH_RATE_USER_LIMIT", 10, 1, 100000)),
 		RateWindow:      p.duration("AUTH_RATE_WINDOW", 10*time.Minute),
 		AllowedOrigins:  p.origins("APP_ALLOWED_ORIGINS", "https://localhost"),
+		MFAKey:          p.key32("MFA_ENC_KEY"),
+		MFAIssuer:       p.str("MFA_ISSUER", "Sentra DCIM"),
 	}
 	if cfg.Auth.SessionIdle > cfg.Auth.SessionAbsolute {
 		p.errs = append(p.errs, errors.New("AUTH_SESSION_IDLE must not exceed AUTH_SESSION_ABSOLUTE"))
@@ -188,6 +196,22 @@ func (p *parser) str(key, def string) string {
 		return strings.TrimSpace(v)
 	}
 	return def
+}
+
+// key32 reads a required 32-byte key encoded as standard or URL-safe base64 (e.g. `openssl rand -base64 32`). The
+// value is never included in error messages.
+func (p *parser) key32(key string) []byte {
+	v := strings.TrimSpace(p.required(key))
+	if v == "" {
+		return nil
+	}
+	for _, enc := range []*base64.Encoding{base64.StdEncoding, base64.URLEncoding, base64.RawStdEncoding, base64.RawURLEncoding} {
+		if b, err := enc.DecodeString(v); err == nil && len(b) == 32 {
+			return b
+		}
+	}
+	p.errs = append(p.errs, fmt.Errorf("%s: must be 32 random bytes in base64 (openssl rand -base64 32)", key))
+	return nil
 }
 
 func (p *parser) required(key string) string {

@@ -45,6 +45,10 @@ const (
 	CodeInvalidRequest         = "invalid_request"
 	CodeUnavailable            = "auth_unavailable"
 	CodeForbidden              = "forbidden"
+	CodeMFARequired            = "mfa_required"
+	CodeInvalidMFACode         = "invalid_mfa_code"
+	CodeMFAEnabled             = "mfa_already_enabled"
+	CodeMFANotEnrolled         = "mfa_not_enrolled"
 )
 
 // Handler serves the auth endpoints.
@@ -71,6 +75,11 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Post("/auth/password", h.changePassword)
 	r.Get("/auth/sessions", h.sessions)
 	r.Delete("/auth/sessions/{id}", h.revokeSession)
+	r.Get("/auth/mfa", h.mfaStatus)
+	r.Post("/auth/mfa/enrol", h.mfaEnrol)
+	r.Post("/auth/mfa/enrol/confirm", h.mfaConfirm)
+	r.Post("/auth/mfa/verify", h.mfaVerify)
+	r.Post("/auth/mfa/recovery-codes", h.mfaRecoveryCodes)
 }
 
 type sessionKey struct{}
@@ -116,7 +125,8 @@ func (h *Handler) Authenticate(next http.Handler) http.Handler {
 func (h *Handler) Identify(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if c, err := r.Cookie(SessionCookie); err == nil && c.Value != "" && h.svc != nil {
-			if sess, err := h.svc.Authenticate(r.Context(), c.Value); err == nil {
+			// Only a session that passed MFA identifies the caller.
+			if sess, err := h.svc.Authenticate(r.Context(), c.Value); err == nil && sess.MFAVerified {
 				ctx := context.WithValue(r.Context(), sessionKey{}, sess)
 				r = r.WithContext(principal.With(ctx, sess.Principal))
 			}
@@ -190,11 +200,37 @@ func (h *Handler) originAllowed(r *http.Request) bool {
 	return slices.Contains(h.origins, strings.ToLower(strings.TrimRight(origin, "/")))
 }
 
-// passwordChangeAllowed are the only routes usable while must_change_password is set.
+// mfaPendingAllowed are the only routes usable before the session passed MFA (D-062): who am I, sign out, and the
+// MFA steps themselves.
+var mfaPendingAllowed = map[string]bool{
+	"GET /api/v1/auth/me":                 true,
+	"POST /api/v1/auth/logout":            true,
+	"GET /api/v1/auth/mfa":                true,
+	"POST /api/v1/auth/mfa/enrol":         true,
+	"POST /api/v1/auth/mfa/enrol/confirm": true,
+	"POST /api/v1/auth/mfa/verify":        true,
+}
+
+// MFAGuard blocks everything except mfaPendingAllowed until the session passed MFA (403 "mfa_required").
+func MFAGuard(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s, ok := SessionFrom(r.Context()); ok && !s.MFAVerified && !mfaPendingAllowed[r.Method+" "+r.URL.Path] {
+			httpserver.Error(w, r, http.StatusForbidden, CodeMFARequired, "multi-factor authentication required")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// passwordChangeAllowed are the only routes usable while must_change_password is set (the MFA steps come first).
 var passwordChangeAllowed = map[string]bool{
-	"GET /api/v1/auth/me":        true,
-	"POST /api/v1/auth/password": true,
-	"POST /api/v1/auth/logout":   true,
+	"GET /api/v1/auth/me":                 true,
+	"POST /api/v1/auth/password":          true,
+	"POST /api/v1/auth/logout":            true,
+	"GET /api/v1/auth/mfa":                true,
+	"POST /api/v1/auth/mfa/enrol":         true,
+	"POST /api/v1/auth/mfa/enrol/confirm": true,
+	"POST /api/v1/auth/mfa/verify":        true,
 }
 
 // PasswordChangeGuard blocks everything except me/password/logout while the user must change the password.
@@ -345,4 +381,94 @@ func clearCookies(w http.ResponseWriter) {
 		SameSite: http.SameSiteStrictMode, MaxAge: -1})
 	http.SetCookie(w, &http.Cookie{Name: CSRFCookie, Value: "", Path: "/", Secure: true, //nolint:gosec // double-submit token
 		SameSite: http.SameSiteStrictMode, MaxAge: -1})
+}
+
+func (h *Handler) mfaStatus(w http.ResponseWriter, r *http.Request) {
+	sess, _ := SessionFrom(r.Context())
+	st, err := h.svc.MFAStatus(r.Context(), sess)
+	if err != nil {
+		h.log.ErrorContext(r.Context(), "mfa status", "error", err)
+		httpserver.Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
+		return
+	}
+	httpserver.JSON(w, http.StatusOK, st)
+}
+
+func (h *Handler) mfaEnrol(w http.ResponseWriter, r *http.Request) {
+	sess, _ := SessionFrom(r.Context())
+	en, err := h.svc.StartEnrolment(r.Context(), sess)
+	if err != nil {
+		h.mfaError(w, r, "mfa enrol", err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpserver.JSON(w, http.StatusOK, en)
+}
+
+type codeBody struct {
+	Code string `json:"code"`
+}
+
+func (h *Handler) mfaConfirm(w http.ResponseWriter, r *http.Request) {
+	var in codeBody
+	if !decode(w, r, &in) {
+		return
+	}
+	sess, _ := SessionFrom(r.Context())
+	codes, err := h.svc.ConfirmEnrolment(r.Context(), sess, in.Code, audit.MetaFromRequest(r))
+	if err != nil {
+		h.mfaError(w, r, "mfa confirm", err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpserver.JSON(w, http.StatusOK, map[string]any{"recovery_codes": codes})
+}
+
+func (h *Handler) mfaVerify(w http.ResponseWriter, r *http.Request) {
+	var in codeBody
+	if !decode(w, r, &in) {
+		return
+	}
+	sess, _ := SessionFrom(r.Context())
+	if err := h.svc.VerifyMFA(r.Context(), sess, in.Code, audit.MetaFromRequest(r)); err != nil {
+		h.mfaError(w, r, "mfa verify", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) mfaRecoveryCodes(w http.ResponseWriter, r *http.Request) {
+	var in codeBody
+	if !decode(w, r, &in) {
+		return
+	}
+	sess, _ := SessionFrom(r.Context())
+	codes, err := h.svc.RegenerateRecoveryCodes(r.Context(), sess, in.Code, audit.MetaFromRequest(r))
+	if err != nil {
+		h.mfaError(w, r, "mfa recovery codes", err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpserver.JSON(w, http.StatusOK, map[string]any{"recovery_codes": codes})
+}
+
+// mfaError maps MFA errors. A wrong code is 401 like a wrong password (counted by the login jail).
+func (h *Handler) mfaError(w http.ResponseWriter, r *http.Request, what string, err error) {
+	var rl *service.RateLimitError
+	switch {
+	case errors.As(err, &rl):
+		w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(rl.RetryAfter.Seconds()))))
+		httpserver.Error(w, r, http.StatusTooManyRequests, CodeRateLimited, "too many attempts, try again later")
+	case errors.Is(err, service.ErrInvalidMFACode):
+		httpserver.Error(w, r, http.StatusUnauthorized, CodeInvalidMFACode, "invalid authentication code")
+	case errors.Is(err, service.ErrMFAEnabled):
+		httpserver.Error(w, r, http.StatusConflict, CodeMFAEnabled, "MFA is already active")
+	case errors.Is(err, service.ErrMFANotEnrolled):
+		httpserver.Error(w, r, http.StatusConflict, CodeMFANotEnrolled, "MFA is not set up")
+	case errors.Is(err, service.ErrUnavailable):
+		httpserver.Error(w, r, http.StatusServiceUnavailable, CodeUnavailable, "authentication temporarily unavailable")
+	default:
+		h.log.ErrorContext(r.Context(), what, "error", err)
+		httpserver.Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
+	}
 }

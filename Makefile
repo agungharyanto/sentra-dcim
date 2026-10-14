@@ -57,6 +57,8 @@ preflight: .env ## Validate .env before starting (domain/ACME settings)
 	  echo "preflight: WEB_BASIC_AUTH_HASH is not a bcrypt hash (use single quotes in .env, see .env.example)" >&2; exit 1; fi; \
 	if [[ "$${WEB_BASIC_AUTH_HASH:-}" =~ ^\$$2[aby]\$$([0-9]{2})\$$ ]] && (( 10#$${BASH_REMATCH[1]} > 12 )); then \
 	  echo "preflight: WARNING bcrypt cost $${BASH_REMATCH[1]} > 12: each wrong basic_auth login costs ~1 s CPU at 14 (DoS risk, ISS-026). Regenerate with --bcrypt-cost 10 (docs/ops/runbooks/web-basic-auth.md)" >&2; fi; \
+	if [[ ! "$$(printf '%s' "$${MFA_ENC_KEY:-}" | base64 -d 2>/dev/null | wc -c)" == 32 ]]; then \
+	  echo "preflight: MFA_ENC_KEY must be 32 random bytes in base64 (openssl rand -base64 32), see .env.example" >&2; exit 1; fi; \
 	if [[ ! '$(VERSION)' =~ ^[A-Za-z0-9._-]+$$ ]]; then echo "preflight: invalid VERSION '$(VERSION)'" >&2; exit 1; fi
 
 CADDY_VALIDATE := docker run --rm -v "$$PWD/deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \

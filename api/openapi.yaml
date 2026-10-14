@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sentra DCIM API
-  version: 0.3.2
+  version: 0.3.3
   summary: REST API Sentra DCIM — Diskominfo Provinsi Bali
   description: |
     Semua endpoint berada di bawah `/api/v1`. Waktu dikirim dalam UTC (RFC 3339);
@@ -19,6 +19,14 @@ info:
     aplikasi dan header `X-Sentra-CSRF` yang sama dengan cookie `__Host-sentra_csrf` (sebelum login: nilai apa pun
     yang tidak kosong) → bila tidak, `403 csrf_failed`. Selama akun wajib ganti kata sandi, semua endpoint kecuali
     `auth/me`, `auth/password`, `auth/logout` menjawab `403 password_change_required`.
+
+    **MFA (sejak v0.3.3, wajib untuk semua role):** setelah kata sandi benar sesi berstatus *mfa_pending*
+    (`session.mfa_verified=false`): hanya `auth/me`, `auth/logout`, `auth/mfa`, `auth/mfa/enrol`,
+    `auth/mfa/enrol/confirm`, `auth/mfa/verify` yang bisa dipakai; endpoint lain → `403 mfa_required`. Akun tanpa
+    MFA aktif (`user.mfa_enabled=false`) melakukan enrolment (QR/kode manual + 1 kode), lainnya memasukkan kode TOTP
+    (RFC 6238, 6 digit, 30 detik, ±1 langkah, kode yang sudah dipakai ditolak) atau recovery code. Kode salah →
+    `401 invalid_mfa_code`, dihitung ke lockout yang sama dengan kata sandi (5 → 15 menit, semua sesi akun dicabut);
+    rate limit per IP & per akun → `429`. Urutan: MFA dulu, lalu ganti kata sandi wajib.
 
     **Otorisasi (sejak v0.3.2, RBAC):** izin didefinisikan di kode, role di database. Operasi yang butuh izin
     memiliki ekstensi **`x-sentra-permission`**; tanpa izin itu jawabannya `403 forbidden` (dicatat di log audit
@@ -625,6 +633,149 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/auth/mfa:
+    get:
+      tags: [auth]
+      operationId: getMfaStatus
+      x-sentra-access: login
+      summary: Status MFA akun sendiri
+      description: Dapat dipanggil saat sesi *mfa_pending*.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Status MFA
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MfaStatus" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+  /api/v1/auth/mfa/enrol:
+    post:
+      tags: [auth]
+      operationId: startMfaEnrolment
+      x-sentra-access: login
+      summary: Mulai enrolment MFA (secret baru, QR, kode manual)
+      description: |
+        Hanya untuk akun tanpa MFA aktif. Memanggil ulang mengganti secret yang belum dikonfirmasi. Respons memuat
+        secret satu kali (`Cache-Control: no-store`); jangan disimpan klien.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      responses:
+        "200":
+          description: Data enrolment
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MfaEnrolment" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/MfaConflict" }
+  /api/v1/auth/mfa/enrol/confirm:
+    post:
+      tags: [auth]
+      operationId: confirmMfaEnrolment
+      x-sentra-access: login
+      summary: Aktifkan MFA dengan kode pertama; sesi ini lolos MFA
+      description: "Mengembalikan 10 recovery code sekali pakai — **sekali saja** (`Cache-Control: no-store`)."
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MfaCode" }
+      responses:
+        "200":
+          description: MFA aktif
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecoveryCodes" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/InvalidMfaCode" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/MfaConflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/auth/mfa/verify:
+    post:
+      tags: [auth]
+      operationId: verifyMfa
+      x-sentra-access: login
+      summary: Selesaikan login dengan kode TOTP atau recovery code
+      description: Recovery code (`xxxxx-xxxxx`, huruf besar/kecil & spasi diabaikan) hanya berlaku sekali.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MfaCode" }
+      responses:
+        "204": { description: Sesi lolos MFA }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/InvalidMfaCode" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/MfaConflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/auth/mfa/recovery-codes:
+    post:
+      tags: [auth]
+      operationId: regenerateRecoveryCodes
+      x-sentra-access: login
+      summary: Buat ulang 10 recovery code (kode lama tidak berlaku)
+      description: Butuh kode TOTP saat ini (autentikasi ulang). Kode baru tampil sekali.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MfaCode" }
+      responses:
+        "200":
+          description: Recovery code baru
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecoveryCodes" }
+        "401": { $ref: "#/components/responses/InvalidMfaCode" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/MfaConflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/users/{id}/mfa-reset:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      tags: [users]
+      operationId: resetUserMfa
+      x-sentra-access: login
+      x-sentra-permission: users.manage
+      summary: Reset MFA pengguna lain (enrol ulang saat login berikutnya)
+      description: "Menghapus MFA & recovery code dan mencabut semua sesi pengguna. Tidak untuk akun sendiri (`409 self_action`)."
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      responses:
+        "204": { description: MFA direset }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /api/v1/roles:
     get:
       tags: [users]
@@ -686,7 +837,7 @@ components:
     Forbidden:
       description: |
         `csrf_failed` (Origin bukan domain aplikasi / header `X-Sentra-CSRF` tidak ada atau tidak cocok),
-        `password_change_required` (akun wajib ganti kata sandi dulu), atau `forbidden` (tanpa izin yang
+        `password_change_required` (akun wajib ganti kata sandi dulu), `mfa_required` (sesi belum lolos MFA), atau `forbidden` (tanpa izin yang
         disyaratkan `x-sentra-permission`, atau ditolak proxy).
       content:
         application/json:
@@ -700,6 +851,16 @@ components:
       description: |
         `username_taken` (nama pengguna sudah ada, tidak peka huruf besar/kecil), `self_action` (aksi tidak boleh
         pada akun sendiri), atau `last_admin` (Admin aktif terakhir tidak boleh kehilangan akses)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+    InvalidMfaCode:
+      description: Kode MFA atau recovery code salah, sudah dipakai, atau akun terkunci (`invalid_mfa_code`)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+    MfaConflict:
+      description: "`mfa_already_enabled` (enrolment saat MFA sudah aktif) atau `mfa_not_enrolled` (belum ada MFA)"
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorBody" }
@@ -765,7 +926,7 @@ components:
             max_length: { type: integer, example: 128 }
     AuthUser:
       type: object
-      required: [id, username, display_name, must_change_password, roles, permissions]
+      required: [id, username, display_name, must_change_password, roles, permissions, mfa_enabled]
       properties:
         id: { type: string, format: uuid }
         username: { type: string }
@@ -777,9 +938,10 @@ components:
           items: { type: string }
           description: Gabungan izin semua role (UI menyembunyikan menu tanpa izin; API tetap memeriksa)
           example: [roles.read, system.version.read, users.manage, users.read]
+        mfa_enabled: { type: boolean, description: "MFA aktif; false → enrolment saat login" }
     SessionInfo:
       type: object
-      required: [id, created_at, last_seen_at, expires_at, idle_expires_at, ip, user_agent, current]
+      required: [id, created_at, last_seen_at, expires_at, idle_expires_at, ip, user_agent, current, mfa_verified]
       properties:
         id: { type: string, format: uuid }
         created_at: { type: string, format: date-time }
@@ -789,6 +951,7 @@ components:
         ip: { type: [string, "null"], description: IP klien saat masuk }
         user_agent: { type: string, maxLength: 512 }
         current: { type: boolean, description: Sesi yang dipakai request ini }
+        mfa_verified: { type: boolean, description: "false = mfa_pending (hanya me, logout, auth/mfa/*)" }
     AuthMe:
       type: object
       required: [user, session]
@@ -933,13 +1096,14 @@ components:
                 Kode stabil (diterjemahkan UI lewat `errors:code.<code>`), antara lain `not_found`, `forbidden`,
                 `rate_limited`, `unauthenticated`, `invalid_credentials`, `csrf_failed`, `password_change_required`,
                 `password_policy`, `invalid_current_password`, `invalid_request`, `auth_unavailable`,
-                `validation_failed`, `username_taken`, `self_action`, `last_admin`.
+                `validation_failed`, `username_taken`, `self_action`, `last_admin`, `mfa_required`, `invalid_mfa_code`,
+                `mfa_already_enabled`, `mfa_not_enrolled`.
             message: { type: string, description: Pesan teknis berbahasa Inggris; jangan ditampilkan apa adanya }
             field: { type: string, description: "Field input yang tidak valid (validation_failed, username_taken)", example: email }
             request_id: { type: string }
     User:
       type: object
-      required: [id, username, display_name, email, status, roles, must_change_password, locked, last_login_at, created_at, updated_at]
+      required: [id, username, display_name, email, status, roles, must_change_password, locked, mfa_enabled, last_login_at, created_at, updated_at]
       properties:
         id: { type: string, format: uuid }
         username: { type: string, description: Tidak bisa diubah }
@@ -948,7 +1112,8 @@ components:
         status: { type: string, enum: [active, disabled] }
         roles: { type: array, items: { type: string }, example: [technician] }
         must_change_password: { type: boolean }
-        locked: { type: boolean, description: Sedang terkunci karena salah kata sandi (lockout) }
+        locked: { type: boolean, description: Sedang terkunci karena salah kata sandi atau kode MFA (lockout) }
+        mfa_enabled: { type: boolean }
         last_login_at: { type: [string, "null"], format: date-time }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -1006,3 +1171,37 @@ components:
       properties:
         roles: { type: array, items: { $ref: "#/components/schemas/Role" } }
         permissions: { type: array, items: { type: string }, description: Semua izin yang dikenal aplikasi }
+    MfaStatus:
+      type: object
+      required: [enabled, enabled_at, recovery_codes_remaining]
+      properties:
+        enabled: { type: boolean }
+        enabled_at: { type: [string, "null"], format: date-time }
+        recovery_codes_remaining: { type: integer, minimum: 0, maximum: 10 }
+    MfaEnrolment:
+      type: object
+      required: [issuer, account, secret, otpauth_uri, qr]
+      properties:
+        issuer: { type: string, example: Sentra DCIM }
+        account: { type: string, example: admin.satu }
+        secret: { type: string, description: "Secret base32 berkelompok 4 (entri manual); sekali tampil", example: "ABCD EFGH IJKL MNOP QRST UVWX YZ23 4567" }
+        otpauth_uri: { type: string, description: "otpauth://totp/… (SHA1, 6 digit, 30 detik)" }
+        qr:
+          type: array
+          items: { type: string, pattern: "^[01]+$" }
+          description: Modul QR dari `otpauth_uri`, baris demi baris (`1` = gelap), tanpa quiet zone
+    MfaCode:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code: { type: string, maxLength: 32, description: "Kode TOTP 6 digit, atau recovery code (hanya di verify)", example: "123456" }
+    RecoveryCodes:
+      type: object
+      required: [recovery_codes]
+      properties:
+        recovery_codes:
+          type: array
+          minItems: 10
+          maxItems: 10
+          items: { type: string, pattern: "^[a-z2-9]{5}-[a-z2-9]{5}$" }

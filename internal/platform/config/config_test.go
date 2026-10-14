@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"net/url"
 	"strings"
 	"testing"
@@ -11,8 +12,14 @@ func env(m map[string]string) func(string) (string, bool) {
 	return func(k string) (string, bool) { v, ok := m[k]; return v, ok }
 }
 
+// Test-only MFA key (32 bytes), computed so no key-like literal sits in the repository (gitleaks).
+var testKeyRaw = strings.Repeat("k", 32)
+
+var testKey = base64.StdEncoding.EncodeToString([]byte(testKeyRaw))
+
 func base() map[string]string {
-	return map[string]string{"DB_NAME": "sentra", "DB_USER": "sentra", "DB_PASSWORD": "p@ss/w:rd", "REDIS_PASSWORD": "r"}
+	return map[string]string{"DB_NAME": "sentra", "DB_USER": "sentra", "DB_PASSWORD": "p@ss/w:rd", "REDIS_PASSWORD": "r",
+		"MFA_ENC_KEY": testKey}
 }
 
 func TestLoadDefaults(t *testing.T) {
@@ -71,7 +78,7 @@ func TestLoadRequired(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	for _, k := range []string{"DB_NAME", "DB_USER", "DB_PASSWORD", "REDIS_PASSWORD"} {
+	for _, k := range []string{"DB_NAME", "DB_USER", "DB_PASSWORD", "REDIS_PASSWORD", "MFA_ENC_KEY"} {
 		if !strings.Contains(err.Error(), k) {
 			t.Errorf("error should mention %s: %v", k, err)
 		}
@@ -120,5 +127,30 @@ func TestDSNEscapesCredentials(t *testing.T) {
 	}
 	if u.Query().Get("sslmode") != "disable" || u.Path != "/sentra" {
 		t.Fatalf("unexpected DSN: %s", u.Redacted())
+	}
+}
+
+func TestMFAKey(t *testing.T) {
+	for _, tc := range []struct {
+		name, value string
+		ok          bool
+	}{
+		{"std base64", testKey, true},
+		{"url base64 no padding", base64.RawURLEncoding.EncodeToString([]byte(testKeyRaw)), true},
+		{"too short", "c2hvcnQ=", false},
+		{"not base64", "this is not a key at all, sorry!!", false},
+	} {
+		e := base()
+		e["MFA_ENC_KEY"] = tc.value
+		cfg, err := LoadFrom(env(e))
+		if tc.ok != (err == nil) {
+			t.Fatalf("%s: err = %v", tc.name, err)
+		}
+		if err != nil && strings.Contains(err.Error(), tc.value) {
+			t.Fatalf("%s: error echoes the key", tc.name)
+		}
+		if tc.ok && (len(cfg.Auth.MFAKey) != 32 || cfg.Auth.MFAIssuer != "Sentra DCIM") {
+			t.Fatalf("%s: key %d bytes, issuer %q", tc.name, len(cfg.Auth.MFAKey), cfg.Auth.MFAIssuer)
+		}
 	}
 }

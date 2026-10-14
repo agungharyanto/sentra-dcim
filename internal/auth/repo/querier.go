@@ -12,16 +12,22 @@ import (
 )
 
 type Querier interface {
+	CountUnusedRecoveryCodes(ctx context.Context, userID uuid.UUID) (int64, error)
 	CountUsers(ctx context.Context) (int64, error)
 	// CreateAdminUser creates an account with the Admin role in one statement (CLI create-admin; atomic).
 	CreateAdminUser(ctx context.Context, arg CreateAdminUserParams) (CreateAdminUserRow, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
+	DeleteRecoveryCodes(ctx context.Context, userID uuid.UUID) error
 	DeleteStaleSessions(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
+	EnableMFA(ctx context.Context, arg EnableMFAParams) (int64, error)
 	GetActiveSession(ctx context.Context, tokenHash []byte) (GetActiveSessionRow, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
+	GetUserMFA(ctx context.Context, userID uuid.UUID) (UserMfa, error)
 	GetUserRoleKeys(ctx context.Context, userID uuid.UUID) ([]string, error)
+	InsertRecoveryCode(ctx context.Context, arg InsertRecoveryCodeParams) error
 	ListActiveSessions(ctx context.Context, userID uuid.UUID) ([]ListActiveSessionsRow, error)
+	MarkSessionMFAVerified(ctx context.Context, id uuid.UUID) error
 	// RecordLoginFailure counts a wrong password and locks the account at the threshold. A lock that has already
 	// expired starts a fresh count, so an unlocked account gets the full number of attempts again.
 	RecordLoginFailure(ctx context.Context, arg RecordLoginFailureParams) (RecordLoginFailureRow, error)
@@ -29,8 +35,14 @@ type Querier interface {
 	RehashPassword(ctx context.Context, arg RehashPasswordParams) error
 	RevokeOtherSessions(ctx context.Context, arg RevokeOtherSessionsParams) (int64, error)
 	RevokeSession(ctx context.Context, arg RevokeSessionParams) (int64, error)
+	RevokeUserSessions(ctx context.Context, userID uuid.UUID) (int64, error)
 	TouchSession(ctx context.Context, arg TouchSessionParams) error
 	UpdatePasswordHash(ctx context.Context, arg UpdatePasswordHashParams) error
+	// UpsertPendingMFA stores a new enrolment secret unless MFA is already active (then no row is returned).
+	UpsertPendingMFA(ctx context.Context, arg UpsertPendingMFAParams) (uuid.UUID, error)
+	UseRecoveryCode(ctx context.Context, arg UseRecoveryCodeParams) (int64, error)
+	// UseTOTPStep records an accepted code atomically: a concurrent or later replay of the same step updates nothing.
+	UseTOTPStep(ctx context.Context, arg UseTOTPStepParams) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)

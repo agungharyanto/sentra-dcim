@@ -39,6 +39,11 @@ if [[ -z "$app_user" || -z "$app_pw" ]] && [[ -t 0 ]]; then
   read -rp "app user: " app_user; read -rsp "app password: " app_pw; echo
 fi
 [[ -n "$app_user" && -n "$app_pw" ]] || { echo "no app account (SENTRA_APP_USER/SENTRA_APP_PASS, see test/e2e/README.md)"; exit 2; }
+# MFA (v0.3.3): one code for the single sign-in of global-setup.ts, unless the CI throwaway secret is given.
+app_totp="${SENTRA_APP_TOTP:-}"
+if [[ -z "$app_totp" && -z "${SENTRA_APP_TOTP_SECRET:-}" && -t 0 ]]; then
+  read -rp "kode authenticator (6 digit) untuk $app_user: " app_totp
+fi
 
 # Screenshots (design system showcase) land here; CI uploads them as an artifact. Never committed.
 artifacts="${E2E_ARTIFACTS:-$root/test/e2e/artifacts}"
@@ -65,8 +70,8 @@ esac
 # Credentials reach the container through a mode-600 env file, never the process list.
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 umask 077
-printf 'SENTRA_WEB_USER=%s\nSENTRA_WEB_PASS=%s\nSENTRA_APP_USER=%s\nSENTRA_APP_PASS=%s\nBASE_URL=%s\n' \
-  "$user" "$pw" "$app_user" "$app_pw" "${BASE_URL%/}" >"$tmp/env"
+printf 'SENTRA_WEB_USER=%s\nSENTRA_WEB_PASS=%s\nSENTRA_APP_USER=%s\nSENTRA_APP_PASS=%s\nSENTRA_APP_TOTP=%s\nSENTRA_APP_TOTP_SECRET=%s\nBASE_URL=%s\n' \
+  "$user" "$pw" "$app_user" "$app_pw" "$app_totp" "${SENTRA_APP_TOTP_SECRET:-}" "${BASE_URL%/}" >"$tmp/env"
 
 echo "Playwright smoke → ${BASE_URL%/} ($PLAYWRIGHT_IMAGE)"
 # Repo mounted read-only; the test package is copied to a scratch dir so npm can install there.

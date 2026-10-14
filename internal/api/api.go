@@ -40,6 +40,11 @@ var SelfServiceRoutes = []string{
 	"POST /api/v1/auth/password",
 	"GET /api/v1/auth/sessions",
 	"DELETE /api/v1/auth/sessions/{id}",
+	"GET /api/v1/auth/mfa",
+	"POST /api/v1/auth/mfa/enrol",
+	"POST /api/v1/auth/mfa/enrol/confirm",
+	"POST /api/v1/auth/mfa/verify",
+	"POST /api/v1/auth/mfa/recovery-codes",
 	"GET /api/v1/ui/bootstrap",
 	"GET /api/v1/help/index",
 	"GET /api/v1/help/pages/*",
@@ -58,10 +63,10 @@ func Mount(m Modules, internal bool) func(r chi.Router) {
 				m.System.OpsRoutes(r)
 			}
 		})
-		// Everything else requires a session, passes CSRF for unsafe methods and is blocked while the user must
-		// change the password.
+		// Everything else requires a session, passes CSRF for unsafe methods, and is blocked until the session
+		// passed MFA and while the user must change the password.
 		r.Group(func(r chi.Router) {
-			r.Use(m.Auth.Authenticate, m.Auth.CSRF, authhandler.PasswordChangeGuard)
+			r.Use(m.Auth.Authenticate, m.Auth.CSRF, authhandler.MFAGuard, authhandler.PasswordChangeGuard)
 			if !internal {
 				m.System.OpsRoutes(r)
 			}

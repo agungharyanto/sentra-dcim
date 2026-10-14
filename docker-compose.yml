@@ -118,6 +118,8 @@ services:
       AUTH_RATE_IP_LIMIT: ${AUTH_RATE_IP_LIMIT:-30}
       AUTH_RATE_USER_LIMIT: ${AUTH_RATE_USER_LIMIT:-10}
       AUTH_RATE_WINDOW: ${AUTH_RATE_WINDOW:-10m}
+      MFA_ENC_KEY: ${MFA_ENC_KEY:?set MFA_ENC_KEY in .env (openssl rand -base64 32)}
+      MFA_ISSUER: ${MFA_ISSUER:-Sentra DCIM}
     read_only: true
     networks: [data, edge]
     depends_on:

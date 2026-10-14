@@ -3,7 +3,7 @@ import { useState } from "react";
 import { BrowserRouter, Route, Routes } from "react-router";
 
 import { ThemeProvider } from "@/components/domain/ThemeProvider";
-import { Toaster } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/features/auth/AuthProvider";
 import { ForcedPasswordPage } from "@/features/auth/ForcedPasswordPage";

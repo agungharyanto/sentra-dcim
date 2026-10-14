@@ -30,6 +30,15 @@ type AuditEvent struct {
 	Hash          []byte
 }
 
+// One-time MFA recovery codes (v0.3.3), stored as keyed hashes.
+type MfaRecoveryCode struct {
+	ID        int64
+	UserID    pgtype.UUID
+	CodeHash  []byte
+	UsedAt    pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
+}
+
 // Operational runs recorded by ops/*.sh. Timestamps are UTC.
 type OpsRun struct {
 	ID         int64
@@ -66,6 +75,7 @@ type Session struct {
 	Ip            *netip.Addr
 	UserAgent     string
 	RevokedAt     pgtype.Timestamptz
+	MfaVerifiedAt pgtype.Timestamptz
 }
 
 // Key/value metadata about this Sentra DCIM installation. All timestamps are UTC.
@@ -90,6 +100,16 @@ type User struct {
 	LastLoginAt        pgtype.Timestamptz
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
+}
+
+// TOTP MFA per account (v0.3.3). Secrets only encrypted (MFA_ENC_KEY).
+type UserMfa struct {
+	UserID       pgtype.UUID
+	SecretEnc    []byte
+	EnabledAt    pgtype.Timestamptz
+	LastUsedStep int64
+	CreatedAt    pgtype.Timestamptz
+	UpdatedAt    pgtype.Timestamptz
 }
 
 // Role assignments (v0.3.2). A user has the union of the permissions of its roles.

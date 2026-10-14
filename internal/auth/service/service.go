@@ -22,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	audit "github.com/agungharyanto/sentra-dcim/internal/audit/service"
+	"github.com/agungharyanto/sentra-dcim/internal/auth/mfa"
 	"github.com/agungharyanto/sentra-dcim/internal/auth/password"
 	"github.com/agungharyanto/sentra-dcim/internal/auth/repo"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/config"
@@ -40,11 +41,18 @@ var (
 	ErrInvalidUsername    = errors.New("username must be 3–64 characters: letters, digits, . _ -")
 	ErrUsernameTaken      = errors.New("username already exists")
 	ErrRolesMissing       = errors.New("roles are not seeded (run the migrations)")
+	ErrInvalidMFACode     = errors.New("invalid authentication code")
+	ErrMFAEnabled         = errors.New("MFA is already active")
+	ErrMFANotEnrolled     = errors.New("MFA is not set up")
 )
 
 // Audit actions.
 const (
-	ActionLoginSuccess   = "auth.login.success"
+	ActionLoginPassword  = "auth.login.password_ok" //nolint:gosec // audit action name; password correct, MFA pending
+	ActionLoginSuccess   = "auth.login.success"     // password and MFA passed
+	ActionMFAEnrol       = "auth.mfa.enrol"
+	ActionMFAVerify      = "auth.mfa.verify"
+	ActionMFARecovery    = "auth.mfa.recovery_codes"
 	ActionLoginFailure   = "auth.login.failure"
 	ActionLockout        = "auth.lockout"
 	ActionLogout         = "auth.logout"
@@ -79,6 +87,7 @@ type Service struct {
 	params    password.Params
 	dummyHash string
 	now       func() time.Time
+	mfa       *mfa.Keys
 }
 
 // New creates the service. limiter may be nil only for CLI use (no logins).
@@ -89,7 +98,11 @@ func New(q Querier, limiter Limiter, rec *audit.Recorder, log *slog.Logger, cfg 
 	if err != nil {
 		return nil, err
 	}
-	return &Service{q: q, limiter: limiter, audit: rec, log: log, cfg: cfg, params: p, dummyHash: dummy, now: time.Now}, nil
+	keys, err := mfa.NewKeys(cfg.MFAKey)
+	if err != nil {
+		return nil, fmt.Errorf("MFA_ENC_KEY: %w", err)
+	}
+	return &Service{q: q, limiter: limiter, audit: rec, log: log, cfg: cfg, params: p, dummyHash: dummy, now: time.Now, mfa: keys}, nil
 }
 
 // User is the public view of an account.
@@ -100,19 +113,22 @@ type User struct {
 	MustChangePassword bool      `json:"must_change_password"`
 	Roles              []string  `json:"roles"`
 	Permissions        []string  `json:"permissions"`
+	MFAEnabled         bool      `json:"mfa_enabled"`
 }
 
 // SessionInfo is the public view of a session.
 type SessionInfo struct {
-	ID            uuid.UUID  `json:"id"`
-	CreatedAt     time.Time  `json:"created_at"`
-	LastSeenAt    time.Time  `json:"last_seen_at"`
-	ExpiresAt     time.Time  `json:"expires_at"`
-	IdleExpiresAt time.Time  `json:"idle_expires_at"`
-	IP            *string    `json:"ip"`
-	UserAgent     string     `json:"user_agent"`
-	Current       bool       `json:"current"`
-	RevokedAt     *time.Time `json:"-"`
+	ID            uuid.UUID `json:"id"`
+	CreatedAt     time.Time `json:"created_at"`
+	LastSeenAt    time.Time `json:"last_seen_at"`
+	ExpiresAt     time.Time `json:"expires_at"`
+	IdleExpiresAt time.Time `json:"idle_expires_at"`
+	IP            *string   `json:"ip"`
+	UserAgent     string    `json:"user_agent"`
+	Current       bool      `json:"current"`
+	// MFAVerified is false while the session is mfa_pending (only me, logout and auth/mfa/* are usable).
+	MFAVerified bool       `json:"mfa_verified"`
+	RevokedAt   *time.Time `json:"-"`
 }
 
 // Session is the authenticated state of a request.
@@ -121,6 +137,8 @@ type Session struct {
 	User               User
 	Info               SessionInfo
 	MustChangePassword bool
+	MFAVerified        bool
+	MFAEnabled         bool
 }
 
 // LoginResult is returned on a successful login. Token and CSRF are only ever sent to the client as cookies.
@@ -201,9 +219,8 @@ func (s *Service) Login(ctx context.Context, username, pw, oldToken string, meta
 		return LoginResult{}, fail("invalid_password", &u)
 	}
 
-	if err := s.q.RecordLoginSuccess(ctx, u.ID); err != nil {
-		return LoginResult{}, fmt.Errorf("record success: %w", err)
-	}
+	// The failure counter is reset only when MFA passes too (completeMFA): a known password alone must not
+	// reset the lockout that also counts wrong MFA codes.
 	if rehash {
 		if h, err := password.Hash(pw, s.params); err == nil {
 			if err := s.q.RehashPassword(ctx, repo.RehashPasswordParams{ID: u.ID, PasswordHash: h}); err != nil {
@@ -219,25 +236,31 @@ func (s *Service) Login(ctx context.Context, username, pw, oldToken string, meta
 		return LoginResult{}, err
 	}
 	id := u.ID
-	_ = s.audit.Record(ctx, audit.Event{Action: ActionLoginSuccess, Result: audit.ResultSuccess, ActorType: audit.ActorUser,
-		ActorID: &id, ActorUsername: u.Username, TargetType: "session", TargetID: res.Session.Info.ID.String(), Meta: meta})
+	_ = s.audit.Record(ctx, audit.Event{Action: ActionLoginPassword, Result: audit.ResultSuccess, ActorType: audit.ActorUser,
+		ActorID: &id, ActorUsername: u.Username, TargetType: "session", TargetID: res.Session.Info.ID.String(), Meta: meta,
+		Metadata: map[string]any{"mfa": map[bool]string{true: "verify", false: "enrol"}[res.Session.MFAEnabled]}})
 	return res, nil
 }
 
 // rateLimit counts the attempt per IP and per username; Redis errors fail closed.
 func (s *Service) rateLimit(ctx context.Context, username string, meta audit.Meta) error {
+	return s.rateLimitKeys(ctx, "", username, meta)
+}
+
+// rateLimitKeys is rateLimit with a key prefix ("" for passwords, "mfa:" for MFA codes; same limits).
+func (s *Service) rateLimitKeys(ctx context.Context, prefix, username string, meta audit.Meta) error {
 	if s.limiter == nil {
 		return ErrUnavailable
 	}
 	keys := []struct {
 		key   string
 		limit int
-	}{{"user:" + hashKey(strings.ToLower(username)), s.cfg.RateUserLimit}}
+	}{{prefix + "user:" + hashKey(strings.ToLower(username)), s.cfg.RateUserLimit}}
 	if meta.IP != nil {
 		keys = append(keys, struct {
 			key   string
 			limit int
-		}{"ip:" + meta.IP.String(), s.cfg.RateIPLimit})
+		}{prefix + "ip:" + meta.IP.String(), s.cfg.RateIPLimit})
 	}
 	var wait time.Duration
 	for _, k := range keys {
@@ -277,8 +300,13 @@ func (s *Service) newSession(ctx context.Context, u repo.User, meta audit.Meta) 
 	if err != nil {
 		return LoginResult{}, fmt.Errorf("get roles: %w", err)
 	}
+	enabled, err := s.mfaEnabled(ctx, u.ID)
+	if err != nil {
+		return LoginResult{}, err
+	}
 	p := newPrincipal(u.ID, u.Username, sess.ID, roles)
 	user := newUser(u.ID, u.Username, u.DisplayName, u.MustChangePassword, p)
+	user.MFAEnabled = enabled
 	return LoginResult{
 		Token: token,
 		CSRF:  randomString(32),
@@ -287,6 +315,7 @@ func (s *Service) newSession(ctx context.Context, u repo.User, meta audit.Meta) 
 			User:               user,
 			Info:               toInfo(sess.ID, sess.CreatedAt, sess.LastSeenAt, sess.ExpiresAt, sess.IdleExpiresAt, sess.Ip, sess.UserAgent, true),
 			MustChangePassword: u.MustChangePassword,
+			MFAEnabled:         enabled,
 		},
 	}, nil
 }
@@ -318,12 +347,16 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 		}
 	}
 	p := newPrincipal(row.UserID, row.Username, row.SessionID, row.Roles)
+	user := newUser(row.UserID, row.Username, row.DisplayName, row.MustChangePassword, p)
+	user.MFAEnabled = row.MfaEnabled
 	return Session{
 		Principal: p,
-		User:      newUser(row.UserID, row.Username, row.DisplayName, row.MustChangePassword, p),
+		User:      user,
 		Info: SessionInfo{ID: row.SessionID, CreatedAt: row.SessionCreatedAt.Time, LastSeenAt: now, ExpiresAt: row.ExpiresAt.Time,
-			IdleExpiresAt: idle, Current: true},
+			IdleExpiresAt: idle, Current: true, MFAVerified: row.MfaVerified},
 		MustChangePassword: row.MustChangePassword,
+		MFAVerified:        row.MfaVerified,
+		MFAEnabled:         row.MfaEnabled,
 	}, nil
 }
 

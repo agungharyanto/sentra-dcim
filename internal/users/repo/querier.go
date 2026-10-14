@@ -14,9 +14,12 @@ type Querier interface {
 	AddUserRole(ctx context.Context, arg AddUserRoleParams) error
 	CountOtherActiveAdmins(ctx context.Context, userID uuid.UUID) (int64, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (uuid.UUID, error)
+	DeleteUserMFA(ctx context.Context, userID uuid.UUID) (int64, error)
+	DeleteUserRecoveryCodes(ctx context.Context, userID uuid.UUID) error
 	DeleteUserRoles(ctx context.Context, userID uuid.UUID) error
 	GetRolesByKeys(ctx context.Context, keys []string) ([]GetRolesByKeysRow, error)
 	GetUser(ctx context.Context, id uuid.UUID) (GetUserRow, error)
+	GetUserIDByUsername(ctx context.Context, username string) (uuid.UUID, error)
 	ListRoles(ctx context.Context) ([]ListRolesRow, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error)
 	// LockAdminRole serialises every change that could remove the last active Admin (role changes, disabling).

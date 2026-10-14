@@ -20,5 +20,8 @@
     "cancel": "Batal",
     "confirm": "Konfirmasi",
     "save": "Simpan"
+  },
+  "toast": {
+    "region": "Notifikasi"
   }
 }

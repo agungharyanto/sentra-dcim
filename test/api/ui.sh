@@ -169,13 +169,37 @@ else
   esac
   sc="$(grep -i '^set-cookie: __Host-sentra_session=' "$tmp/h" | tr -d '\r')"
   check "session cookie __Host-, Secure, HttpOnly, SameSite=Strict, Path=/" "$([[ $sc == *"; Path=/"* && $sc == *"; HttpOnly"* && $sc == *"; Secure"* && $sc == *"; SameSite=Strict"* && $sc != *Domain=* ]]; echo $?)"
+  if ! jq -e '.user.mfa_enabled' "$tmp/b" >/dev/null; then
+    echo "STOP: akun '$app_user' belum memasang MFA — masuk sekali di browser dan pasang authenticator, lalu ulangi." >&2; exit 3
+  fi
   if jq -e '.user.must_change_password' "$tmp/b" >/dev/null; then
     echo "STOP: akun '$app_user' masih wajib ganti password — ganti dulu di UI, lalu ulangi." >&2; exit 3
   fi
   csrf="$(awk '$6=="__Host-sentra_csrf"{print $7}' "$tmp/jar")"
 
+  # MFA (v0.3.3): the session is mfa_pending until a code is entered.
+  sreq "$BASE/api/v1/ui/bootstrap"
+  check "GET /api/v1/ui/bootstrap before MFA = 403 mfa_required" "$([[ $code == 403 ]] && jq -e '.error.code=="mfa_required"' "$tmp/b" >/dev/null; echo $?)"
+  # Code source: SENTRA_APP_TOTP_SECRET (CI throwaway account only), SENTRA_APP_TOTP (one code), or a prompt. A
+  # production account's secret never leaves the user's phone.
+  totp="${SENTRA_APP_TOTP:-}"
+  if [[ -z "$totp" && -n "${SENTRA_APP_TOTP_SECRET:-}" ]]; then
+    totp="$(printf '%s' "$SENTRA_APP_TOTP_SECRET" | "$(dirname "$0")/../lib/totp.py")"
+  fi
+  if [[ -z "$totp" && -t 0 ]]; then read -rp "kode authenticator (6 digit) untuk $app_user: " totp; fi
+  [[ -n "$totp" ]] || { echo "STOP: tidak ada kode MFA (SENTRA_APP_TOTP atau terminal interaktif)." >&2; exit 3; }
+  C="$totp" jq -n '{code: env.C}' >"$tmp/code.json"
+  sreq -X POST -H 'Content-Type: application/json' -H "X-Sentra-CSRF: $csrf" --data-binary @"$tmp/code.json" "$BASE/api/v1/auth/mfa/verify"
+  rm -f "$tmp/code.json"
+  case "$code" in
+    204) ;;
+    401) echo "STOP: kode MFA ditolak (salah/kedaluwarsa/sudah dipakai) — tidak ada percobaan lain (lockout 5x)." >&2; exit 3 ;;
+    *)   echo "STOP: verifikasi MFA mendapat HTTP $code ($(jq -r .error.code "$tmp/b" 2>/dev/null))." >&2; exit 3 ;;
+  esac
+  check "POST /auth/mfa/verify = 204 (session passed MFA)" 0
+
   sreq "$BASE/api/v1/auth/me"
-  check "GET /auth/me with session = 200, own user" "$([[ $code == 200 ]] && jq -e --arg u "$app_user" '(.user.username|ascii_downcase)==($u|ascii_downcase) and .session.current' "$tmp/b" >/dev/null; echo $?)"
+  check "GET /auth/me with session = 200, own user, MFA passed" "$([[ $code == 200 ]] && jq -e --arg u "$app_user" '(.user.username|ascii_downcase)==($u|ascii_downcase) and .session.current and .session.mfa_verified' "$tmp/b" >/dev/null; echo $?)"
 
   # Bootstrap API.
   sreq "$BASE/api/v1/ui/bootstrap"

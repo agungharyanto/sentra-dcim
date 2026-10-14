@@ -78,10 +78,9 @@ test.describe("design system showcase", () => {
 
       // Toast
       await page.getByRole("button", { name: id.ds.showcase.feedback.showToast }).click();
-      const toast = page.locator("[data-sonner-toast]");
+      const toast = page.locator("[data-toast]");
       await expect(toast).toContainText(id.ds.showcase.feedback.toastTitle);
-      await expect(toast).toHaveAttribute("data-mounted", "true");
-      await page.waitForTimeout(600); // let the enter transition (opacity/transform .4s) finish before measuring
+      await page.waitForTimeout(400); // let the enter animation finish before measuring
       await expectAccessible(page, `${theme} toast`);
       await page.screenshot({ path: `${artifactsDir}/design-system-${theme}-toast.png` });
       await expect(toast).toHaveCount(0, { timeout: 10_000 }); // auto-dismiss, so later scans see no fading toast

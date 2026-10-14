@@ -20,5 +20,8 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "save": "Save"
+  },
+  "toast": {
+    "region": "Notifications"
   }
 }
