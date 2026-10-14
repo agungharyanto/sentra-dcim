@@ -121,7 +121,7 @@ fail2ban-web-remove: ## Remove the sentra-web jail, filter and systemd drop-in (
 fail2ban-ban-test: ## Real ban/unban test from a throwaway container network against this host (sudo)
 	sudo ./scripts/fail2ban-ban-test.sh
 
-boot-menu: ## Host boot prep: GRUB menu 10 s on the serial console, keep kernel 6.17 for rollback (idempotent; sudo)
+boot-menu: ## Host boot prep: GRUB menu 10 s on the serial console, boot services enabled (idempotent; sudo)
 	sudo ./scripts/host-boot-setup.sh
 
 post-reboot-check: ## After a reboot: kernel, uptime, services, containers, fail2ban/DOCKER-USER, smoke, edge, ban test (sudo)

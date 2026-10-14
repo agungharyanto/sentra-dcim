@@ -3,6 +3,9 @@
 Semua driver, library, framework, dan tools yang dipakai Sentra DCIM. Perbarui tabel ini setiap kali dependensi
 ditambah, diubah versinya, atau dihapus.
 
+> Diaudit di penutup sprint v0.3.9 (2026-10-15): versi modul Go langsung (`go.mod`), paket web (`web/package.json` +
+> resolusi `pnpm-lock.yaml`), dan image container (compose/Dockerfile) cocok dengan tabel ini.
+
 ## Runtime & infrastruktur
 
 | Nama | Versi | Lisensi | Fungsi |

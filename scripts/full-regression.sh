@@ -17,6 +17,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT" || exit 1
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin"
 EXPECT_VERSION="${1:-$(git describe --tags --always --dirty)}"
+# docker compose resolves image tags from VERSION (Makefile does the same); without it the ops container would use a
+# stale sentra-app:dev image.
+export VERSION="$EXPECT_VERSION"
 REGRESS_DB="sentra_regress"
 pass=0 fail=0 failed=()
 out="$(mktemp)"; trap 'rm -f "$out"' EXIT
@@ -54,9 +57,10 @@ assert_regress_target() {
     exit 99
   fi
 }
+# Migrations need the owner (DDL) — the one-shot ops container since ISS-039 (the app role is DML-only).
 app_db() {
   assert_regress_target || exit 99
-  docker compose exec -T -e DB_NAME="$REGRESS_DB" app /sentra "$@"
+  docker compose run --rm --no-deps -T -e DB_NAME="$REGRESS_DB" ops "$@"
 }
 export -f assert_regress_target app_db
 export REGRESS_DB
@@ -113,6 +117,8 @@ check "running /api/v1/version == git describe HEAD ($EXPECT_VERSION)" bash -c \
 check "app image built for $EXPECT_VERSION" bash -c \
   "[[ \$(docker inspect -f '{{.Config.Image}}' sentra-app-1) == 'sentra-app:$EXPECT_VERSION' ]]"
 check "API smoke test (internal, expect $EXPECT_VERSION)" env EXPECT_VERSION="$EXPECT_VERSION" ./test/api/smoke.sh
+check "live audit hash chain intact + matches all backup anchors (make audit-verify)" bash -c \
+  "as_app make --no-print-directory audit-verify | tail -1 | jq -e '.ok' >/dev/null"
 if [[ -n "${DOMAIN:-}" ]]; then
   check "public edge test https://$DOMAIN (TLS, headers, proxy allowlist, version only)" \
     env EXPECT_VERSION="$EXPECT_VERSION" ./test/api/public.sh
@@ -135,6 +141,11 @@ check "row count system_info live == restored" bash -c \
 # The backup records itself in ops_runs after the dump, so live has exactly one more row.
 check "row count ops_runs live == restored + 1" bash -c \
   "[[ \$(psql_db -d '$POSTGRES_DB' -c 'select count(*) from ops_runs') == \$((\$(psql_db -d '$REGRESS_DB' -c 'select count(*) from ops_runs') + 1)) ]]"
+# The restored audit log must be an intact hash chain that matches every backup anchor up to this backup (D-073).
+check "restored copy: audit hash chain intact + matches backup anchors (≤ this backup)" bash -c "
+  b=\$(basename '$backup_dir'); d='${BACKUP_DIR:-/var/backups/sentra}'
+  as_app bash -c 'for f in \"\$0\"/*/audit-anchor.json; do n=\$(basename \$(dirname \"\$f\")); [[ \$n > \"\$1\" || \$n == *.partial ]] || cat \"\$f\"; echo; done' \"\$d\" \"\$b\" |
+    app_db audit verify --anchors - | tee /dev/stderr | jq -e '.ok and .anchors_checked >= 1' >/dev/null"
 
 section "7. Migrations up/down (restored copy, app binary)"
 # Hard stop for the whole run if the target is not the regression copy (exit 99 is never caught by `check`).
@@ -176,6 +187,17 @@ else
 fi
 check "only allowed ports listen on non-loopback addresses" bash -c \
   "[[ -z \$(sudo ss -Htln | awk '{print \$4}' | grep -vE '^(127\.|\[::1\]|\[::ffff:127\.)' | sed -E 's/.*:([0-9]+)\$/\1/' | sort -u | grep -vxE '$(echo "$allowed_ports" | tr ' ' '|')') ]]"
+# From outside: connect to the public address (via the internet gateway, so OCI's Security List and ufw both apply).
+if [[ -n "${DOMAIN:-}" ]]; then
+  pub="$(getent ahostsv4 "$DOMAIN" | awk 'NR==1{print $1}')"
+  info "public reachability via $DOMAIN (address not printed)"
+  for p in $allowed_ports; do
+    check "public :$p reachable" bash -c "timeout 5 bash -c '</dev/tcp/$pub/$p' 2>/dev/null"
+  done
+  for p in 2019 3000 5432 6379 8080 8081 9090; do
+    check "public :$p closed" bash -c "! timeout 5 bash -c '</dev/tcp/$pub/$p' 2>/dev/null"
+  done
+fi
 check "fail2ban sshd jail active" sudo fail2ban-client status sshd
 check "sysctl hardening applied" bash -c '[[ $(sysctl -n net.ipv4.tcp_syncookies) == 1 && $(sysctl -n kernel.kptr_restrict) == 2 && $(sysctl -n net.ipv4.conf.all.accept_redirects) == 0 ]]'
 check "unattended-upgrades enabled" bash -c 'systemctl is-enabled unattended-upgrades && grep -q "Unattended-Upgrade \"1\"" /etc/apt/apt.conf.d/20auto-upgrades'
@@ -191,8 +213,8 @@ check "fail2ban jail sentra-web active" sudo fail2ban-client status sentra-web
 check "DOCKER-USER jumps to f2b-sentra-web (80,443)" bash -c "sudo iptables -S DOCKER-USER | grep -q -- '--dports 80,443 -j f2b-sentra-web'"
 check "fail2ban real ban/unban (network namespace)" sudo ./scripts/fail2ban-ban-test.sh
 check "GRUB menu visible 10 s (serial console)" bash -c "sudo grep -q 'set timeout_style=menu' /boot/grub/grub.cfg"
-check "kernel 6.17.0-1020-oracle kept for rollback (manual + not autoremovable)" bash -c \
-  "apt-mark showmanual | grep -qx linux-image-6.17.0-1020-oracle && ! apt-get -s autoremove 2>/dev/null | grep -q '^Remv .*6.17.0-1020'"
+check "kernel 7.0.x running; retired 6.17 packages and their APT pin gone (ISS-036)" bash -c \
+  "[[ \$(uname -r) == 7.0.* ]] && ! dpkg -l | awk '/^ii/{print \$2}' | grep -q -- '6\\.17' && [[ ! -e /etc/apt/apt.conf.d/99sentra-keep-kernel-6.17 ]] && sudo grep -q \"vmlinuz-\$(uname -r)\" /boot/grub/grub.cfg"
 info "kernel: $(uname -r); reboot pending: $([[ -e /var/run/reboot-required ]] && echo yes || echo no)"
 
 section "11. Repository state"

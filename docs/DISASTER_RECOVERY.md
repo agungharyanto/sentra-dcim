@@ -281,6 +281,22 @@ Aturan migrasi (CLAUDE.md aturan 9): setiap migrasi wajib punya `down` dan backw
 > `audit_events` beserta isinya (akun, sesi, log audit). Backup otomatis `rollback` menyimpannya; naik kembali ke
 > v0.3.1+ lalu `ops/restore.sh <backup>` bila data itu dibutuhkan.
 
+## Prosedur darurat auth — ringkasan (v0.3.9)
+
+Semua dari server (SSH, atau OCI Serial Console bila SSH pun gagal), di `/opt/sentra-dcim`, tercatat di audit sebagai
+`system`/`cli`. Rincian tiap baris ada di bagian di bawahnya.
+
+| Keadaan | Perintah | Catatan |
+|---|---|---|
+| Semua Admin kehilangan akses | `sudo -u sentra docker compose exec app /sentra user create-admin --username <nama>` | Kata sandi diketik (tidak lewat argumen); wajib ganti saat masuk |
+| Akun terkunci (5× salah) | `sudo -u sentra docker compose exec app /sentra user unlock --username <nama>` | Atau tunggu 15 menit |
+| HP + recovery code hilang | `sudo -u sentra docker compose exec app /sentra user reset-mfa --username <nama>` | Pastikan identitas dulu; semua sesi dicabut |
+| Terkunci oleh Allowed IP | `sudo -u sentra docker compose exec -T app /sentra allowlist mode off` | Berlaku ≤ 5 detik; aktifkan lagi dari UI |
+| `MFA_ENC_KEY` hilang | Pulihkan `.env` dari cadangan; bila tidak ada: key baru + `reset-mfa` semua akun | Lihat bagian MFA |
+| Kata sandi Admin kedaluwarsa (v0.3.7) | Tidak perlu tindakan server: setelah masuk + MFA, aplikasi meminta kata sandi baru | Bukan lockout |
+| Layar monitoring (kiosk) keluar sendiri | Periksa IP layar ada di Allowed IP; sesi dicabut bila dari IP lain (`auth.session.kiosk_revoked`) | Masuk ulang setelah IP benar |
+| App mati (halaman "Sedang pemeliharaan") | `make up`; log `make logs SERVICE=app` | Caddy menjawab 503 + halaman statis |
+
 ## Pemulihan akses admin aplikasi (v0.3.1+)
 
 Akun aplikasi (login Sentra DCIM) terpisah dari akun OS server.
@@ -417,5 +433,9 @@ sudo /opt/sentra-dcim/ops/bootstrap-new-server.sh --ref <tag> --admin-user ubunt
 ## Rollback kernel
 
 Bila server tidak bisa boot atau rusak setelah pembaruan kernel: pilih kernel sebelumnya dari menu GRUB lewat serial
-console — [ops/runbooks/kernel-rollback.md](ops/runbooks/kernel-rollback.md) (v0.2.9). Kernel `6.17.0-1020-oracle`
-dipertahankan sebagai target rollback sampai penutup v0.3 (ISS-036). Setelah boot apa pun: `make post-reboot-check`.
+console — [ops/runbooks/kernel-rollback.md](ops/runbooks/kernel-rollback.md). Kernel `6.17.0-1020-oracle` sudah
+**dipensiunkan di v0.3.9** (ISS-036, `scripts/kernel-retire.sh`) setelah `7.0.0-1013-oracle` berjalan stabil; menu GRUB
+tetap tampil 10 detik dan memuat kernel yang ada (kernel lama berikutnya otomatis tersedia setelah pembaruan kernel
+berikut, sebelum unattended-upgrades menghapusnya). Bila tidak ada kernel lain yang bisa boot: pulihkan **backup boot
+volume OCI** (dibuat pemilik sebelum v0.3.9) atau pasang kernel lama dari serial console (`apt install
+linux-image-<versi>`). Setelah boot apa pun: `make post-reboot-check`.

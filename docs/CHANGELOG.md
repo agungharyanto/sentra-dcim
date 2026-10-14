@@ -3,6 +3,22 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [Unreleased] — v0.3.9 Penutup Sprint v0.3
+
+### Ditambahkan
+- **Matriks izin** (`TestPermissionMatrix`): 6 role sistem × setiap endpoint ber-`x-sentra-permission` di OpenAPI —
+  role dengan izin lolos pemeriksaan izin, role tanpa izin mendapat tepat `403 forbidden`.
+- `scripts/kernel-retire.sh`: memensiunkan kernel lama dengan pengaman (bukan kernel aktif, simulasi dulu, menolak bila
+  purge menyentuh paket lain), lalu `update-grub` + verifikasi.
+
+### Diubah
+- `scripts/full-regression.sh` mengikuti v0.3: migrasi salinan lewat container `ops` (role app tanpa DDL), image compose
+  mengikuti versi, `make audit-verify` pada DB live, verifikasi hash chain + anchor pada DB hasil restore, uji port dari
+  alamat publik (hanya 22/80/443 terbuka), pemeriksaan kernel pasca-ISS-036.
+- `make boot-menu` / `scripts/host-boot-setup.sh` tidak lagi menahan kernel 6.17.
+- Dokumen: ROADMAP (v0.3 selesai, v0.3.8 dikosongkan, v0.4 berikutnya), DISASTER_RECOVERY (ringkasan prosedur darurat
+  auth, rollback kernel pasca-6.17), DEPENDENCIES (diaudit), runbook rollback kernel.
+
 ## [v0.3.7] - 2026-10-15 — Kebijakan Sesi & Kata Sandi
 
 ### Ditambahkan
