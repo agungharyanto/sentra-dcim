@@ -30,7 +30,12 @@ function DialogOverlay({ className, ...props }: React.ComponentProps<typeof Dial
   );
 }
 
-function DialogContent({ className, children, ...props }: React.ComponentProps<typeof DialogPrimitive.Content>) {
+function DialogContent({
+  className,
+  children,
+  showClose = true,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Content> & { showClose?: boolean }) {
   const { t } = useTranslation();
   return (
     <DialogPrimitive.Portal>
@@ -44,10 +49,12 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<t
         {...props}
       >
         {children}
+        {showClose && (
         <DialogPrimitive.Close className="absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring disabled:pointer-events-none [&_svg]:size-4">
           <XIcon aria-hidden />
           <span className="sr-only">{t("actions.close")}</span>
         </DialogPrimitive.Close>
+        )}
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   );

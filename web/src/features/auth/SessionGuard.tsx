@@ -49,6 +49,8 @@ function Guard({ session, serverTime }: { session: SessionInfo; serverTime?: str
   const [deadlines, setDeadlines] = useState<Deadlines>(() => deadlinesOf(session, serverTime));
   const [now, setNow] = useState(() => Date.now());
   const lastSent = useRef(0);
+  const stayRef = useRef<HTMLButtonElement>(null);
+  const logoutRef = useRef<HTMLButtonElement>(null);
   const sending = useRef(false);
 
   const signal = async () => {
@@ -96,7 +98,17 @@ function Guard({ session, serverTime }: { session: SessionInfo; serverTime?: str
   const time = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
   return (
     <Dialog open={open}>
-      <DialogContent data-testid="session-warning" onEscapeKeyDown={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent
+        data-testid="session-warning"
+        showClose={false}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+        // The safe choice gets the focus: "Stay signed in" (or "Sign out now" at the absolute limit).
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          (stayRef.current ?? logoutRef.current)?.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{t("sessionGuard.title")}</DialogTitle>
           <DialogDescription>
@@ -109,11 +121,11 @@ function Guard({ session, serverTime }: { session: SessionInfo; serverTime?: str
           {time}
         </p>
         <DialogFooter>
-          <Button variant="outline" onClick={() => void signOut()} data-testid="session-logout">
+          <Button ref={logoutRef} variant="outline" onClick={() => void signOut()} data-testid="session-logout">
             {t("sessionGuard.logout")}
           </Button>
           {!absoluteBinds && (
-            <Button onClick={() => void signal()} data-testid="session-stay">
+            <Button ref={stayRef} onClick={() => void signal()} data-testid="session-stay">
               {t("sessionGuard.stay")}
             </Button>
           )}

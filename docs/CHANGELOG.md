@@ -3,7 +3,7 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
-## [Unreleased] — v0.3.7 Kebijakan Sesi & Kata Sandi
+## [v0.3.7] - 2026-10-15 — Kebijakan Sesi & Kata Sandi
 
 ### Ditambahkan
 - **Batas sesi yang bisa diatur** (D-069, D-079): Pengaturan › **Sesi & Kata Sandi** — idle (default 30 menit,

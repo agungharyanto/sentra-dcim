@@ -67,6 +67,8 @@ describe("session guard (D-069)", () => {
     const dialog = await screen.findByTestId("session-warning");
     expect(dialog).toHaveTextContent(tx.sessionGuard.title);
     expect(within(dialog).getByTestId("session-countdown")).toHaveTextContent(/^1:[0-3]\d$/);
+    expect(within(dialog).queryByRole("button", { name: resources.id.common.actions.close })).not.toBeInTheDocument();
+    await waitFor(() => expect(within(dialog).getByTestId("session-stay")).toHaveFocus());
     next = 30 * 60_000; // the user is back: the server extends idle
     await userEvent.click(within(dialog).getByTestId("session-stay"));
     await waitFor(() => expect(screen.queryByTestId("session-warning")).not.toBeInTheDocument());
