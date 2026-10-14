@@ -3,6 +3,29 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [Unreleased] — v0.3.2
+
+### Diubah
+- **`make release` mengikuti alur worktree** (CLAUDE.md aturan 13): dijalankan di working tree server yang ada di
+  `main`, mencari branch `feat/vX.Y.Z-*` berdasarkan nama, lalu menghapus worktree fitur (bila bersih) dan branch
+  setelah merge. Sebelumnya mengharuskan branch fitur di-checkout di tree yang sama, sehingga rilis sejak v0.2.9
+  di-merge manual.
+- **Gerbang fail2ban saat rilis** (D-057): `release.sh` tanpa sudo membandingkan sha256 jail `sentra-web`
+  terpasang dengan repo sebelum merge dan sesudah redeploy; beda → berhenti (exit 1) dengan pesan
+  *"run make fail2ban-web"*. Cek manual `make fail2ban-web-check`. Render file jail dipindah ke
+  `scripts/lib/fail2ban-web.sh` (dipakai installer & pengecek, byte yang dibandingkan identik).
+
+### Dokumentasi
+- Keputusan D-053..D-056 dicatat (`/ready` loopback + 403 publik, detail `/version` internal, pemulihan admin via
+  CLI, locale halaman login) dan D-057 (gerbang fail2ban).
+
+### Test
+- `scripts/fail2ban-web-check-test.sh` (CI + `make fail2ban-web-check-test`): 14 kasus — pengecek terhadap pohon
+  instalasi sementara (tidak terpasang, sinkron, filter diubah di host/repo, log path beda, drop-in hilang, DOMAIN
+  kosong), installer menolak override tes, dan `release.sh` di repo git sementara (drift sebelum merge → tanpa
+  merge/tag/push; drift sesudah redeploy → exit 1; sinkron → rilis normal). Terbukti gagal bila pengecekan
+  sebelum merge dihapus.
+
 ## [v0.3.1] - 2026-10-14 — Auth Core
 
 Sprint v0.3 "Auth, RBAC & Audit Log", sub-versi 1. Keputusan: ADR-003, D-046..D-052.

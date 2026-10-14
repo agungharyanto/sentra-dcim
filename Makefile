@@ -81,7 +81,7 @@ build: ## Build backend binary to bin/sentra
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o bin/sentra ./cmd/sentra
 
 ## ---------- Quality ----------
-.PHONY: web-check test test-integration test-api test-ui test-e2e lint vulncheck fail2ban-test fail2ban-web fail2ban-web-remove fail2ban-ban-test boot-menu post-reboot-check recovery-drill gitleaks openapi-lint sqlc fmt
+.PHONY: web-check test test-integration test-api test-ui test-e2e lint vulncheck fail2ban-test fail2ban-web-check fail2ban-web-check-test fail2ban-web fail2ban-web-remove fail2ban-ban-test boot-menu post-reboot-check recovery-drill gitleaks openapi-lint sqlc fmt
 test: ## Run unit tests with race detector and coverage
 	CGO_ENABLED=1 go test -race -count=1 -coverprofile=coverage.out ./...
 
@@ -105,6 +105,12 @@ lint: ## Run golangci-lint
 
 fail2ban-test: ## Test the fail2ban filter against synthetic Caddy log samples (host fail2ban-regex or Docker)
 	./scripts/fail2ban-regex-test.sh
+
+fail2ban-web-check: ## Compare the installed jail sentra-web with the repository (sha256, no sudo; used by make release)
+	./scripts/fail2ban-web-check.sh
+
+fail2ban-web-check-test: ## Test the drift check and release.sh fail2ban gate in a temporary directory (no sudo)
+	./scripts/fail2ban-web-check-test.sh
 
 fail2ban-web: ## Install/update the fail2ban jail sentra-web for wrong basic_auth logins (idempotent; sudo)
 	sudo ./scripts/fail2ban-web-install.sh
@@ -168,7 +174,7 @@ restore: ## Restore from a backup directory (FROM=/var/backups/sentra/<dir>; ARG
 rollback: ## Roll back to a git tag (TAG=vX.Y.Z): backup -> checkout -> migrate -> up
 	./ops/rollback.sh $(TAG)
 
-release: ## Merge current feature branch to main, tag and push (V=vX.Y.Z T="Title")
+release: ## In the main tree: merge feat/V-*, tag, push, redeploy; stops if the fail2ban jail drifted (V=vX.Y.Z T="Title")
 	./scripts/release.sh $(V) "$(T)"
 
 backup-timer: ## Install the systemd daily backup timer (02:00 Asia/Jakarta); needs sudo

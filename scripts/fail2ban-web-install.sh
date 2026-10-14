@@ -7,13 +7,13 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
-src="$root/deploy/fail2ban"
-filter_dst=/etc/fail2ban/filter.d/sentra-caddy-auth.conf
-jail_dst=/etc/fail2ban/jail.d/sentra-web.local
-dropin_dst=/etc/systemd/system/fail2ban.service.d/sentra-docker.conf
+# shellcheck source=lib/fail2ban-web.sh
+source "$root/scripts/lib/fail2ban-web.sh"
+f2b_dests
 
 die() { echo "fail2ban-web: ERROR: $*" >&2; exit 1; }
 log() { echo "fail2ban-web: $*"; }
+[[ -z "${F2B_DEST_ROOT:-}${F2B_LOGPATH:-}" ]] || die "F2B_DEST_ROOT/F2B_LOGPATH are test overrides of the check script only"
 [[ $EUID -eq 0 ]] || die "run as root (make fail2ban-web uses sudo)"
 command -v fail2ban-client >/dev/null || die "fail2ban is not installed (apt-get install fail2ban)"
 
@@ -27,20 +27,6 @@ if [[ "${1:-}" == "--remove" ]]; then
   exit 0
 fi
 
-# --- inputs ----------------------------------------------------------------------------------------------------
-domain="$(sed -n 's/^DOMAIN=//p' "$root/.env" 2>/dev/null | tail -1 | tr -d "'\"")"
-[[ "$domain" =~ ^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$ ]] || die "DOMAIN in .env must be the public host name (got '$domain')"
-host_re="${domain//./\\.}"   # host names only contain [A-Za-z0-9.-]: escaping the dots is enough
-
-# Log path from the caddy_logs volume of this compose project (never a hardcoded project name).
-project="$(cd "$root" && docker compose config --format json 2>/dev/null | python3 -c 'import json,sys;print(json.load(sys.stdin)["name"])')" ||
-  die "cannot read the compose project name (docker compose config)"
-volume="$(docker volume ls -q --filter "label=com.docker.compose.project=$project" --filter "label=com.docker.compose.volume=caddy_logs")"
-[[ -n "$volume" ]] || die "volume caddy_logs of project '$project' not found — run 'make up' first"
-mountpoint="$(docker volume inspect -f '{{.Mountpoint}}' "$volume")"
-logpath="$mountpoint/access.log"
-[[ -f "$logpath" ]] || die "access log $logpath not found — run 'make up' and send one request to https://$domain/"
-
 # --- install (only what changed) -------------------------------------------------------------------------------
 changed=0
 install_if_changed() { # src dst
@@ -48,17 +34,14 @@ install_if_changed() { # src dst
   install -D -m 0644 -o root -g root "$1" "$2"; log "installed $2"; changed=1
 }
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
-# Plain string substitution (sed would eat the backslashes of the host regex).
-jail="$(<"$src/jail.d/sentra-web.local.in")"
-jail="${jail//@HOST_RE@/$host_re}"
-jail="${jail//@LOGPATH@/$logpath}"
-printf '%s\n' "$jail" > "$tmp/sentra-web.local"
-grep -qE '@(HOST_RE|LOGPATH)@' "$tmp/sentra-web.local" && die "unfilled placeholder in jail template"
+f2b_render "$root" "$tmp"
+logpath="$f2b_logpath"
+[[ -f "$logpath" ]] || die "access log $logpath not found — run 'make up' and send one request to the public domain"
 
-install_if_changed "$src/filter.d/sentra-caddy-auth.conf" "$filter_dst"
+install_if_changed "$tmp/sentra-caddy-auth.conf" "$filter_dst"
 install_if_changed "$tmp/sentra-web.local" "$jail_dst"
 dropin_changed=$changed; changed=0
-install_if_changed "$src/systemd/sentra-docker.conf" "$dropin_dst"
+install_if_changed "$tmp/sentra-docker.conf" "$dropin_dst"
 [[ $changed -eq 1 ]] && systemctl daemon-reload
 changed=$((changed | dropin_changed))
 
@@ -75,4 +58,4 @@ fail2ban-client status sshd >/dev/null 2>&1 || die "jail sshd is not running any
 for _ in $(seq 1 20); do iptables -S DOCKER-USER | grep -q -- '-j f2b-sentra-web' && break; sleep 0.5; done
 iptables -S DOCKER-USER | grep -q -- '-j f2b-sentra-web' || die "DOCKER-USER does not jump to f2b-sentra-web"
 [[ "$(fail2ban-client get sentra-web logpath | grep -c "$logpath")" -ge 1 ]] || die "jail does not watch $logpath"
-log "OK: jail sentra-web active (host $domain, log $logpath), sshd jail untouched, DOCKER-USER → f2b-sentra-web"
+log "OK: jail sentra-web active (log $logpath), sshd jail untouched, DOCKER-USER → f2b-sentra-web"

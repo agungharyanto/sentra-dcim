@@ -49,6 +49,8 @@ jobs:
         run: shellcheck -x ops/*.sh ops/harden/*.sh scripts/*.sh scripts/hooks/pre-commit test/api/*.sh test/e2e/*.sh
       - name: fail2ban filter (fail2ban-regex on synthetic Caddy logs, Ubuntu 24.04 container)
         run: FAIL2BAN_TEST_DOCKER=1 ./scripts/fail2ban-regex-test.sh
+      - name: fail2ban release drift check (temporary install tree + throwaway git repo)
+        run: ./scripts/fail2ban-web-check-test.sh
       - name: Caddyfile validation (production-like and empty env)
         run: make caddy-validate
       - name: OpenAPI lint
