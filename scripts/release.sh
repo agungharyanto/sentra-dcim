@@ -6,9 +6,10 @@
 # Set NO_PUSH=1 to skip pushing (e.g. remote temporarily unreachable); push later with:
 #   git push origin main --follow-tags
 #
-# fail2ban (D-057): release.sh never uses sudo. The installed jail sentra-web must match the repository
-# (scripts/fail2ban-web-check.sh, sha256) before the merge and again after the redeploy; on drift the release stops
-# with exit 1 and asks for `make fail2ban-web`. SKIP_FAIL2BAN_CHECK=1 only for hosts without the jail (dev).
+# fail2ban (D-057): release.sh never uses sudo. The installed jail sentra-web must match, before the merge, the
+# version being RELEASED (the feature branch: its own check script and jail files, this host's .env — ISS-041) and,
+# after the redeploy, main (scripts/fail2ban-web-check.sh, sha256); on drift the release stops with exit 1 and asks
+# for `make fail2ban-web`. SKIP_FAIL2BAN_CHECK=1 only for hosts without the jail (dev).
 set -euo pipefail
 
 main() {
@@ -32,7 +33,7 @@ branches="$(git for-each-ref --format='%(refname:short)' "refs/heads/feat/$versi
 [[ "$(wc -l <<<"$branches")" -eq 1 ]] || die "more than one branch feat/$version-*: $(tr '\n' ' ' <<<"$branches")"
 branch="$branches"
 
-fail2ban_check "nothing merged yet; re-run the release afterwards"
+fail2ban_check_branch "$branch"
 
 if git ls-remote --exit-code origin main >/dev/null 2>&1; then
   git pull --ff-only origin main
@@ -62,6 +63,23 @@ git status --short --branch
 }
 
 die() { echo "release: ERROR: $*" >&2; exit 1; }
+
+# fail2ban_check_branch <branch>: run the branch's own check against the installed jail, so a release that changes
+# the jail files passes once the branch version is installed (ISS-041). The branch tree is exported read-only to a
+# temporary directory with this host's .env linked in; nothing is merged yet.
+fail2ban_check_branch() {
+  if [[ "${SKIP_FAIL2BAN_CHECK:-0}" == "1" ]]; then
+    echo "release: WARNING: SKIP_FAIL2BAN_CHECK=1 — jail sentra-web not compared" >&2
+    return 0
+  fi
+  local tree rc=0
+  tree="$(mktemp -d)"
+  git archive "$1" | tar -x -C "$tree"
+  [[ -e "$root/.env" ]] && ln -s "$root/.env" "$tree/.env"
+  "$tree/scripts/fail2ban-web-check.sh" || rc=$?
+  rm -rf "$tree"
+  [[ $rc -eq 0 ]] || die "fail2ban jail sentra-web differs from $1 — install it with 'make fail2ban-web' from that branch's worktree (nothing merged yet; re-run the release afterwards)"
+}
 
 fail2ban_check() { # $1 = what the operator should know about the release state
   if [[ "${SKIP_FAIL2BAN_CHECK:-0}" == "1" ]]; then

@@ -1,4 +1,4 @@
-import { formatDateTime, formatNumber } from "@/lib/format";
+import { formatDateTime, formatNumber, zonedLocalToUtc } from "@/lib/format";
 
 describe("format", () => {
   const utc = "2026-10-13T08:05:00Z";
@@ -20,5 +20,17 @@ describe("format", () => {
   it("formats numbers per locale", () => {
     expect(formatNumber(1234.5, "id")).toBe("1.234,5");
     expect(formatNumber(1234.5, "en")).toBe("1,234.5");
+  });
+});
+
+describe("zonedLocalToUtc", () => {
+  it("converts WIB wall-clock time to UTC", () => {
+    expect(zonedLocalToUtc("2026-10-14T07:30", "Asia/Jakarta")).toBe("2026-10-14T00:30:00Z");
+    expect(zonedLocalToUtc("2026-01-01T00:00", "Asia/Jakarta")).toBe("2025-12-31T17:00:00Z");
+    expect(zonedLocalToUtc("2026-10-14T07:30", "UTC")).toBe("2026-10-14T07:30:00Z");
+  });
+  it("rejects malformed input", () => {
+    expect(zonedLocalToUtc("", "Asia/Jakarta")).toBe("");
+    expect(zonedLocalToUtc("yesterday", "Asia/Jakarta")).toBe("");
   });
 });

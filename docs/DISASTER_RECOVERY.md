@@ -163,6 +163,7 @@ Setiap backup adalah satu direktori `/var/backups/sentra/<UTC-stamp>_<label>/`:
 | `globals.sql` | Role & atribut global (`pg_dumpall --globals-only`) |
 | `vol_caddy_data.tar.gz`, `vol_caddy_config.tar.gz` | Sertifikat TLS Let's Encrypt, kunci akun ACME & state Caddy |
 | `vol_redis_data.tar.gz` | Data Redis (cache/antrian) |
+| `audit-anchor.json` | Kepala hash chain audit log saat backup (`seq`, `hash`; v0.3.4, D-073) — **anchor eksternal**, diambil sebelum dump |
 | `manifest.json` | Waktu, label, versi aplikasi, commit, versi skema DB, host |
 | `SHA256SUMS` | Checksum semua file — diverifikasi saat backup & sebelum restore |
 
@@ -176,6 +177,18 @@ jangan `sed -i` sebagai admin — file diganti dan pemiliknya berubah, lalu back
 (ISS-024).
 
 Setiap backup/restore/rollback dicatat di tabel `ops_runs` (mulai v0.1.4).
+
+**Arsip audit log** (v0.3.4): event audit di luar masa simpan (`AUDIT_RETENTION_DAYS`, default 365, min 90)
+dipindahkan oleh `make audit-prune` (juga timer backup harian, setelah backup sukses) ke
+`/var/backups/sentra/audit-archive/audit-<dari>-<sampai>.jsonl.gz` + `.sha256`. Direktori ini **tidak** ikut
+retensi backup (14 hari) — simpan selamanya dan ikutkan ke salinan offsite. Database hanya menyimpan checkpoint
+(hash baris terakhir yang dipangkas) di `audit_checkpoints`. Verifikasi arsip offline:
+
+```bash
+sudo -u sentra -H sh -c 'cd /var/backups/sentra/audit-archive && sha256sum -c audit-*.sha256'
+docker compose exec -T app /sentra audit verify-archive < /var/backups/sentra/audit-archive/<file>.jsonl.gz
+# last_hash harus = audit_checkpoints.last_hash (through_seq yang sama); first_prev_hash = checkpoint sebelumnya
+```
 
 ## Backup
 
@@ -199,6 +212,22 @@ ops/restore.sh /var/backups/sentra/<dir>
 Restore memverifikasi checksum, membuat ulang database, menjalankan `timescaledb_pre_restore()` →
 `pg_restore` → `timescaledb_post_restore()`, memastikan versi skema sama dengan manifest, memulihkan volume,
 menyalakan stack, `migrate up`, dan menunggu `/api/v1/ready` = 200.
+
+### Verifikasi hash chain audit setelah restore (v0.3.4+)
+
+Restore membuat ulang role `sentra_app` lalu menjalankan `make migrate` (migrasi + `sentra db sync-app-role`, butuh
+`DB_APP_PASSWORD` di `.env`). Setelah stack sehat, buktikan log audit hasil restore utuh dan cocok dengan backup:
+
+```bash
+# Chain dihitung ulang + dicocokkan dengan anchor backup s.d. backup yang di-restore (UNTIL = nama direktorinya).
+# Backup yang LEBIH BARU memuat riwayat yang memang dibatalkan oleh restore; jangan ikutkan.
+sudo -u sentra -H make -C /opt/sentra-dcim audit-verify UNTIL=<UTC-stamp>_<label>
+```
+
+Hasil `"ok": true` + `anchors_checked` ≥ 1 = utuh. Gagal → jangan pakai stack itu untuk operasi; restore backup
+sebelumnya dan ulangi, lalu catat di `docs/ISSUES.md`. Verifikasi harian di app juga terlihat di menu **Audit Log**
+(kartu *Integritas hash chain*). Tanpa restore, `make audit-verify` (tanpa `UNTIL`) memakai anchor semua backup —
+menangkap penulisan ulang seluruh chain oleh owner database.
 
 > Jika backup berasal dari versi aplikasi yang **lebih baru** dari kode yang ter-checkout (versi skema backup >
 > migrasi di binary), `/ready` akan 503 (`migrations: unavailable`). Checkout versi yang sesuai lebih dulu.
@@ -278,6 +307,27 @@ Semua akun wajib MFA (D-062). Pemulihan, dari yang paling ringan:
    offline bersama kata sandi DB). Bila tidak ada: buat key baru (`openssl rand -base64 32` → `MFA_ENC_KEY` di `.env`,
    diisi pemilik), `make up`, lalu reset MFA **semua** akun via CLI (`reset-mfa` per pengguna); semua pengguna
    memasang ulang. **Jangan** mengganti key yang masih berfungsi: tidak ada rotasi otomatis.
+
+## Kredensial database: role owner & role app (v0.3.4+, ISS-039)
+
+| Role | Dipakai oleh | Hak | Kredensial |
+|---|---|---|---|
+| `POSTGRES_USER` (owner) | container `ops` saja: migrasi, `db sync-app-role`, pemangkasan audit; skrip backup/restore di container db | DDL, owner tabel | `POSTGRES_PASSWORD` di `.env` |
+| `DB_APP_USER` (default `sentra_app_login`, anggota `sentra_app`) | container `app` (server & CLI pengguna) | hanya DML yang di-GRANT; `audit_events` hanya INSERT+SELECT; tanpa DDL/TRUNCATE | `DB_APP_PASSWORD` di `.env` |
+
+**Rotasi password role app** (pemilik mengisi nilai, tidak lewat chat):
+```bash
+cd /opt/sentra-dcim
+sudo -u sentra -H nano .env               # ganti DB_APP_PASSWORD (openssl rand -hex 24)
+sudo -u sentra make migrate               # sync-app-role memasang password baru
+sudo -u sentra docker compose up -d app   # app memakai password baru
+```
+**Rotasi password owner** (`POSTGRES_PASSWORD`): ganti di database dulu
+(`docker compose exec db psql -U "$POSTGRES_USER" -c '\password'`), lalu `.env` dengan nilai yang sama, lalu
+`make up`. Image Postgres hanya memakai `POSTGRES_PASSWORD` saat inisialisasi volume pertama.
+
+Setelah **restore** ke server baru: `make up` (lewat `make migrate`) membuat ulang role login app dari `.env`; grant
+ikut dump (`restore.sh` memastikan role grup `sentra_app` ada sebelum `pg_restore`).
 
 ## Server baru (Ubuntu 24.04 kosong) — maksimal 5 perintah
 

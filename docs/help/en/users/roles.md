@@ -23,12 +23,12 @@ role that fits (*least privilege*).
 
 | Role | For | Current permissions |
 |---|---|---|
-| Admin | Application administrators | All: `users.read`, `users.manage`, `roles.read`, `system.version.read`, `ui.design_system` |
+| Admin | Application administrators | All: `users.read`, `users.manage`, `roles.read`, `system.version.read`, `ui.design_system`, `audit.read`, `audit.export`, `help.admin` |
 | NOC | 24/7 monitoring operators | — (grows with the monitoring & alarm modules) |
 | Security | Security & physical access staff | — (grows with the access & visitor modules) |
 | Technician | Facility & equipment technicians | — (grows with the asset & maintenance modules) |
 | Viewer | Management/stakeholders, read only | — (grows with the read-only modules) |
-| Auditor | Internal/external auditors | `users.read`, `roles.read` (audit log to follow) |
+| Auditor | Internal/external auditors | `users.read`, `roles.read`, `audit.read`, `audit.export` |
 
 The current list is always shown on the **Roles** tab of the Users & Roles menu, with the number of users per role.
 
@@ -41,6 +41,9 @@ The current list is always shown on the **Roles** tab of the Users & Roles menu,
 | `roles.read` | Viewing the role list and its permissions |
 | `system.version.read` | Viewing application build details (commit, Go version, server clock) |
 | `ui.design_system` | Opening the UI component showcase page (for developers) |
+| `audit.read` | Viewing the audit log and the hash-chain integrity status, running a verification ([Audit Log](../audit/index.md)) |
+| `audit.export` | Exporting the audit log to CSV (the export itself is recorded) |
+| `help.admin` | Reading Admin-only Help Center guides, including the API reference |
 
 ## Related API endpoints
 

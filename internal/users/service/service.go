@@ -303,7 +303,7 @@ func (s *Service) SetRoles(ctx context.Context, id uuid.UUID, roles []string, me
 		if err != nil {
 			return err
 		}
-		if _, err := q.LockAdminRole(ctx); err != nil {
+		if err := q.LockAdminRole(ctx); err != nil {
 			return fmt.Errorf("lock admin role: %w", err)
 		}
 		cur, err := s.get(ctx, q, id)
@@ -355,7 +355,7 @@ func (s *Service) SetStatus(ctx context.Context, id uuid.UUID, status string, me
 	var revoked int64
 	changed := false
 	err := s.tx(ctx, func(q *repo.Queries) error {
-		if _, err := q.LockAdminRole(ctx); err != nil {
+		if err := q.LockAdminRole(ctx); err != nil {
 			return fmt.Errorf("lock admin role: %w", err)
 		}
 		cur, err := s.get(ctx, q, id)
@@ -480,7 +480,7 @@ func (s *Service) UserIDByUsername(ctx context.Context, username string) (uuid.U
 }
 
 // guardAdminLoss refuses changes that take away cur's Admin access (role removal or disabling) when cur is the
-// actor, or when no other active Admin would remain. Call with the admin role row locked.
+// actor, or when no other active Admin would remain. Call holding LockAdminRole (advisory lock).
 func (s *Service) guardAdminLoss(ctx context.Context, q *repo.Queries, cur User) error {
 	if self(ctx, cur.ID) {
 		return ErrSelf

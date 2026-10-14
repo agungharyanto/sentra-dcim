@@ -1,0 +1,82 @@
+{
+  "description": "Jejak semua aksi penting: siapa, kapan, dari mana, dan hasilnya. Catatan tidak bisa diubah dan terkunci dalam hash chain.",
+  "integrity": {
+    "title": "Integritas hash chain",
+    "intact": "Utuh",
+    "broken": "Rusak",
+    "unknown": "Belum diverifikasi",
+    "unknownBody": "Belum ada verifikasi sejak aplikasi terakhir dijalankan. Verifikasi otomatis berjalan setiap hari.",
+    "running": "Sedang memverifikasi…",
+    "verifiedAt": "Diverifikasi {{time}}",
+    "checked": "{{count}} event diperiksa (s.d. seq {{head}})",
+    "checkpoint": "Dimulai setelah checkpoint pemangkasan seq {{seq}}",
+    "brokenAt": "Masalah pertama di seq {{seq}}: {{reason}}",
+    "verify": "Verifikasi sekarang",
+    "verifyDone": "Verifikasi selesai: hash chain utuh.",
+    "verifyBroken": "Verifikasi selesai: hash chain RUSAK.",
+    "busy": "Verifikasi lain sedang berjalan. Coba lagi sebentar lagi."
+  },
+  "filter": {
+    "title": "Filter",
+    "since": "Dari (WIB)",
+    "until": "Sampai (WIB)",
+    "actor": "Pelaku",
+    "actorPlaceholder": "Nama pengguna",
+    "action": "Aksi",
+    "allActions": "Semua aksi",
+    "prefixOption": "{{prefix}}.* (semua)",
+    "result": "Hasil",
+    "allResults": "Semua hasil",
+    "target": "Target",
+    "targetPlaceholder": "ID objek",
+    "apply": "Terapkan",
+    "reset": "Reset",
+    "export": "Ekspor CSV",
+    "exportHint": "Maksimal 50.000 event terbaru sesuai filter. Ekspor tercatat di audit log."
+  },
+  "result": {
+    "success": "Berhasil",
+    "failure": "Gagal",
+    "denied": "Ditolak"
+  },
+  "actorType": {
+    "user": "Pengguna",
+    "system": "Sistem",
+    "anonymous": "Anonim"
+  },
+  "table": {
+    "time": "Waktu (WIB)",
+    "actor": "Pelaku",
+    "action": "Aksi",
+    "result": "Hasil",
+    "target": "Target",
+    "ip": "IP",
+    "details": "Detail",
+    "detailsLabel": "Detail event seq {{seq}}",
+    "empty": "Belum ada event audit.",
+    "emptyFiltered": "Tidak ada event yang cocok dengan filter.",
+    "loadMore": "Muat lebih banyak",
+    "end": "Tidak ada event yang lebih lama.",
+    "shown": "{{count}} event ditampilkan"
+  },
+  "detail": {
+    "title": "Detail event",
+    "description": "Event audit seq {{seq}}",
+    "seq": "Seq",
+    "time": "Waktu",
+    "timeUtc": "Waktu (UTC)",
+    "actor": "Pelaku",
+    "actorId": "ID pelaku",
+    "action": "Aksi",
+    "result": "Hasil",
+    "target": "Target",
+    "ip": "IP",
+    "userAgent": "User agent",
+    "requestId": "ID request",
+    "metadata": "Metadata",
+    "noMetadata": "Tanpa metadata",
+    "hash": "Hash",
+    "close": "Tutup"
+  },
+  "none": "—"
+}

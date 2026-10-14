@@ -48,13 +48,14 @@ func TestResolve(t *testing.T) {
 		t.Errorf("unknown + viewer = %v", got)
 	}
 	got := Resolve([]string{RoleAuditor, RoleAuditor, RoleViewer})
-	if !slices.Equal(got, []Permission{RolesRead, UsersRead}) {
+	if !slices.Equal(got, []Permission{AuditExport, AuditRead, RolesRead, UsersRead}) {
 		t.Errorf("auditor = %v", got)
 	}
 	// Least privilege: only Admin may manage users or read build details.
 	for _, r := range SystemRoleKeys {
 		ps := Resolve([]string{r})
-		if r != RoleAdmin && (slices.Contains(ps, UsersManage) || slices.Contains(ps, SystemVersionRead) || slices.Contains(ps, UIDesignSystem)) {
+		if r != RoleAdmin && (slices.Contains(ps, UsersManage) || slices.Contains(ps, SystemVersionRead) || slices.Contains(ps, UIDesignSystem) ||
+			slices.Contains(ps, HelpAdmin)) {
 			t.Errorf("role %s must not have %v", r, ps)
 		}
 	}

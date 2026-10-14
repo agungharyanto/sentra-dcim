@@ -4,6 +4,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { appPass, appTotpSecret, appUser, artifactsDir, catalog, freshTotp, watchProblems } from "./helpers";
 
 const id = catalog("id", "auth");
+const common = catalog("id", "common");
 const mobile = { width: 390, height: 844 };
 const signedOut = { cookies: [], origins: [] };
 
@@ -37,10 +38,22 @@ test.describe("auth (signed out)", () => {
       route.fulfill({ status: 401, json: { error: { code: "invalid_credentials", message: "invalid username or password" } } }),
     );
     await page.getByLabel(id.login.username).fill("operator.contoh");
-    await page.getByLabel(id.login.password).fill("bukan-kata-sandi");
+    await page.getByLabel(id.login.password, { exact: true }).fill("bukan-kata-sandi");
+    // Show/hide toggle (D-071): hidden by default, revealed on request, hidden again after submit.
+    const pwInput = page.locator("#login-password");
+    await expect(pwInput).toHaveAttribute("type", "password");
+    await page.getByRole("button", { name: common.password.show }).click();
+    await expect(pwInput).toHaveAttribute("type", "text");
+    await expect(page.getByRole("button", { name: common.password.hide })).toHaveAttribute("aria-pressed", "true");
+    await expectAccessible(page, "login password shown");
+    await page.screenshot({ path: `${artifactsDir}/auth-login-password-shown.png`, fullPage: true });
+    await page.setViewportSize(mobile);
+    await page.screenshot({ path: `${artifactsDir}/auth-login-password-shown-mobile.png`, fullPage: true });
+    await page.setViewportSize({ width: 1280, height: 720 });
     await page.getByRole("button", { name: id.login.submit }).click();
     await expect(page.getByTestId("login-error")).toHaveText(id.login.invalid);
-    await expect(page.getByLabel(id.login.password)).toHaveValue("");
+    await expect(page.getByLabel(id.login.password, { exact: true })).toHaveValue("");
+    await expect(pwInput).toHaveAttribute("type", "password");
     await expectAccessible(page, "login error");
     await page.screenshot({ path: `${artifactsDir}/auth-login-error.png`, fullPage: true });
 
@@ -56,7 +69,7 @@ test.describe("auth (signed out)", () => {
     const problems = await watchProblems(page);
     await page.goto("/login");
     await page.getByLabel(id.login.username).fill(appUser);
-    await page.getByLabel(id.login.password).fill(appPass);
+    await page.getByLabel(id.login.password, { exact: true }).fill(appPass);
     await page.getByRole("button", { name: id.login.submit }).click();
     await expect(page).toHaveURL(/\/mfa\?next=%2Fdashboard$/);
     test.setTimeout(90_000); // waits for a fresh 30 s step

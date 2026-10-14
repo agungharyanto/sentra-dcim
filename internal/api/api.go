@@ -5,6 +5,7 @@ package api
 import (
 	"github.com/go-chi/chi/v5"
 
+	audithandler "github.com/agungharyanto/sentra-dcim/internal/audit/handler"
 	authhandler "github.com/agungharyanto/sentra-dcim/internal/auth/handler"
 	helphandler "github.com/agungharyanto/sentra-dcim/internal/help/handler"
 	systemhandler "github.com/agungharyanto/sentra-dcim/internal/system/handler"
@@ -19,6 +20,7 @@ type Modules struct {
 	Help   *helphandler.Handler
 	Auth   *authhandler.Handler
 	Users  *usershandler.Handler
+	Audit  *audithandler.Handler
 }
 
 // PublicRoutes is the allowlist of "METHOD /path" reachable without a session on the public listener.
@@ -53,6 +55,29 @@ var SelfServiceRoutes = []string{
 	"GET /api/v1/ready", // public listener only: a signed-in check of dependency status
 }
 
+// AuditedRoutes maps every state-changing route (POST/PUT/PATCH/DELETE) to the audit actions it records (success
+// or failure). test/integration TestAuditCoverage fails when an unsafe route is missing here, and checks that a
+// realistic session of every route really writes each listed action. Refusals are audited centrally: 403 by
+// Auth.Require (authz.denied), CSRF by Auth.CSRF (security.csrf_denied), both aggregated when repeated.
+var AuditedRoutes = map[string][]string{
+	"POST /api/v1/auth/login":                {"auth.login.password_ok", "auth.login.failure"},
+	"POST /api/v1/auth/logout":               {"auth.logout"},
+	"POST /api/v1/auth/password":             {"auth.password.change"},
+	"DELETE /api/v1/auth/sessions/{id}":      {"auth.session.revoke"},
+	"POST /api/v1/auth/mfa/enrol":            {"auth.mfa.enrol_start"},
+	"POST /api/v1/auth/mfa/enrol/confirm":    {"auth.mfa.enrol", "auth.login.success"},
+	"POST /api/v1/auth/mfa/verify":           {"auth.mfa.verify", "auth.login.success"},
+	"POST /api/v1/auth/mfa/recovery-codes":   {"auth.mfa.recovery_codes"},
+	"POST /api/v1/users":                     {"user.create"},
+	"PATCH /api/v1/users/{id}":               {"user.update"},
+	"PUT /api/v1/users/{id}/roles":           {"user.roles.update"},
+	"POST /api/v1/users/{id}/disable":        {"user.disable"},
+	"POST /api/v1/users/{id}/enable":         {"user.enable"},
+	"POST /api/v1/users/{id}/password-reset": {"user.password.reset"},
+	"POST /api/v1/users/{id}/mfa-reset":      {"user.mfa.reset"},
+	"POST /api/v1/audit/integrity/verify":    {"audit.verify"},
+}
+
 // Mount returns the /api/v1 mount function. internal selects the loopback listener variant.
 func Mount(m Modules, internal bool) func(r chi.Router) {
 	return func(r chi.Router) {
@@ -75,6 +100,7 @@ func Mount(m Modules, internal bool) func(r chi.Router) {
 			m.UI.Routes(r)
 			m.Help.Routes(r)
 			m.Users.Routes(r, m.Auth.Require)
+			m.Audit.Routes(r, m.Auth.Require)
 		})
 	}
 }

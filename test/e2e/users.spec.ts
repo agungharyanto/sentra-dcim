@@ -92,6 +92,9 @@ test.describe("users & roles", () => {
     await page.screenshot({ path: `${artifactsDir}/users-create.png` });
     await dialog.getByRole("button", { name: tx.create.submit }).click();
     const value = dialog.getByTestId("temporary-password-value");
+    await expect(value).toHaveAttribute("data-shown", "false"); // hidden by default (D-071)
+    await page.screenshot({ path: `${artifactsDir}/users-temp-password-hidden.png` });
+    await dialog.getByTestId("password-toggle").click();
     await expect(value).toHaveText(/^[A-Za-z2-9]{4}(-[A-Za-z2-9]{4}){3}$/);
     const temp = (await value.textContent()) ?? "";
     await expectAccessible(page, "temporary password");
@@ -128,6 +131,7 @@ test.describe("users & roles", () => {
 
     await page.getByTestId("reset-password").click();
     await page.getByTestId("confirm").click();
+    await page.getByTestId("password-toggle").click();
     await expect(page.getByTestId("temporary-password-value")).toHaveText(/^[A-Za-z2-9]{4}(-[A-Za-z2-9]{4}){3}$/);
     await page.getByRole("button", { name: tx.temp.done }).click();
     await other.close();

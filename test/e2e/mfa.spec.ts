@@ -180,7 +180,7 @@ test.describe("MFA", () => {
     const p = await ctx.newPage();
     await p.goto("/login");
     await p.getByLabel(tx.login.username).fill(username);
-    await p.getByLabel(tx.login.password).fill(temp);
+    await p.getByLabel(tx.login.password, { exact: true }).fill(temp);
     await p.getByRole("button", { name: tx.login.submit }).click();
     await expect(p.getByRole("heading", { level: 1 })).toHaveText(tx.mfa.enrolTitle);
     await p.getByTestId("mfa-start").click();

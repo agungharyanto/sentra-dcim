@@ -51,14 +51,17 @@
     "security": "Petugas keamanan & akses fisik.",
     "technician": "Teknisi fasilitas & perangkat.",
     "viewer": "Hanya melihat (pimpinan/pemangku kepentingan).",
-    "auditor": "Pemeriksa: melihat pengguna & role (log audit menyusul)."
+    "auditor": "Pemeriksa: melihat pengguna & role, audit log, dan ekspornya."
   },
   "permission": {
     "users_read": "Melihat pengguna",
     "users_manage": "Mengelola pengguna",
     "roles_read": "Melihat role",
     "system_version_read": "Melihat detail build",
-    "ui_design_system": "Membuka showcase design system"
+    "ui_design_system": "Membuka showcase design system",
+    "audit_read": "Melihat audit log",
+    "audit_export": "Mengekspor audit log (CSV)",
+    "help_admin": "Membaca panduan khusus Admin"
   },
   "rolesTab": {
     "description": "Role adalah kumpulan izin. Pengguna mendapat gabungan izin semua role-nya. Semua pengguna yang masuk dapat memakai Dasbor, Pusat Bantuan, dan akun sendiri.",

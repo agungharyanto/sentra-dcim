@@ -3,6 +3,51 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [v0.3.4] - 2026-10-14 — Audit Log
+
+### Ditambahkan
+- **Tampilkan/sembunyikan kata sandi** (D-071): tombol ikon mata di kolom kata sandi login dan form ganti kata
+  sandi (wajib & akun) — default tersembunyi, `type="button"`, `aria-label` ID/EN + `aria-pressed`, tersembunyi lagi
+  setelah submit, `autocomplete` tidak berubah. Kata sandi sementara (buat pengguna/reset) kini **tersembunyi secara
+  default** (nilainya tidak ada di DOM) dengan tombol mata; tombol salin menyalin tanpa menampilkan, dan pesan gagal
+  salin tidak memuat nilainya.
+
+- **Role database terpisah** (ISS-039, D-072): app berjalan sebagai `DB_APP_USER` (anggota `sentra_app`, DML saja;
+  `audit_events` hanya INSERT+SELECT lewat GRANT); kredensial owner hanya di container one-shot `ops`
+  (`make migrate` = migrasi + `sentra db sync-app-role`). Variabel baru `DB_APP_USER`, `DB_APP_PASSWORD` (diisi
+  pemilik). `make up` kini menyalakan database, menjalankan migrasi & role, baru app.
+- **Hash chain audit log** (D-073, migrasi 000007): setiap event berantai `sha256(prev_hash ‖ kanonik(baris))`,
+  diisi trigger di bawah advisory lock (insert paralel tidak bercabang; baris lama di-backfill). Verifikasi
+  `sentra audit verify` + job harian di app (gagal → log error). Setiap backup menyimpan kepala chain
+  (`audit-anchor.json`); `make audit-verify` mencocokkan chain dengan anchor semua backup (`UNTIL=` setelah restore).
+- **Retensi audit log**: `AUDIT_RETENTION_DAYS` (default 365, minimum 90). `make audit-prune` (juga dijalankan
+  timer backup harian setelah backup sukses) mengarsipkan event di luar retensi ke `$BACKUP_DIR/audit-archive/`
+  (gzip JSON lines + `.sha256`), lalu — sebagai role owner di container `ops` — menghapusnya hanya bila checksum
+  arsip cocok dengan ekspor ulang dalam transaksi yang sama, menyimpan checkpoint (hash baris terakhir) di
+  `audit_checkpoints` dan mencatat event `audit.prune`. Chain tetap terverifikasi; arsip bisa diverifikasi offline
+  dengan `sentra audit verify-archive`.
+- **Cakupan event audit**: semua route tulis terdaftar di `api.AuditedRoutes` dan diuji (route tulis baru tanpa
+  aksi audit menggagalkan tes). Event baru `auth.mfa.enrol_start` dan `security.csrf_denied`. Penolakan berulang
+  (403 `authz.denied`, CSRF) oleh aktor/IP yang sama pada route yang sama dalam 10 menit dicatat sekali, lalu
+  diringkas menjadi satu event `….repeated` (jumlah, waktu pertama/terakhir) — log tidak bisa dibanjiri.
+  Sanitasi metadata kini rekursif dan juga membuang kunci OTP/recovery code/kunci API; diuji bahwa kata sandi,
+  token sesi/CSRF, secret TOTP, kode MFA, dan recovery code tidak pernah masuk audit log.
+- **Menu Audit Log** (`/audit`, D-075, izin `audit.read` untuk Admin & Auditor): status integritas hash chain +
+  *Verifikasi sekarang*, filter waktu (WIB), pelaku, aksi (atau awalan), hasil, target; tabel/kartu dengan waktu WIB,
+  detail event (metadata, hash), *Muat lebih banyak* (keyset). **Ekspor CSV** (`audit.export`) dengan filter yang
+  sama, injeksi formula dinetralkan, ekspor tercatat. API `/api/v1/audit/{events,events/export.csv,actions,integrity,
+  integrity/verify}` + OpenAPI. Pusat Bantuan *Audit Log* & *Verifikasi integritas* (ID/EN).
+- **Pusat Bantuan disaring per izin** (ISS-032, D-074): panduan Admin dan referensi API hanya untuk Admin; panduan
+  menu berizin hanya untuk pemegang izinnya; selebihnya 404. Izin baru `help.admin` (Admin).
+
+### Diperbaiki
+- Event login gagal karena rate limit tidak lagi menyimpan "username" yang salah format (bisa berupa kata sandi
+  yang salah ketik di kolom nama pengguna).
+- **ISS-042**: pengaman "Admin aktif terakhir" memakai advisory lock (sebelumnya `FOR UPDATE` yang butuh hak
+  UPDATE di `roles`).
+- **ISS-041**: `make release` kini bisa merilis versi yang mengganti file jail fail2ban — cek pra-merge memakai
+  versi branch yang dirilis.
+
 ## [v0.3.3] - 2026-10-14 — MFA & Cabut basic_auth
 
 Keputusan: D-061..D-067 (urutan v0.3.3/v0.3.4 ditukar; MFA wajib untuk semua role).
@@ -71,7 +116,7 @@ Sprint v0.3 "Auth, RBAC & Audit Log", sub-versi 2. Keputusan: D-053..D-060.
   /api/v1/roles`. Kata sandi sementara dibuat server (`xxxx-xxxx-xxxx-xxxx`, ≈92 bit), tampil sekali
   (`Cache-Control: no-store`), wajib diganti; reset & nonaktif mencabut semua sesi pengguna; reset membuka lockout.
   Pengaman: tidak bisa menonaktifkan/mencabut Admin/me-reset akun sendiri, Admin aktif terakhir tidak bisa
-  kehilangan akses (baris role admin dikunci `FOR UPDATE`). Akun tidak pernah dihapus. Semua perubahan diaudit
+  kehilangan akses (serialisasi lewat kunci; sejak v0.3.4 advisory lock, ISS-042). Akun tidak pernah dihapus. Semua perubahan diaudit
   (`user.create|update|roles.update|disable|enable|password.reset`) tanpa kata sandi.
 - **UI Pengguna & Role** (`/users`, menu Sistem): daftar (tabel desktop, kartu mobile, cari, filter, paging), tab
   Role (izin + jumlah pengguna), dialog tambah pengguna dengan kata sandi sementara sekali tampil + tombol salin,

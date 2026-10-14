@@ -145,7 +145,7 @@ check "migrate goto 0 (all down)" app_db migrate goto 0
 check "schema empty after down" bash -c "[[ \$(psql_db -d '$REGRESS_DB' -c \"select count(*) from pg_tables where schemaname='public' and tablename<>'schema_migrations'\") == 0 ]]"
 check "migrate up (all $latest)" app_db migrate up
 check "version == latest ($latest), not dirty" bash -c "app_db migrate version | grep -qx 'version=$latest dirty=false latest=$latest'"
-check "production DB untouched: still at version $latest" bash -c "docker compose exec -T app /sentra migrate version | grep -qx 'version=$latest dirty=false latest=$latest'"
+check "production DB untouched: still at version $latest" bash -c "docker compose run --rm --no-deps ops migrate version | grep -qx 'version=$latest dirty=false latest=$latest'"
 check "migrate down 1 + up (last migration reversible)" bash -c "app_db migrate down 1 && app_db migrate up"
 check "drop regression database" psql_db -d postgres -c "DROP DATABASE IF EXISTS $REGRESS_DB WITH (FORCE)"
 check "live /ready still 200" bash -c "[[ \$(curl -s -o /dev/null -w '%{http_code}' http://${CADDY_HTTP_BIND:-127.0.0.1:8080}/api/v1/ready) == 200 ]]"

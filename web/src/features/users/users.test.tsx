@@ -126,7 +126,15 @@ describe("users & roles", () => {
     await userEvent.click(within(dialog).getByRole("checkbox", { name: new RegExp(tx.roles.technician) }));
     await userEvent.click(within(dialog).getByRole("button", { name: tx.create.submit }));
 
-    expect(await within(dialog).findByTestId("temporary-password-value")).toHaveTextContent(TEMP);
+    // Hidden by default (not even in the DOM), revealed on request; the copy button needs no reveal.
+    const value = await within(dialog).findByTestId("temporary-password-value");
+    expect(value).not.toHaveTextContent(TEMP);
+    expect(within(dialog).queryByText(TEMP)).not.toBeInTheDocument();
+    const toggle = within(dialog).getByRole("button", { name: resources.id.common.password.show });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(toggle);
+    expect(value).toHaveTextContent(TEMP);
+    expect(within(dialog).getByRole("button", { name: resources.id.common.password.hide })).toHaveAttribute("aria-pressed", "true");
     expect(within(dialog).getByRole("note")).toHaveTextContent(tx.temp.warning);
     const post = calls.find((c) => c.method === "POST" && c.url === "/api/v1/users");
     expect(post?.body).toEqual({ username: "teknisi.02", display_name: "Teknisi Dua", email: "", roles: ["technician"] });
@@ -176,7 +184,9 @@ describe("users & roles", () => {
 
     await userEvent.click(screen.getByTestId("reset-password"));
     await userEvent.click(within(await screen.findByTestId("confirm-dialog")).getByTestId("confirm"));
-    expect(await screen.findByTestId("temporary-password-value")).toHaveTextContent(TEMP);
+    expect(await screen.findByTestId("temporary-password-value")).not.toHaveTextContent(TEMP);
+    await userEvent.click(screen.getByTestId("password-toggle"));
+    expect(screen.getByTestId("temporary-password-value")).toHaveTextContent(TEMP);
   });
 
   it("saves roles", async () => {

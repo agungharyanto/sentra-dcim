@@ -10,6 +10,11 @@ import (
 
 type Querier interface {
 	InsertEvent(ctx context.Context, arg InsertEventParams) (InsertEventRow, error)
+	ListActions(ctx context.Context) ([]string, error)
+	// ListEvents is the audit viewer (v0.3.4): newest first, keyset pagination on chain_seq (before = exclusive upper
+	// bound). Empty/NULL filters are ignored; actor is a literal substring (LIKE wildcards escaped by the caller);
+	// action matches exactly or as a dotted prefix ("auth" → auth.*).
+	ListEvents(ctx context.Context, arg ListEventsParams) ([]ListEventsRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

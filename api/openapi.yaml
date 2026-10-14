@@ -62,6 +62,8 @@ tags:
     description: Masuk/keluar, sesi sendiri, ganti kata sandi (sesi server-side, ADR-003)
   - name: users
     description: Pengguna & Role — akun, penetapan role, nonaktifkan, reset kata sandi (RBAC, v0.3.2)
+  - name: audit
+    description: Audit log — penelusuran event, ekspor CSV, status & verifikasi hash chain (v0.3.4)
 paths:
   /api/v1/health:
     get:
@@ -816,8 +818,159 @@ paths:
               schema: { $ref: "#/components/schemas/RoleList" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/audit/events:
+    get:
+      tags: [audit]
+      operationId: listAuditEvents
+      x-sentra-access: login
+      x-sentra-permission: audit.read
+      summary: Daftar event audit (filter, keyset pagination)
+      description: |
+        Terbaru dulu (urut `seq` = posisi di hash chain). Halaman berikutnya (lebih lama): kirim `next_before` sebagai
+        `before`. Waktu dalam UTC; UI menampilkannya dalam zona waktu tampilan (WIB). Filter kosong diabaikan;
+        `actor` dicari literal (tanpa wildcard) di nama pengguna pelaku; `action` cocok persis atau sebagai awalan
+        bertitik (`auth` → `auth.*`). Metadata tidak pernah memuat kata sandi, token, atau kode MFA.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AuditSince"
+        - $ref: "#/components/parameters/AuditUntil"
+        - $ref: "#/components/parameters/AuditActor"
+        - $ref: "#/components/parameters/AuditAction"
+        - $ref: "#/components/parameters/AuditResult"
+        - $ref: "#/components/parameters/AuditTargetType"
+        - $ref: "#/components/parameters/AuditTargetId"
+        - $ref: "#/components/parameters/AuditBefore"
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        "200":
+          description: Satu halaman event
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditEventList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+  /api/v1/audit/events/export.csv:
+    get:
+      tags: [audit]
+      operationId: exportAuditEvents
+      x-sentra-access: login
+      x-sentra-permission: audit.export
+      summary: Ekspor CSV event audit (filter sama dengan daftar)
+      description: |
+        Maksimal 50.000 baris per ekspor (terbaru dulu). Kolom: `seq, occurred_at_utc, occurred_at_local, actor_type,
+        actor_username, actor_id, action, result, target_type, target_id, ip, user_agent, request_id, metadata, hash`.
+        **Injeksi formula dinetralkan**: sel yang diawali `=`, `+`, `-`, `@` (atau tab/CR) diberi awalan `'` agar
+        spreadsheet menampilkannya sebagai teks. Ekspor itu sendiri dicatat sebagai event `audit.export` (jumlah
+        baris, filter, terpotong atau tidak).
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/AuditSince"
+        - $ref: "#/components/parameters/AuditUntil"
+        - $ref: "#/components/parameters/AuditActor"
+        - $ref: "#/components/parameters/AuditAction"
+        - $ref: "#/components/parameters/AuditResult"
+        - $ref: "#/components/parameters/AuditTargetType"
+        - $ref: "#/components/parameters/AuditTargetId"
+        - $ref: "#/components/parameters/AuditBefore"
+      responses:
+        "200":
+          description: "File CSV (UTF-8, `Content-Disposition: attachment`, `Cache-Control: no-store`)"
+          content:
+            text/csv:
+              schema: { type: string }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+  /api/v1/audit/actions:
+    get:
+      tags: [audit]
+      operationId: listAuditActions
+      x-sentra-access: login
+      x-sentra-permission: audit.read
+      summary: Nama aksi yang ada di audit log (untuk pilihan filter)
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Daftar aksi unik, urut abjad
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [actions]
+                properties:
+                  actions: { type: array, items: { type: string, example: auth.login.success } }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/audit/integrity:
+    get:
+      tags: [audit]
+      operationId: getAuditIntegrity
+      x-sentra-access: login
+      x-sentra-permission: audit.read
+      summary: Status verifikasi hash chain terakhir
+      description: |
+        Hasil verifikasi terakhir sejak aplikasi berjalan (job harian atau manual); `last` null bila belum ada.
+        Verifikasi terhadap anchor di backup dijalankan operator (`make audit-verify`), bukan lewat API.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Status integritas
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditIntegrity" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/audit/integrity/verify:
+    post:
+      tags: [audit]
+      operationId: verifyAuditIntegrity
+      x-sentra-access: login
+      x-sentra-permission: audit.read
+      summary: Verifikasi hash chain sekarang
+      description: |
+        Menghitung ulang seluruh chain sejak checkpoint terakhir. Hanya satu verifikasi berjalan pada satu waktu
+        (`409 verification_running`). Dicatat sebagai event `audit.verify`; chain rusak juga dicatat di log level
+        error.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      responses:
+        "200":
+          description: Hasil verifikasi (`ok` false bila chain rusak — `broken_seq` dan `reason` menyebut lokasinya)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditVerifyResult" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: Verifikasi lain sedang berjalan (`verification_running`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorBody" }
 components:
   parameters:
+    AuditSince:
+      { name: since, in: query, description: "Waktu mulai (inklusif), RFC 3339", schema: { type: string, format: date-time } }
+    AuditUntil:
+      { name: until, in: query, description: "Waktu akhir (eksklusif), RFC 3339", schema: { type: string, format: date-time } }
+    AuditActor:
+      { name: actor, in: query, description: Bagian nama pengguna pelaku (literal), schema: { type: string, maxLength: 128 } }
+    AuditAction:
+      { name: action, in: query, description: Aksi atau awalannya, schema: { type: string, pattern: "^[a-z][a-z0-9_.]{0,63}$", example: auth.login } }
+    AuditResult:
+      { name: result, in: query, schema: { type: string, enum: [success, failure, denied] } }
+    AuditTargetType:
+      { name: target_type, in: query, schema: { type: string, maxLength: 64, example: user } }
+    AuditTargetId:
+      { name: target_id, in: query, schema: { type: string, maxLength: 128 } }
+    AuditBefore:
+      { name: before, in: query, description: "Kursor: hanya event dengan `seq` lebih kecil (nilai `next_before`)", schema: { type: integer, format: int64, minimum: 1 } }
     UserId:
       name: id
       in: path
@@ -921,6 +1074,52 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorBody" }
   schemas:
+    AuditEvent:
+      type: object
+      required: [seq, occurred_at, actor_type, actor_id, actor_username, action, target_type, target_id, result, ip, user_agent, request_id, metadata, hash]
+      properties:
+        seq: { type: integer, format: int64, description: Posisi di hash chain }
+        occurred_at: { type: string, format: date-time, description: UTC }
+        actor_type: { type: string, enum: [user, system, anonymous] }
+        actor_id: { type: [string, "null"], format: uuid }
+        actor_username: { type: string }
+        action: { type: string, example: user.create }
+        target_type: { type: string }
+        target_id: { type: string }
+        result: { type: string, enum: [success, failure, denied] }
+        ip: { type: string, description: Kosong bila tidak diketahui }
+        user_agent: { type: string }
+        request_id: { type: string }
+        metadata: { type: object, additionalProperties: true }
+        hash: { type: string, description: "SHA-256 (hex) baris ini = sha256(prev_hash ‖ bentuk kanonik)" }
+    AuditEventList:
+      type: object
+      required: [events, next_before, limit]
+      properties:
+        events: { type: array, items: { $ref: "#/components/schemas/AuditEvent" } }
+        next_before: { type: [integer, "null"], format: int64, description: "null pada halaman terakhir" }
+        limit: { type: integer }
+    AuditVerifyResult:
+      type: object
+      required: [ok, checked, from_seq, head_seq, head_hash, checkpoint_seq, anchors_checked, broken_seq, verified_at]
+      properties:
+        ok: { type: boolean }
+        checked: { type: integer, format: int64, description: Jumlah baris yang dihitung ulang }
+        from_seq: { type: integer, format: int64 }
+        head_seq: { type: integer, format: int64 }
+        head_hash: { type: string }
+        checkpoint_seq: { type: integer, format: int64, description: "Batas pemangkasan terakhir (0 = belum pernah)" }
+        anchors_checked: { type: integer }
+        broken_seq: { type: integer, format: int64, description: "Baris pertama yang rusak (0 = tidak ada)" }
+        reason: { type: string, description: Penyebab (tanpa isi baris) }
+        verified_at: { type: string, format: date-time }
+    AuditIntegrity:
+      type: object
+      required: [last, running]
+      properties:
+        last:
+          oneOf: [{ $ref: "#/components/schemas/AuditVerifyResult" }, { type: "null" }]
+        running: { type: boolean }
     LoginRequest:
       type: object
       additionalProperties: false

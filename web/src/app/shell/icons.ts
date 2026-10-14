@@ -7,6 +7,7 @@ import {
   IdCard,
   LayoutDashboard,
   type LucideIcon,
+  ScrollText,
   Server,
   Settings,
   Siren,
@@ -34,6 +35,7 @@ const icons: Record<string, LucideIcon> = {
   "circle-help": CircleHelp,
   settings: Settings,
   "user-cog": UserCog,
+  "scroll-text": ScrollText,
 };
 
 export function menuIcon(name: string): LucideIcon {

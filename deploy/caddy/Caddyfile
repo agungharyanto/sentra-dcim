@@ -143,6 +143,15 @@
 		import app_proxy app:8080
 	}
 
+	# Audit log viewer, CSV export and chain integrity: session + audit.read/audit.export checked by the app (v0.3.4).
+	@audit {
+		method GET HEAD POST
+		path /api/v1/audit/*
+	}
+	handle @audit {
+		import app_proxy app:8080
+	}
+
 	handle /api/* {
 		header Content-Type "application/json; charset=utf-8"
 		respond `{"error":{"code":"forbidden","message":"not publicly available"}}` 403

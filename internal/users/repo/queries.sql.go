@@ -296,16 +296,15 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUse
 	return items, nil
 }
 
-const lockAdminRole = `-- name: LockAdminRole :one
-SELECT id FROM roles WHERE key = 'admin' FOR UPDATE
+const lockAdminRole = `-- name: LockAdminRole :exec
+SELECT pg_advisory_xact_lock(hashtext('sentra.admin_guard'))
 `
 
-// LockAdminRole serialises every change that could remove the last active Admin (role changes, disabling).
-func (q *Queries) LockAdminRole(ctx context.Context) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, lockAdminRole)
-	var id uuid.UUID
-	err := row.Scan(&id)
-	return id, err
+// LockAdminRole serialises every change that could remove the last active Admin (role changes, disabling). An
+// advisory transaction lock: the application role has no UPDATE on roles, which SELECT … FOR UPDATE would need.
+func (q *Queries) LockAdminRole(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, lockAdminRole)
+	return err
 }
 
 const resetPassword = `-- name: ResetPassword :execrows

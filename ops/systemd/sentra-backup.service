@@ -9,6 +9,8 @@ User=sentra
 Group=sentra
 WorkingDirectory=/opt/sentra-dcim
 ExecStart=/opt/sentra-dcim/ops/backup.sh daily
+# Audit retention (v0.3.4): only after a successful backup, so the pruned rows are also in that dump.
+ExecStart=/opt/sentra-dcim/ops/audit-prune.sh
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=7

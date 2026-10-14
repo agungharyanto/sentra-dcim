@@ -37,6 +37,9 @@ func TestLoadDefaults(t *testing.T) {
 		cfg.Auth.LockDuration != 15*time.Minute || len(cfg.Auth.AllowedOrigins) != 1 {
 		t.Fatalf("auth defaults: %+v", cfg.Auth)
 	}
+	if cfg.AuditRetentionDays != 365 {
+		t.Fatalf("audit retention = %d", cfg.AuditRetentionDays)
+	}
 	if cfg.DefaultLocale != "id" {
 		t.Fatalf("default locale = %s", cfg.DefaultLocale)
 	}
@@ -101,6 +104,7 @@ func TestLoadInvalidValues(t *testing.T) {
 		"APP_ALLOWED_ORIGINS":    "javascript:alert(1)",
 		"AUTH_SESSION_IDLE":      "-5m",
 		"AUTH_ARGON2_MEMORY_KIB": "16",
+		"AUDIT_RETENTION_DAYS":   "89",
 	}
 	for k, v := range cases {
 		t.Run(k, func(t *testing.T) {

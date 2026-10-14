@@ -60,6 +60,13 @@ step() {
   fi
 }
 
+# drill_migrate starts the database, then migrates and creates the app login role with the owner's credentials.
+drill_migrate() {
+  compose up -d --wait --no-build db redis &&
+    compose run --rm --no-deps ops migrate up &&
+    compose run --rm --no-deps ops db sync-app-role
+}
+
 # drill_login proves the auth path end to end on the throwaway stack: `sentra user create-admin` (password on
 # stdin), login through Caddy (session cookie + CSRF), MFA enrolment (v0.3.3), the forced password
 # change, the help API, and
@@ -119,7 +126,7 @@ step "fresh clone has no .env and no secrets tracked" "$dir/secrets.log" \
 # Throwaway configuration: random secrets, no public domain, loopback ports that do not collide with production.
 umask 077
 sed -e "s/^POSTGRES_PASSWORD=CHANGE_ME/POSTGRES_PASSWORD=$(gen)/" -e "s/^REDIS_PASSWORD=CHANGE_ME/REDIS_PASSWORD=$(gen)/" \
-    -e "s|^MFA_ENC_KEY=$|MFA_ENC_KEY=$(openssl rand -base64 32)|" \
+    -e "s|^MFA_ENC_KEY=$|MFA_ENC_KEY=$(openssl rand -base64 32)|" -e "s/^DB_APP_PASSWORD=$/DB_APP_PASSWORD=$(openssl rand -hex 24)/" \
     -e "s/^DOMAIN=.*/DOMAIN=/" -e "s/^ACME_EMAIL=.*/ACME_EMAIL=/" \
     -e "s/^CADDY_PUBLIC_HTTP_BIND=.*/CADDY_PUBLIC_HTTP_BIND=127.0.0.1:28080/" \
     -e "s/^CADDY_PUBLIC_HTTPS_BIND=.*/CADDY_PUBLIC_HTTPS_BIND=127.0.0.1:28443/" \
@@ -132,6 +139,7 @@ umask 022
 cat > "$dir/drill.override.yml" <<YAML
 services:
   app:   { image: "sentra-drill-app:\${VERSION}" }
+  ops:   { image: "sentra-drill-app:\${VERSION}" }
   web:   { image: "sentra-drill-web:\${VERSION}" }
   caddy: { image: "sentra-drill-caddy:\${VERSION}" }
 YAML
@@ -146,9 +154,10 @@ step "build all images (app, web, caddy) from the clone" "$dir/build.log" compos
 echo "  info  build: $(( $(date +%s) - start )) s"
 step "image version == git describe ($describe)" "$dir/image.log" \
   bash -c "v=\$(docker run --rm --entrypoint /sentra 'sentra-drill-app:$describe' version | jq -r .version); echo \"image: \$v\"; [[ \"\$v\" == '$describe' ]]"
+# Database first, then migrations + the app login role (ops container, owner credentials, ISS-039), then the app.
+step "migrations up + app login role (ops container)" "$dir/migrate.log" drill_migrate
 step "4 containers healthy (up --no-build)" "$dir/up.log" compose up -d --wait --no-build
 echo "  info  build + start: $(( $(date +%s) - start )) s"
-step "migrations up" "$dir/migrate.log" compose exec -T app /sentra migrate up
 step "smoke test against the drill stack (expects $describe)" "$dir/smoke.log" \
   env BASE_URL=http://127.0.0.1:28081 EXPECT_VERSION="$describe" ./test/api/smoke.sh
 tail -n 1 "$dir/smoke.log" | sed 's/^/        | /'
@@ -156,6 +165,9 @@ step "login page public, data API needs a session (no basic_auth)" "$dir/ui.log"
   "[[ \$(curl -sk -o /dev/null -w '%{http_code}' https://localhost:28443/login) == 200 &&
      \$(curl -sk -o /dev/null -w '%{http_code}' https://localhost:28443/api/v1/ui/bootstrap) == 401 ]]"
 step "admin via CLI, login, MFA enrolment, forced password change, help API, Admin role (session)" "$dir/login.log" drill_login
+# The login above wrote audit events: the hash chain of the fresh install must verify (D-073).
+step "audit hash chain intact (sentra audit verify)" "$dir/audit.log" bash -c \
+  "set -o pipefail; docker compose -p $project -f docker-compose.yml -f '$dir/drill.override.yml' exec -T app /sentra audit verify | tee /dev/stderr | jq -e '.ok and .checked > 0' >/dev/null"
 # shellcheck disable=SC2016 # evaluated by the inner bash
 step "production stack untouched (project sentra still 4 healthy)" "$dir/prod.log" \
   bash -c '[[ $(docker ps --filter label=com.docker.compose.project=sentra --filter health=healthy -q | wc -l) -eq 4 ]]'

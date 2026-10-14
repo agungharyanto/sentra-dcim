@@ -24,6 +24,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/agungharyanto/sentra-dcim/internal/api"
+	"github.com/agungharyanto/sentra-dcim/internal/audit/chain"
+	audithandler "github.com/agungharyanto/sentra-dcim/internal/audit/handler"
 	auditrepo "github.com/agungharyanto/sentra-dcim/internal/audit/repo"
 	auditservice "github.com/agungharyanto/sentra-dcim/internal/audit/service"
 	authhandler "github.com/agungharyanto/sentra-dcim/internal/auth/handler"
@@ -64,6 +66,8 @@ type authEnv struct {
 	svc  *authservice.Service
 	usr  *usersservice.Service
 	dsn  string
+	// appDSN logs in as a test member of sentra_app (what the app and its CLI commands use in production).
+	appDSN string
 	// totp holds the MFA secret of each account enrolled through the API in this test (lower-case username).
 	totp map[string][]byte
 }
@@ -102,6 +106,13 @@ func newAuthEnv(t *testing.T, mod func(*config.Auth)) *authEnv {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
+	// The services run as the application role (DML only, ISS-039); pool (owner) is for test setup only.
+	appDSN := appRoleDSN(t, dsn)
+	appPool, err := pgxpool.New(ctx, appDSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(appPool.Close)
 	rdb, err := cache.Connect(ctx, config.Redis{Addr: addr, Password: os.Getenv("SENTRA_IT_REDIS_PASSWORD")})
 	if err != nil {
 		t.Fatal(err)
@@ -120,8 +131,8 @@ func newAuthEnv(t *testing.T, mod func(*config.Auth)) *authEnv {
 		mod(&cfg)
 	}
 	log := logging.Discard()
-	rec := auditservice.New(auditrepo.New(pool), log)
-	svc, err := authservice.New(authrepo.New(pool), authservice.NewRedisLimiter(rdb, prefix), rec, log, cfg)
+	rec := auditservice.New(auditrepo.New(appPool), log)
+	svc, err := authservice.New(authrepo.New(appPool), authservice.NewRedisLimiter(rdb, prefix), rec, log, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,10 +146,11 @@ func newAuthEnv(t *testing.T, mod func(*config.Auth)) *authEnv {
 		Help:   helphandler.New(nil, "id", []string{"id", "en"}),
 		Auth:   authhandler.New(svc, log, []string{srv.URL}),
 	}
-	usr := usersservice.New(pool, rec, log, cfg)
+	usr := usersservice.New(appPool, rec, log, cfg)
 	mods.Users = usershandler.New(usr, log)
+	mods.Audit = audithandler.New(auditrepo.New(appPool), rec, chain.NewMonitor(appPool, log, nil, time.Hour), time.UTC, log)
 	srv.Config.Handler = httpserver.NewRouter(log, nil, nil, api.Mount(mods, false))
-	return &authEnv{t: t, srv: srv, pool: pool, svc: svc, usr: usr, dsn: dsn, totp: map[string][]byte{}}
+	return &authEnv{t: t, srv: srv, pool: pool, svc: svc, usr: usr, dsn: dsn, appDSN: appDSN, totp: map[string][]byte{}}
 }
 
 // createUser creates an account through the CLI code path; ready=true clears must_change_password.

@@ -169,23 +169,37 @@ func (h *Handler) CSRF(next http.Handler) http.Handler {
 			return
 		}
 		if !h.originAllowed(r) {
-			httpserver.Error(w, r, http.StatusForbidden, CodeCSRF, "request origin not allowed")
+			h.csrfDenied(w, r, "origin", "request origin not allowed")
 			return
 		}
 		hdr := r.Header.Get(CSRFHeader)
 		if hdr == "" {
-			httpserver.Error(w, r, http.StatusForbidden, CodeCSRF, "missing CSRF header")
+			h.csrfDenied(w, r, "missing_header", "missing CSRF header")
 			return
 		}
 		if _, authed := SessionFrom(r.Context()); authed {
 			c, err := r.Cookie(CSRFCookie)
 			if err != nil || subtle.ConstantTimeCompare([]byte(c.Value), []byte(hdr)) != 1 {
-				httpserver.Error(w, r, http.StatusForbidden, CodeCSRF, "CSRF token mismatch")
+				h.csrfDenied(w, r, "token_mismatch", "CSRF token mismatch")
 				return
 			}
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// csrfDenied answers 403 csrf_failed and audits it (never the token values).
+func (h *Handler) csrfDenied(w http.ResponseWriter, r *http.Request, reason, msg string) {
+	if h.svc != nil {
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			if ref, err := url.Parse(r.Header.Get("Referer")); err == nil {
+				origin = ref.Scheme + "://" + ref.Host
+			}
+		}
+		h.svc.RecordCSRFDenied(r.Context(), reason, r.Method+" "+r.URL.Path, origin, audit.MetaFromRequest(r))
+	}
+	httpserver.Error(w, r, http.StatusForbidden, CodeCSRF, msg)
 }
 
 func (h *Handler) originAllowed(r *http.Request) bool {
@@ -396,7 +410,7 @@ func (h *Handler) mfaStatus(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) mfaEnrol(w http.ResponseWriter, r *http.Request) {
 	sess, _ := SessionFrom(r.Context())
-	en, err := h.svc.StartEnrolment(r.Context(), sess)
+	en, err := h.svc.StartEnrolment(r.Context(), sess, audit.MetaFromRequest(r))
 	if err != nil {
 		h.mfaError(w, r, "mfa enrol", err)
 		return

@@ -19,6 +19,7 @@
     "analytics": "Analitik",
     "help": "Pusat Bantuan",
     "users": "Pengguna & Role",
+    "audit": "Audit Log",
     "settings": "Pengaturan"
   },
   "menuDescription": {
@@ -35,6 +36,7 @@
     "analytics": "Analitik, deteksi anomali, dan ekspor laporan.",
     "help": "Panduan penggunaan dan dokumentasi API Sentra DCIM.",
     "users": "Akun pengguna, role, dan izin akses aplikasi.",
+    "audit": "Jejak aksi pengguna dan sistem, ekspor, dan verifikasi integritas.",
     "settings": "Pengaturan regional, akses, dan sistem."
   },
   "menuStatus": {

@@ -19,6 +19,7 @@
     "analytics": "Analytics",
     "help": "Help Center",
     "users": "Users & Roles",
+    "audit": "Audit Log",
     "settings": "Settings"
   },
   "menuDescription": {
@@ -35,6 +36,7 @@
     "analytics": "Analytics, anomaly detection and report export.",
     "help": "User guides and Sentra DCIM API documentation.",
     "users": "User accounts, roles and application access permissions.",
+    "audit": "Trail of user and system actions, export, and integrity verification.",
     "settings": "Regional, access and system settings."
   },
   "menuStatus": {

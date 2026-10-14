@@ -51,6 +51,7 @@ const (
 	ActionLoginPassword  = "auth.login.password_ok" //nolint:gosec // audit action name; password correct, MFA pending
 	ActionLoginSuccess   = "auth.login.success"     // password and MFA passed
 	ActionMFAEnrol       = "auth.mfa.enrol"
+	ActionMFAEnrolStart  = "auth.mfa.enrol_start"
 	ActionMFAVerify      = "auth.mfa.verify"
 	ActionMFARecovery    = "auth.mfa.recovery_codes"
 	ActionLoginFailure   = "auth.login.failure"
@@ -60,6 +61,7 @@ const (
 	ActionSessionRevoke  = "auth.session.revoke"
 	ActionCreateAdmin    = "user.create_admin"
 	ActionAuthzDenied    = "authz.denied"
+	ActionCSRFDenied     = "security.csrf_denied"
 )
 
 // Limiter is a fixed-window counter (Redis in production).
@@ -167,8 +169,12 @@ func (s *Service) Login(ctx context.Context, username, pw, oldToken string, meta
 
 	if err := s.rateLimit(ctx, username, meta); err != nil {
 		if errors.Is(err, ErrRateLimited) {
+			name := username
+			if !usernameRE.MatchString(name) { // possibly a password typed into the username field: never store it
+				name = ""
+			}
 			_ = s.audit.Record(ctx, audit.Event{Action: ActionLoginFailure, Result: audit.ResultDenied,
-				ActorUsername: username, Meta: meta, Metadata: map[string]any{"reason": "rate_limited"}})
+				ActorUsername: name, Meta: meta, Metadata: map[string]any{"reason": "rate_limited"}})
 		}
 		return LoginResult{}, err
 	}
@@ -486,10 +492,37 @@ func (s *Service) revokeToken(ctx context.Context, token string) {
 	}
 }
 
-// RecordDenied audits a request refused for a missing permission.
+// RecordDenied audits a request refused for a missing permission. Repeats by the same actor on the same route are
+// folded into one authz.denied.repeated event per window (audit throttle).
 func (s *Service) RecordDenied(ctx context.Context, perm rbac.Permission, route string, meta audit.Meta) {
-	_ = s.audit.Record(ctx, audit.Event{Action: ActionAuthzDenied, Result: audit.ResultDenied, TargetType: "route",
-		TargetID: route, Meta: meta, Metadata: map[string]any{"permission": string(perm)}})
+	s.audit.RecordAggregated(ctx, actorKey(ctx, meta)+"|"+route, audit.Event{Action: ActionAuthzDenied,
+		Result: audit.ResultDenied, TargetType: "route", TargetID: route, Meta: meta,
+		Metadata: map[string]any{"permission": string(perm)}})
+}
+
+// RecordCSRFDenied audits an unsafe request refused by the CSRF check (aggregated like RecordDenied). origin is the
+// client-supplied Origin/Referer origin (truncated), useful to spot cross-site attempts.
+func (s *Service) RecordCSRFDenied(ctx context.Context, reason, route, origin string, meta audit.Meta) {
+	if len(route) > 128 {
+		route = route[:128]
+	}
+	if len(origin) > 128 {
+		origin = origin[:128]
+	}
+	s.audit.RecordAggregated(ctx, actorKey(ctx, meta)+"|csrf|"+reason+"|"+route, audit.Event{Action: ActionCSRFDenied,
+		Result: audit.ResultDenied, TargetType: "route", TargetID: route, Meta: meta,
+		Metadata: map[string]any{"reason": reason, "origin": origin}})
+}
+
+// actorKey identifies who is being throttled: the signed-in user, else the client IP.
+func actorKey(ctx context.Context, meta audit.Meta) string {
+	if p, ok := principal.From(ctx); ok {
+		return "u:" + p.ID.String()
+	}
+	if meta.IP != nil {
+		return "ip:" + meta.IP.String()
+	}
+	return "anon"
 }
 
 func newPrincipal(id uuid.UUID, username string, sessionID uuid.UUID, roles []string) principal.Principal {

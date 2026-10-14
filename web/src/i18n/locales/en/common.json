@@ -23,5 +23,9 @@
   },
   "toast": {
     "region": "Notifications"
+  },
+  "password": {
+    "show": "Show password",
+    "hide": "Hide password"
   }
 }

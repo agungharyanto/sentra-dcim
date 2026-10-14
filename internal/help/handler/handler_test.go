@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
+	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -16,6 +18,8 @@ import (
 	"github.com/agungharyanto/sentra-dcim/internal/help/service"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/httpserver"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/logging"
+	"github.com/agungharyanto/sentra-dcim/internal/platform/principal"
+	"github.com/agungharyanto/sentra-dcim/internal/platform/rbac"
 	systemhandler "github.com/agungharyanto/sentra-dcim/internal/system/handler"
 	systemservice "github.com/agungharyanto/sentra-dcim/internal/system/service"
 	uiservice "github.com/agungharyanto/sentra-dcim/internal/ui/service"
@@ -36,11 +40,122 @@ func newServer(t *testing.T, cat *service.Catalog) *httptest.Server {
 	sys := systemservice.New(logging.Discard(), loc)
 	r := httpserver.NewRouter(logging.Discard(), nil, nil, func(r chi.Router) {
 		systemhandler.New(sys).Routes(r)
-		handler.New(cat, "id", []string{"id", "en"}).Routes(r)
+		r.Group(func(r chi.Router) {
+			r.Use(asRole)
+			handler.New(cat, "id", []string{"id", "en"}).Routes(r)
+		})
 	})
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
 	return srv
+}
+
+// asRole stands in for the session middleware: the principal holds the roles of X-Test-Roles (comma-separated;
+// default admin, "-" = no principal at all).
+func asRole(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		roles := r.Header.Get("X-Test-Roles")
+		if roles == "" {
+			roles = rbac.RoleAdmin
+		}
+		if roles != "-" {
+			rs := strings.Split(roles, ",")
+			r = r.WithContext(principal.With(r.Context(), principal.Principal{Type: principal.TypeUser, Roles: rs,
+				Permissions: rbac.Resolve(rs)}))
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func getAs(t *testing.T, url, roles string, out any) int {
+	t.Helper()
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	req.Header.Set("X-Test-Roles", roles)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if out != nil {
+		_ = json.NewDecoder(resp.Body).Decode(out)
+	}
+	return resp.StatusCode
+}
+
+// TestAudienceFiltering (ISS-032): admin pages and pages of menus a role cannot see are neither listed nor
+// fetchable, for every role, in both locales; the API reference is Admin-only.
+func TestAudienceFiltering(t *testing.T) {
+	cat := realCatalog(t)
+	srv := newServer(t, cat)
+	for _, loc := range []string{"id", "en"} {
+		all, _ := cat.Index(loc)
+		for _, roles := range append(slices.Clone(rbac.SystemRoleKeys), "-", "viewer,auditor") {
+			perms := rbac.Resolve(strings.Split(roles, ","))
+			if roles == "-" {
+				perms = nil
+			}
+			var idx struct {
+				Pages []struct{ Slug string } `json:"pages"`
+			}
+			if code := getAs(t, srv.URL+"/api/v1/help/index?locale="+loc, roles, &idx); code != http.StatusOK {
+				t.Fatalf("%s index: %d", roles, code)
+			}
+			listed := map[string]bool{}
+			for _, p := range idx.Pages {
+				listed[p.Slug] = true
+			}
+			for _, m := range all {
+				want := expectVisible(cat, loc, m, perms)
+				if listed[m.Slug] != want {
+					t.Errorf("%s/%s as %q: listed=%t, want %t", loc, m.Slug, roles, listed[m.Slug], want)
+				}
+				code := getAs(t, srv.URL+"/api/v1/help/pages/"+m.Slug+"?locale="+loc, roles, nil)
+				if (code == http.StatusOK) != want || (!want && code != http.StatusNotFound) {
+					t.Errorf("%s/%s as %q: fetch = %d, want visible=%t", loc, m.Slug, roles, code, want)
+				}
+			}
+			code := getAs(t, srv.URL+"/api/v1/help/openapi", roles, nil)
+			if (code == http.StatusOK) != slices.Contains(perms, rbac.HelpAdmin) {
+				t.Errorf("openapi as %q: %d", roles, code)
+			}
+		}
+	}
+	// Spot checks of the intended outcome (not just the rule restated).
+	for slug, who := range map[string]map[string]bool{
+		"users":       {"admin": true, "auditor": false, "viewer": false},
+		"users/roles": {"admin": true, "auditor": false, "viewer": false},
+		"api":         {"admin": true, "auditor": false, "viewer": false},
+		"audit":       {"admin": true, "auditor": true, "viewer": false, "technician": false},
+		"dashboard":   {"admin": true, "auditor": true, "viewer": true, "-": true},
+	} {
+		for roles, want := range who {
+			if code := getAs(t, srv.URL+"/api/v1/help/pages/"+slug, roles, nil); (code == http.StatusOK) != want {
+				t.Errorf("page %s as %s: %d, want visible=%t", slug, roles, code, want)
+			}
+		}
+	}
+}
+
+// expectVisible restates ISS-032 independently: admin audience → help.admin; a page (or ancestor) bound to a menu
+// with a permission → that permission.
+func expectVisible(cat *service.Catalog, loc string, m service.Meta, perms []rbac.Permission) bool {
+	_, menus := uiservice.Registry()
+	menuPerm := map[string]string{}
+	for _, mm := range menus {
+		menuPerm[mm.Key] = mm.Permission
+	}
+	for slug := m.Slug; ; slug = slug[:strings.LastIndex(slug, "/")] {
+		p, _ := cat.Page(loc, slug)
+		if p.Audience == service.AudienceAdmin && !slices.Contains(perms, rbac.HelpAdmin) {
+			return false
+		}
+		if mp := menuPerm[p.Menu]; mp != "" && !slices.Contains(perms, rbac.Permission(mp)) {
+			return false
+		}
+		if !strings.Contains(slug, "/") {
+			return true
+		}
+	}
 }
 
 type result struct {

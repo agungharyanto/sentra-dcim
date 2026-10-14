@@ -112,6 +112,7 @@
   },
   "copy": {
     "copied": "Copied",
-    "failed": "Could not copy to the clipboard. Copy manually: {{value}}"
+    "failed": "Could not copy to the clipboard. Copy manually: {{value}}",
+    "failedSecret": "Could not copy to the clipboard."
   }
 }

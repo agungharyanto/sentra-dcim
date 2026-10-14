@@ -2,6 +2,7 @@ import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
 
+import { PasswordInput } from "@/components/domain/PasswordInput";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -100,10 +101,9 @@ export function LoginPage() {
               <label htmlFor="login-password" className="text-sm font-medium">
                 {t("login.password")}
               </label>
-              <Input
+              <PasswordInput
                 id="login-password"
                 name="password"
-                type="password"
                 autoComplete="current-password"
                 required
                 maxLength={512}

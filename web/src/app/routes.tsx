@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 
+import { AuditModule } from "@/features/audit/AuditModule";
 import { canSeeMenu } from "@/features/auth/permissions";
 import type { MenuItem } from "@/features/bootstrap/api";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
@@ -17,6 +18,7 @@ export const moduleRegistry: Record<string, ComponentType> = {
   dashboard: DashboardPage,
   help: HelpCenter,
   users: UsersModule,
+  audit: AuditModule,
 };
 
 export type RouteKind = "module" | "coming_soon" | "not_connected" | "forbidden";

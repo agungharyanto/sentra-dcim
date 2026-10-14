@@ -57,7 +57,7 @@ log "backup: $backup_path"
 
 if ((target_schema < current_schema)); then
   log "migrating schema down to $target_schema with current binary"
-  compose exec -T app /sentra migrate goto "$target_schema"
+  compose run --rm --no-deps ops migrate goto "$target_schema"
 fi
 
 if [[ "$ref" == "main" ]]; then
