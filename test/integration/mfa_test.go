@@ -253,7 +253,7 @@ func TestCLIResetMFA(t *testing.T) {
 	}
 	run := func(args ...string) (string, error) {
 		cmd := exec.Command(bin, append([]string{"user", "reset-mfa"}, args...)...)
-		cmd.Env = append(os.Environ(), cliEnv(t, e.dsn)...)
+		cmd.Env = append(os.Environ(), cliEnv(t, e.appDSN)...)
 		out, err := cmd.CombinedOutput()
 		return string(out), err
 	}
@@ -285,7 +285,7 @@ func TestCLIUnlock(t *testing.T) {
 		t.Fatalf("build: %v\n%s", err, out)
 	}
 	cmd := exec.Command(bin, "user", "unlock", "--username", "locked.admin")
-	cmd.Env = append(os.Environ(), cliEnv(t, e.dsn)...)
+	cmd.Env = append(os.Environ(), cliEnv(t, e.appDSN)...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("unlock: %v\n%s", err, out)
 	}

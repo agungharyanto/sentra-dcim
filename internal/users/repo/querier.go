@@ -22,8 +22,9 @@ type Querier interface {
 	GetUserIDByUsername(ctx context.Context, username string) (uuid.UUID, error)
 	ListRoles(ctx context.Context) ([]ListRolesRow, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error)
-	// LockAdminRole serialises every change that could remove the last active Admin (role changes, disabling).
-	LockAdminRole(ctx context.Context) (uuid.UUID, error)
+	// LockAdminRole serialises every change that could remove the last active Admin (role changes, disabling). An
+	// advisory transaction lock: the application role has no UPDATE on roles, which SELECT … FOR UPDATE would need.
+	LockAdminRole(ctx context.Context) error
 	// ResetPassword stores a temporary password: it must be changed at the next login, and the lockout is cleared.
 	ResetPassword(ctx context.Context, arg ResetPasswordParams) (int64, error)
 	RevokeUserSessions(ctx context.Context, userID uuid.UUID) (int64, error)

@@ -279,6 +279,27 @@ Semua akun wajib MFA (D-062). Pemulihan, dari yang paling ringan:
    diisi pemilik), `make up`, lalu reset MFA **semua** akun via CLI (`reset-mfa` per pengguna); semua pengguna
    memasang ulang. **Jangan** mengganti key yang masih berfungsi: tidak ada rotasi otomatis.
 
+## Kredensial database: role owner & role app (v0.3.4+, ISS-039)
+
+| Role | Dipakai oleh | Hak | Kredensial |
+|---|---|---|---|
+| `POSTGRES_USER` (owner) | container `ops` saja: migrasi, `db sync-app-role`, pemangkasan audit; skrip backup/restore di container db | DDL, owner tabel | `POSTGRES_PASSWORD` di `.env` |
+| `DB_APP_USER` (default `sentra_app_login`, anggota `sentra_app`) | container `app` (server & CLI pengguna) | hanya DML yang di-GRANT; `audit_events` hanya INSERT+SELECT; tanpa DDL/TRUNCATE | `DB_APP_PASSWORD` di `.env` |
+
+**Rotasi password role app** (pemilik mengisi nilai, tidak lewat chat):
+```bash
+cd /opt/sentra-dcim
+sudo -u sentra -H nano .env               # ganti DB_APP_PASSWORD (openssl rand -hex 24)
+sudo -u sentra make migrate               # sync-app-role memasang password baru
+sudo -u sentra docker compose up -d app   # app memakai password baru
+```
+**Rotasi password owner** (`POSTGRES_PASSWORD`): ganti di database dulu
+(`docker compose exec db psql -U "$POSTGRES_USER" -c '\password'`), lalu `.env` dengan nilai yang sama, lalu
+`make up`. Image Postgres hanya memakai `POSTGRES_PASSWORD` saat inisialisasi volume pertama.
+
+Setelah **restore** ke server baru: `make up` (lewat `make migrate`) membuat ulang role login app dari `.env`; grant
+ikut dump (`restore.sh` memastikan role grup `sentra_app` ada sebelum `pg_restore`).
+
 ## Server baru (Ubuntu 24.04 kosong) — maksimal 5 perintah
 
 Prasyarat: deploy key SSH server baru sudah ditambahkan ke repo GitHub (read-only cukup untuk clone; *Allow write access* bila server ini juga push — lihat D-041; bila langsung `Permission denied`, tunggu sebentar lalu ulangi `ssh -T git@github.com`), dan file `.env`

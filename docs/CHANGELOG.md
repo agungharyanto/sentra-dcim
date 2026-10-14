@@ -12,7 +12,14 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
   default** (nilainya tidak ada di DOM) dengan tombol mata; tombol salin menyalin tanpa menampilkan, dan pesan gagal
   salin tidak memuat nilainya.
 
+- **Role database terpisah** (ISS-039, D-072): app berjalan sebagai `DB_APP_USER` (anggota `sentra_app`, DML saja;
+  `audit_events` hanya INSERT+SELECT lewat GRANT); kredensial owner hanya di container one-shot `ops`
+  (`make migrate` = migrasi + `sentra db sync-app-role`). Variabel baru `DB_APP_USER`, `DB_APP_PASSWORD` (diisi
+  pemilik). `make up` kini menyalakan database, menjalankan migrasi & role, baru app.
+
 ### Diperbaiki
+- **ISS-042**: pengaman "Admin aktif terakhir" memakai advisory lock (sebelumnya `FOR UPDATE` yang butuh hak
+  UPDATE di `roles`).
 - **ISS-041**: `make release` kini bisa merilis versi yang mengganti file jail fail2ban — cek pra-merge memakai
   versi branch yang dirilis.
 
@@ -84,7 +91,7 @@ Sprint v0.3 "Auth, RBAC & Audit Log", sub-versi 2. Keputusan: D-053..D-060.
   /api/v1/roles`. Kata sandi sementara dibuat server (`xxxx-xxxx-xxxx-xxxx`, ≈92 bit), tampil sekali
   (`Cache-Control: no-store`), wajib diganti; reset & nonaktif mencabut semua sesi pengguna; reset membuka lockout.
   Pengaman: tidak bisa menonaktifkan/mencabut Admin/me-reset akun sendiri, Admin aktif terakhir tidak bisa
-  kehilangan akses (baris role admin dikunci `FOR UPDATE`). Akun tidak pernah dihapus. Semua perubahan diaudit
+  kehilangan akses (serialisasi lewat kunci; sejak v0.3.4 advisory lock, ISS-042). Akun tidak pernah dihapus. Semua perubahan diaudit
   (`user.create|update|roles.update|disable|enable|password.reset`) tanpa kata sandi.
 - **UI Pengguna & Role** (`/users`, menu Sistem): daftar (tabel desktop, kartu mobile, cari, filter, paging), tab
   Role (izin + jumlah pengguna), dialog tambah pengguna dengan kata sandi sementara sekali tampil + tombol salin,

@@ -41,6 +41,39 @@ func adminURL(t *testing.T) *url.URL {
 	return u
 }
 
+// appRoleDSN returns a DSN for dsn's database that logs in as a fresh, test-only member of the application group role
+// sentra_app (migration 000006, ISS-039), so the code under test runs with the production privileges. Roles are
+// cluster-wide: the production login role is never touched; this one is dropped on cleanup (register it BEFORE
+// opening pools on it, so it is dropped after they close).
+func appRoleDSN(t *testing.T, dsn string) string {
+	t.Helper()
+	ctx := context.Background()
+	admin := adminURL(t)
+	conn, err := pgx.Connect(ctx, admin.String())
+	if err != nil {
+		t.Fatalf("connect admin: %v", err)
+	}
+	b := make([]byte, 6)
+	_, _ = rand.Read(b)
+	name := "sentra_it_" + hex.EncodeToString(b)
+	_, _ = rand.Read(b)
+	pw := "it-" + hex.EncodeToString(b) + hex.EncodeToString(b)
+	var stmt string
+	if err := conn.QueryRow(ctx, "SELECT format('CREATE ROLE %I LOGIN PASSWORD %L IN ROLE sentra_app', $1::text, $2::text)", name, pw).Scan(&stmt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := conn.Exec(ctx, stmt); err != nil {
+		t.Fatalf("create app test role: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = conn.Exec(ctx, "DROP ROLE IF EXISTS "+pgx.Identifier{name}.Sanitize())
+		_ = conn.Close(ctx)
+	})
+	u, _ := url.Parse(dsn)
+	u.User = url.UserPassword(name, pw)
+	return u.String()
+}
+
 // tempDB creates an isolated database and returns its URL; it is dropped on cleanup.
 func tempDB(t *testing.T) string {
 	t.Helper()

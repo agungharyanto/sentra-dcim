@@ -33,8 +33,11 @@ hooks: ## Install git pre-commit hook (gitleaks)
 .PHONY: up down logs ps build preflight caddy-validate version-check
 up: .env preflight ## Rebuild images for the current `git describe`, start all containers, migrate, verify version
 	$(COMPOSE) build app caddy
-	$(COMPOSE) up -d --wait
+	@# Database first: migrations and the app login role (owner credentials, ops container) before the app starts,
+	@# which connects as that role (ISS-039).
+	$(COMPOSE) up -d --wait db redis
 	$(MAKE) migrate
+	$(COMPOSE) up -d --wait
 	$(MAKE) --no-print-directory version-check
 
 version-check: .env ## Verify the running /api/v1/version == git describe of HEAD (internal listener)
@@ -51,6 +54,8 @@ preflight: .env ## Validate .env before starting (domain/ACME settings)
 	@set -a; source .env; set +a; \
 	if [[ -n "$${DOMAIN:-}" && "$$DOMAIN" != localhost && -z "$${ACME_EMAIL:-}" ]]; then \
 	  echo "preflight: DOMAIN=$$DOMAIN requires ACME_EMAIL in .env" >&2; exit 1; fi; \
+	if (( $${#DB_APP_PASSWORD} < 20 )); then \
+	  echo "preflight: DB_APP_PASSWORD must be at least 20 characters (openssl rand -hex 24), see .env.example" >&2; exit 1; fi; \
 	if [[ ! "$$(printf '%s' "$${MFA_ENC_KEY:-}" | base64 -d 2>/dev/null | wc -c)" == 32 ]]; then \
 	  echo "preflight: MFA_ENC_KEY must be 32 random bytes in base64 (openssl rand -base64 32), see .env.example" >&2; exit 1; fi; \
 	if [[ ! '$(VERSION)' =~ ^[A-Za-z0-9._-]+$$ ]]; then echo "preflight: invalid VERSION '$(VERSION)'" >&2; exit 1; fi
@@ -146,17 +151,18 @@ fmt: ## Format Go code
 
 ## ---------- Database ----------
 .PHONY: migrate migrate-down migrate-version migrate-goto
-migrate: ## Apply all pending migrations
-	$(COMPOSE) exec -T app /sentra migrate up
+migrate: ## Apply pending migrations and create/rotate the app login role (ops container, owner credentials)
+	$(COMPOSE) run --rm --no-deps ops migrate up
+	$(COMPOSE) run --rm --no-deps ops db sync-app-role
 
 migrate-down: ## Roll back the last migration (STEPS=n for more)
-	$(COMPOSE) exec -T app /sentra migrate down $${STEPS:-1}
+	$(COMPOSE) run --rm --no-deps ops migrate down $${STEPS:-1}
 
 migrate-version: ## Show current migration version
-	$(COMPOSE) exec -T app /sentra migrate version
+	$(COMPOSE) run --rm --no-deps ops migrate version
 
 migrate-goto: ## Migrate to a specific version (V=n)
-	$(COMPOSE) exec -T app /sentra migrate goto $(V)
+	$(COMPOSE) run --rm --no-deps ops migrate goto $(V)
 
 ## ---------- Ops & DR ----------
 .PHONY: backup restore rollback release harden backup-timer

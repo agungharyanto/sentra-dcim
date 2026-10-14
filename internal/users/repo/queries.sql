@@ -60,9 +60,10 @@ DELETE FROM user_roles WHERE user_id = @user_id;
 -- name: AddUserRole :exec
 INSERT INTO user_roles (user_id, role_id, granted_by) VALUES (@user_id, @role_id, @granted_by);
 
--- LockAdminRole serialises every change that could remove the last active Admin (role changes, disabling).
--- name: LockAdminRole :one
-SELECT id FROM roles WHERE key = 'admin' FOR UPDATE;
+-- LockAdminRole serialises every change that could remove the last active Admin (role changes, disabling). An
+-- advisory transaction lock: the application role has no UPDATE on roles, which SELECT … FOR UPDATE would need.
+-- name: LockAdminRole :exec
+SELECT pg_advisory_xact_lock(hashtext('sentra.admin_guard'));
 
 -- name: CountOtherActiveAdmins :one
 SELECT count(*) FROM users u

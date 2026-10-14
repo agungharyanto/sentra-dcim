@@ -70,10 +70,12 @@ func main() {
 		err = healthcheck()
 	case "user":
 		err = runUser(args)
+	case "db":
+		err = runDB(args)
 	case "version":
 		err = json.NewEncoder(os.Stdout).Encode(buildinfo.Get())
 	default:
-		err = fmt.Errorf("unknown command %q (want serve|migrate|healthcheck|user|version)", cmd)
+		err = fmt.Errorf("unknown command %q (want serve|migrate|healthcheck|user|db|version)", cmd)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

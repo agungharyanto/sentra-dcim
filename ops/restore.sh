@@ -63,6 +63,8 @@ DROP DATABASE IF EXISTS :"db" WITH (FORCE);
 CREATE DATABASE :"db";
 SQL
 db_psql -d "$db" -c "SET client_min_messages = warning; CREATE EXTENSION IF NOT EXISTS timescaledb; SELECT timescaledb_pre_restore();" >/dev/null
+# The dump grants privileges to the group role sentra_app (ISS-039): it must exist before pg_restore.
+db_psql -d postgres -c "DO \$\$ BEGIN CREATE ROLE sentra_app NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END \$\$;" >/dev/null
 
 log "restoring dump"
 errlog="$(mktemp)"
@@ -97,8 +99,11 @@ if ((isolated)); then
 fi
 
 log "starting stack"
+# Database first, then migrations + the app login role (ops container, ISS-039), then the app.
+compose up -d --wait db redis >/dev/null
+compose run --rm --no-deps ops migrate up >/dev/null
+compose run --rm --no-deps ops db sync-app-role >/dev/null
 compose up -d --wait >/dev/null
-compose exec -T app /sentra migrate up >/dev/null
 wait_ready 90 || die "stack not ready after restore (check: make logs SERVICE=app)"
 record_run restore success "$(basename "$src")" "{\"schema_version\":\"$restored_schema\"}"
 log "restore complete and stack is ready"
