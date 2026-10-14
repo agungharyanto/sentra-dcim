@@ -71,7 +71,7 @@ printf 'SENTRA_WEB_USER=%s\nSENTRA_WEB_PASS=%s\nSENTRA_APP_USER=%s\nSENTRA_APP_P
 echo "Playwright smoke → ${BASE_URL%/} ($PLAYWRIGHT_IMAGE)"
 # Repo mounted read-only; the test package is copied to a scratch dir so npm can install there.
 docker run --rm --init --ipc=host --network host --env-file "$tmp/env" \
-  --user "$(id -u):$(id -g)" -e HOME=/tmp -e E2E_ARTIFACTS=/artifacts \
+  --user "$(id -u):$(id -g)" -e HOME=/tmp -e E2E_ARTIFACTS=/artifacts -e E2E_MUTATIONS="${E2E_MUTATIONS:-0}" \
   -v "$root:/repo:ro" -v "$artifacts:/artifacts" "$PLAYWRIGHT_IMAGE" bash -euo pipefail -c '
     mkdir -p /tmp/w/test /tmp/w/web/src/i18n /tmp/w/web/src/test
     cp -r /repo/test/e2e /tmp/w/test/e2e && cp -r /repo/web/src/i18n/locales /tmp/w/web/src/i18n/locales

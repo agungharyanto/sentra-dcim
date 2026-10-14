@@ -1,0 +1,132 @@
+{
+  "tabs": {
+    "users": "Users",
+    "roles": "Roles"
+  },
+  "list": {
+    "description": "Manage Sentra DCIM user accounts, roles and access. Accounts are disabled, never deleted.",
+    "search": "Search name or username",
+    "searchLabel": "Search users",
+    "statusFilter": "Filter by status",
+    "roleFilter": "Filter by role",
+    "allStatuses": "All statuses",
+    "allRoles": "All roles",
+    "add": "Add user",
+    "name": "Name",
+    "roles": "Roles",
+    "status": "Status",
+    "lastLogin": "Last sign-in",
+    "actions": "Actions",
+    "manage": "Manage",
+    "view": "View",
+    "manageLabel": "Manage {{name}}",
+    "viewLabel": "View {{name}}",
+    "never": "Never",
+    "empty": "No users yet.",
+    "emptyFiltered": "No users match the filters.",
+    "range": "{{from}}–{{to}} of {{total}}",
+    "prev": "Previous",
+    "next": "Next",
+    "pagination": "User list pages",
+    "you": "You"
+  },
+  "status": {
+    "active": "Active",
+    "disabled": "Disabled",
+    "locked": "Locked",
+    "mustChange": "Must change password"
+  },
+  "roles": {
+    "admin": "Admin",
+    "noc": "NOC",
+    "security": "Security",
+    "technician": "Technician",
+    "viewer": "Viewer",
+    "auditor": "Auditor"
+  },
+  "roleDescription": {
+    "admin": "Application administrators: every permission, including users & roles.",
+    "noc": "24/7 monitoring operators.",
+    "security": "Security & physical access staff.",
+    "technician": "Facility & equipment technicians.",
+    "viewer": "Read only (management/stakeholders).",
+    "auditor": "Auditors: view users & roles (audit log to follow)."
+  },
+  "permission": {
+    "users_read": "View users",
+    "users_manage": "Manage users",
+    "roles_read": "View roles",
+    "system_version_read": "View build details"
+  },
+  "rolesTab": {
+    "description": "A role is a set of permissions. Users get the union of the permissions of all their roles. Every signed-in user can use the Dashboard, the Help Center and their own account.",
+    "role": "Role",
+    "permissions": "Permissions",
+    "users": "Users",
+    "noPermissions": "No module permissions yet (added as their modules ship)",
+    "system": "Built-in"
+  },
+  "create": {
+    "title": "Add user",
+    "description": "A temporary password is generated; the user must change it at first sign-in.",
+    "username": "Username",
+    "usernameHint": "3–64 characters: letters, digits, dot, underscore or hyphen. An employee ID is fine. Cannot be changed later.",
+    "displayName": "Display name",
+    "email": "E-mail (optional)",
+    "roles": "Roles",
+    "rolesHint": "Select at least one role. Choose the narrowest one for the job.",
+    "submit": "Save",
+    "submitting": "Saving…",
+    "cancel": "Cancel",
+    "required": "Enter a username and a display name and select at least one role."
+  },
+  "temp": {
+    "title": "Temporary password",
+    "forUser": "For {{username}}",
+    "warning": "Copy it now. This password is shown only once and cannot be viewed again. Hand it to the user directly, not through a group chat.",
+    "label": "Temporary password",
+    "copy": "Copy temporary password",
+    "done": "I have copied it"
+  },
+  "detail": {
+    "back": "Back to the user list",
+    "notFound": "User not found.",
+    "readOnly": "You can only view this data.",
+    "self": "This is your account. Disabling, removing the Admin role and resetting the password are not available for your own account.",
+    "profile": "Profile",
+    "profileDescription": "The username cannot be changed because the audit log refers to it.",
+    "username": "Username",
+    "displayName": "Display name",
+    "email": "E-mail",
+    "saveProfile": "Save profile",
+    "profileSaved": "Profile saved.",
+    "rolesTitle": "Roles",
+    "rolesDescription": "Role changes apply immediately, without signing in again.",
+    "saveRoles": "Save roles",
+    "rolesSaved": "Roles saved.",
+    "account": "Account status",
+    "created": "Created",
+    "updated": "Last changed",
+    "lastLogin": "Last sign-in",
+    "disable": "Disable",
+    "enable": "Enable",
+    "disableTitle": "Disable {{name}}?",
+    "disableBody": "All of this user's sessions end at once and they cannot sign in until enabled again.",
+    "enableTitle": "Enable {{name}}?",
+    "enableBody": "The user can sign in again with their current password.",
+    "disabled": "User disabled.",
+    "enabled": "User enabled.",
+    "reset": "Reset password",
+    "resetTitle": "Reset the password of {{name}}?",
+    "resetBody": "A new temporary password is generated and shown once. All of this user's sessions end and an account lockout is cleared.",
+    "confirm": "Yes, continue",
+    "cancel": "Cancel",
+    "saving": "Saving…"
+  },
+  "field": {
+    "username": "Invalid username.",
+    "display_name": "Display name is required (at most 128 characters, one line).",
+    "email": "Invalid e-mail address.",
+    "roles": "Select at least one valid role."
+  }
+}

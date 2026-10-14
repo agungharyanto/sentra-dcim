@@ -38,6 +38,7 @@
       "public": "Callable without sign-in through the public domain.",
       "internal": "Only from the server's internal listener; rejected on the public domain.",
       "login": "Requires sign-in (application session; on the public domain also the temporary site access until v0.3.4)."
-    }
+    },
+    "permission": "permission {{permission}}"
   }
 }

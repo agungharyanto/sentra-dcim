@@ -16,6 +16,8 @@ export interface MenuItem {
   status: MenuStatus;
   group: string;
   order: number;
+  /** Permission needed to see the menu ("" = every signed-in user). The API enforces it too. */
+  permission: string;
 }
 
 /** Mirrors api/openapi.yaml#/components/schemas/UiBootstrap. */

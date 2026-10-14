@@ -17,10 +17,21 @@ export function testBootstrap(overrides: Partial<UiBootstrap> = {}): UiBootstrap
   };
 }
 
-/** Signed-in user for component tests (GET /api/v1/auth/me). */
+/** Every permission (Admin); tests narrow it with testMe({ roles, permissions }). */
+export const allPermissions = ["roles.read", "system.version.read", "users.manage", "users.read"];
+
+/** Signed-in user for component tests (GET /api/v1/auth/me); an Admin unless overridden. */
 export function testMe(overrides: Partial<AuthMe["user"]> = {}): AuthMe {
   return {
-    user: { id: "u-1", username: "operator.satu", display_name: "Operator Satu", must_change_password: false, ...overrides },
+    user: {
+      id: "u-1",
+      username: "operator.satu",
+      display_name: "Operator Satu",
+      must_change_password: false,
+      roles: ["admin"],
+      permissions: allPermissions,
+      ...overrides,
+    },
     session: {
       id: "s-1",
       created_at: "2026-10-14T01:00:00Z",

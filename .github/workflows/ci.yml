@@ -170,7 +170,8 @@ jobs:
       - name: UI edge test (basic_auth, SPA, headers, login, bootstrap)
         run: BASE_URL=https://localhost ./test/api/ui.sh
       - name: Browser tests (Playwright + axe, UI screenshots)
-        run: BASE_URL=https://localhost ./test/e2e/run.sh
+        # E2E_MUTATIONS=1: the throwaway CI stack may create and change accounts (never set against production).
+        run: BASE_URL=https://localhost E2E_MUTATIONS=1 ./test/e2e/run.sh
       - name: Upload UI screenshots (design system, shell)
         if: always()
         uses: actions/upload-artifact@v7

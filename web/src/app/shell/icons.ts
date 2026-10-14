@@ -11,6 +11,7 @@ import {
   Settings,
   Siren,
   Thermometer,
+  UserCog,
   Users,
   Wrench,
   Zap,
@@ -32,6 +33,7 @@ const icons: Record<string, LucideIcon> = {
   "chart-line": ChartLine,
   "circle-help": CircleHelp,
   settings: Settings,
+  "user-cog": UserCog,
 };
 
 export function menuIcon(name: string): LucideIcon {

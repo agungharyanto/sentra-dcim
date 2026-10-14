@@ -18,6 +18,7 @@
     "maintenance": "Maintenance",
     "analytics": "Analytics",
     "help": "Help Center",
+    "users": "Users & Roles",
     "settings": "Settings"
   },
   "menuDescription": {
@@ -33,6 +34,7 @@
     "maintenance": "Maintenance schedules, work orders and SLAs.",
     "analytics": "Analytics, anomaly detection and report export.",
     "help": "User guides and Sentra DCIM API documentation.",
+    "users": "User accounts, roles and application access permissions.",
     "settings": "Regional, access and system settings."
   },
   "menuStatus": {
@@ -61,6 +63,11 @@
     "notConnected": {
       "title": "Not connected",
       "body": "The {{menu}} module is available, but its data source is not connected yet. Contact your administrator to enable the integration.",
+      "back": "Back to Dashboard"
+    },
+    "forbidden": {
+      "title": "Access denied",
+      "body": "Your account does not have permission to open this page. Contact an Admin if you need it.",
       "back": "Back to Dashboard"
     },
     "notFound": {

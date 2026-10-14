@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 import {
+  type HttpMethod,
   type OpenApiDoc,
   type OpenApiOperation,
   type OpenApiParameter,
@@ -17,7 +18,7 @@ import {
 } from "./api";
 import { Markdown } from "./Markdown";
 
-const METHODS = ["get", "post", "put", "patch", "delete", "head", "options"] as const;
+const METHODS: readonly HttpMethod[] = ["get", "post", "put", "patch", "delete", "head", "options"];
 
 /** Resolves a local "#/components/<kind>/<name>" reference. */
 export function resolveRef<T>(doc: OpenApiDoc, ref: string): T | undefined {
@@ -35,8 +36,10 @@ export function groupOperations(doc: OpenApiDoc) {
   for (const t of doc.tags ?? []) groups.set(t.name, []);
   for (const [path, item] of Object.entries(doc.paths)) {
     for (const method of METHODS) {
-      const op = item[method];
-      if (!op) continue;
+      const found = item[method];
+      if (!found) continue;
+      // Path-level parameters (e.g. {id}) apply to every operation of the path.
+      const op = item.parameters ? { ...found, parameters: [...item.parameters, ...(found.parameters ?? [])] } : found;
       const tag = op.tags?.[0] ?? "other";
       if (!groups.has(tag)) groups.set(tag, []);
       groups.get(tag)?.push({ method, path, op });
@@ -204,6 +207,12 @@ function Operation({ doc, method, path, op }: { doc: OpenApiDoc; method: string;
         {access && (
           <span className="ml-auto text-xs text-muted-foreground" title={t(`api.accessHint.${access}`)} data-access={access}>
             {t(`api.access.${access}`)}
+            {op["x-sentra-permission"] && (
+              <>
+                {" · "}
+                <span data-permission={op["x-sentra-permission"]}>{t("api.permission", { permission: op["x-sentra-permission"] })}</span>
+              </>
+            )}
           </span>
         )}
       </div>

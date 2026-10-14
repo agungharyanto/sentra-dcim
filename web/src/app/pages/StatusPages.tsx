@@ -1,4 +1,4 @@
-import { Clock, FileQuestion, TriangleAlert, Unplug } from "lucide-react";
+import { Clock, FileQuestion, ShieldX, TriangleAlert, Unplug } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 
@@ -43,6 +43,20 @@ export function NotConnectedPage({ menu }: { menu: MenuItem }) {
       title={t("pages.notConnected.title")}
       body={t("pages.notConnected.body", { menu: menuLabel(menu.key) })}
       action={<BackToDashboard label={t("pages.notConnected.back")} />}
+    />
+  );
+}
+
+/** A registry menu (or one of its pages) the signed-in user has no permission for. */
+export function ForbiddenPage() {
+  const { t } = useTranslation("shell");
+  return (
+    <StatePage
+      testId="forbidden"
+      icon={ShieldX}
+      title={t("pages.forbidden.title")}
+      body={t("pages.forbidden.body")}
+      action={<BackToDashboard label={t("pages.forbidden.back")} />}
     />
   );
 }

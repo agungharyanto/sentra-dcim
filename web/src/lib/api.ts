@@ -4,13 +4,16 @@ export class ApiError extends Error {
   readonly status: number;
   /** Seconds from a Retry-After header (429), if any. */
   readonly retryAfter?: number;
+  /** Invalid input field of a validation error (ErrorBody.error.field), if any. */
+  readonly field?: string;
 
-  constructor(code: string, status: number, retryAfter?: number) {
+  constructor(code: string, status: number, retryAfter?: number, field?: string) {
     super(`api error ${status}: ${code}`);
     this.name = "ApiError";
     this.code = code;
     this.status = status;
     if (retryAfter !== undefined) this.retryAfter = retryAfter;
+    if (field !== undefined) this.field = field;
   }
 }
 
@@ -31,7 +34,8 @@ const authListeners = new Set<AuthListener>();
 
 /**
  * Subscribes to authentication errors from any API call: "unauthenticated" (401: session missing, expired or
- * revoked) and "password_change_required" (403). The AuthProvider uses it to send the user to the right page.
+ * revoked), "password_change_required" (403) and "forbidden" (403: missing permission). The AuthProvider uses it to
+ * send the user to the right page or re-read their permissions.
  */
 export function onAuthError(listener: AuthListener): () => void {
   authListeners.add(listener);
@@ -57,17 +61,20 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
   }
   if (!res.ok) {
     let code = "unknown";
+    let field: string | undefined;
     try {
-      const data = (await res.json()) as { error?: { code?: unknown } };
+      const data = (await res.json()) as { error?: { code?: unknown; field?: unknown } };
       if (typeof data.error?.code === "string") code = data.error.code;
+      if (typeof data.error?.field === "string") field = data.error.field;
     } catch {
       // Non-JSON error (e.g. proxy 401 page): keep "unknown".
     }
     const retry = Number(res.headers.get("Retry-After"));
-    if (code === "unauthenticated" || code === "password_change_required") {
+    // "forbidden" may mean the user's roles changed since /auth/me was read: re-read it so menus follow.
+    if (code === "unauthenticated" || code === "password_change_required" || code === "forbidden") {
       for (const l of authListeners) l(code);
     }
-    throw new ApiError(code, res.status, Number.isFinite(retry) && retry > 0 ? retry : undefined);
+    throw new ApiError(code, res.status, Number.isFinite(retry) && retry > 0 ? retry : undefined, field);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
@@ -79,6 +86,14 @@ export function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
 
 export function postJson<T = void>(path: string, body?: unknown): Promise<T> {
   return request<T>("POST", path, body);
+}
+
+export function putJson<T = void>(path: string, body?: unknown): Promise<T> {
+  return request<T>("PUT", path, body);
+}
+
+export function patchJson<T = void>(path: string, body?: unknown): Promise<T> {
+  return request<T>("PATCH", path, body);
 }
 
 export function deleteJson<T = void>(path: string): Promise<T> {

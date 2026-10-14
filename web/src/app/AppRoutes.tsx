@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes } from "react-router";
 
 import { AccountPasswordPage } from "@/features/auth/AccountPasswordPage";
+import { usePermissions } from "@/features/auth/permissions";
 import { SessionsPage } from "@/features/auth/SessionsPage";
 import { useBootstrap } from "@/features/bootstrap/regional";
 
@@ -26,6 +27,7 @@ function PageFallback() {
 
 export function AppRoutes() {
   const boot = useBootstrap();
+  const perms = usePermissions();
   return (
     <Routes>
       <Route
@@ -38,7 +40,7 @@ export function AppRoutes() {
       />
       <Route element={<AppShell />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
-        {buildRoutes(boot.menus).map((r) => (
+        {buildRoutes(boot.menus, perms).map((r) => (
           <Route key={r.menu.key} path={r.path} element={r.element} />
         ))}
         {/* Own account pages (not registry menus; reached from the user menu). */}

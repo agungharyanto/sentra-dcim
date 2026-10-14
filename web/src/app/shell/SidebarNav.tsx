@@ -4,6 +4,7 @@ import { NavLink, useMatch } from "react-router";
 
 import { MenuStatusBadge } from "@/components/domain/MenuStatusBadge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { canSeeMenu, usePermissions } from "@/features/auth/permissions";
 import type { MenuItem } from "@/features/bootstrap/api";
 import { useBootstrap } from "@/features/bootstrap/regional";
 import { cn } from "@/lib/utils";
@@ -11,14 +12,21 @@ import { cn } from "@/lib/utils";
 import { menuIcon } from "./icons";
 import { groupMenus, useMenuText } from "./menu";
 
-/** Grouped menu from the backend registry; shared by the desktop sidebar and the mobile drawer. */
+/**
+ * Grouped menu from the backend registry, without menus the user has no permission for; shared by the desktop
+ * sidebar and the mobile drawer.
+ */
 export function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const boot = useBootstrap();
+  const perms = usePermissions();
   const { groupLabel } = useMenuText();
 
   return (
     <div className="flex flex-col gap-4">
-      {groupMenus(boot.menu_groups, boot.menus).map(({ group, items }) => (
+      {groupMenus(
+        boot.menu_groups,
+        boot.menus.filter((m) => canSeeMenu(m, perms)),
+      ).map(({ group, items }) => (
         <div key={group.key} role="group" aria-labelledby={`nav-group-${group.key}`} data-group={group.key}>
           <p
             id={`nav-group-${group.key}`}

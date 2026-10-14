@@ -20,6 +20,10 @@
     "password_policy": "Kata sandi tidak memenuhi ketentuan.",
     "invalid_current_password": "Kata sandi saat ini salah.",
     "invalid_request": "Permintaan tidak valid.",
-    "auth_unavailable": "Layanan masuk sedang tidak tersedia. Coba lagi beberapa saat lagi."
+    "auth_unavailable": "Layanan masuk sedang tidak tersedia. Coba lagi beberapa saat lagi.",
+    "validation_failed": "Isian tidak valid. Periksa kembali kolom yang ditandai.",
+    "username_taken": "Nama pengguna sudah dipakai.",
+    "self_action": "Tindakan ini tidak boleh dilakukan pada akun Anda sendiri.",
+    "last_admin": "Admin aktif terakhir tidak boleh kehilangan akses Admin."
   }
 }
