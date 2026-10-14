@@ -16,6 +16,10 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
   `audit_events` hanya INSERT+SELECT lewat GRANT); kredensial owner hanya di container one-shot `ops`
   (`make migrate` = migrasi + `sentra db sync-app-role`). Variabel baru `DB_APP_USER`, `DB_APP_PASSWORD` (diisi
   pemilik). `make up` kini menyalakan database, menjalankan migrasi & role, baru app.
+- **Hash chain audit log** (D-073, migrasi 000007): setiap event berantai `sha256(prev_hash ‖ kanonik(baris))`,
+  diisi trigger di bawah advisory lock (insert paralel tidak bercabang; baris lama di-backfill). Verifikasi
+  `sentra audit verify` + job harian di app (gagal → log error). Setiap backup menyimpan kepala chain
+  (`audit-anchor.json`); `make audit-verify` mencocokkan chain dengan anchor semua backup (`UNTIL=` setelah restore).
 
 ### Diperbaiki
 - **ISS-042**: pengaman "Admin aktif terakhir" memakai advisory lock (sebelumnya `FOR UPDATE` yang butuh hak

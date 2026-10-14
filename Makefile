@@ -165,9 +165,12 @@ migrate-goto: ## Migrate to a specific version (V=n)
 	$(COMPOSE) run --rm --no-deps ops migrate goto $(V)
 
 ## ---------- Ops & DR ----------
-.PHONY: backup restore rollback release harden backup-timer
+.PHONY: backup restore rollback release harden backup-timer audit-verify
 backup: ## Backup DB + important volumes to $$BACKUP_DIR
 	./ops/backup.sh
+
+audit-verify: ## Verify the audit hash chain against the anchors in all backups (UNTIL=<backup dir> after a restore)
+	./ops/audit-verify.sh
 
 restore: ## Restore from a backup directory (FROM=/var/backups/sentra/<dir>; ARGS="--target-db x --yes")
 	./ops/restore.sh $(FROM) $(ARGS)

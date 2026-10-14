@@ -30,6 +30,7 @@ import (
 	apispec "github.com/agungharyanto/sentra-dcim/api"
 	helpdocs "github.com/agungharyanto/sentra-dcim/docs/help"
 	"github.com/agungharyanto/sentra-dcim/internal/api"
+	"github.com/agungharyanto/sentra-dcim/internal/audit/chain"
 	auditrepo "github.com/agungharyanto/sentra-dcim/internal/audit/repo"
 	auditservice "github.com/agungharyanto/sentra-dcim/internal/audit/service"
 	authhandler "github.com/agungharyanto/sentra-dcim/internal/auth/handler"
@@ -72,10 +73,12 @@ func main() {
 		err = runUser(args)
 	case "db":
 		err = runDB(args)
+	case "audit":
+		err = runAudit(args)
 	case "version":
 		err = json.NewEncoder(os.Stdout).Encode(buildinfo.Get())
 	default:
-		err = fmt.Errorf("unknown command %q (want serve|migrate|healthcheck|user|db|version)", cmd)
+		err = fmt.Errorf("unknown command %q (want serve|migrate|healthcheck|user|db|audit|version)", cmd)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -134,6 +137,9 @@ func serve() error {
 	}
 	authH := authhandler.New(auth, log, cfg.Auth.AllowedOrigins)
 	go cleanupSessions(ctx, auth, log)
+	// Daily hash-chain verification of the audit log (D-073); failures are logged at error level (Alarm Engine v0.5).
+	integrity := chain.NewMonitor(pool, log, nil, 24*time.Hour)
+	go integrity.Run(ctx)
 
 	rl := httpserver.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
 	go rl.Janitor(ctx)

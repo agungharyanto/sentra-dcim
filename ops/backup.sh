@@ -40,6 +40,19 @@ trap on_exit EXIT
 
 compose ps --status running --services | grep -qx db || die "db container is not running"
 
+# External anchor of the audit hash chain (D-073), taken BEFORE the dump so the anchored row is always inside it:
+# a later rewrite of the whole chain by the database owner no longer matches this file (`make audit-verify`).
+echo '{}' >"$work/audit-anchor.json"
+if [[ "$(db_psql -d "$POSTGRES_DB" -At -c "SELECT to_regclass('audit_checkpoints') IS NOT NULL")" == t ]]; then
+  db_psql -d "$POSTGRES_DB" -At >"$work/audit-anchor.json" <<'SQL'
+SELECT coalesce((SELECT json_build_object('seq', seq, 'hash', encode(h, 'hex'),
+                                          'at', to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))::text
+                 FROM (SELECT chain_seq, hash FROM audit_events
+                       UNION ALL SELECT through_seq, last_hash FROM audit_checkpoints) head(seq, h)
+                 ORDER BY seq DESC LIMIT 1), '{}');
+SQL
+fi
+
 log "dumping database $POSTGRES_DB"
 db_exec pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom --compress=6 --no-password >"$work/db.dump"
 db_exec pg_dumpall -U "$POSTGRES_USER" --globals-only --no-password >"$work/globals.sql"
