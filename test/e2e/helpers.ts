@@ -51,6 +51,15 @@ export async function watchProblems(page: Page) {
 export const appTotpSecret = process.env.SENTRA_APP_TOTP_SECRET ?? "";
 export const appTotpCode = process.env.SENTRA_APP_TOTP ?? "";
 
+/**
+ * Waits for the next 30 s step and returns its code: every sign-in of the CI account gets a step no earlier sign-in
+ * used (the server refuses replayed steps).
+ */
+export async function freshTotp(secret: string): Promise<string> {
+  await new Promise((r) => setTimeout(r, 30000 - (Date.now() % 30000) + 200));
+  return totp(secret);
+}
+
 /** RFC 6238 TOTP (SHA1, 6 digits, 30 s) of a base32 secret; offset in 30 s steps (anti-replay: use a new step). */
 export function totp(secret: string, offset = 0): string {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";

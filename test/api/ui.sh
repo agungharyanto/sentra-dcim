@@ -132,7 +132,9 @@ check "no Server header" "$([[ -z $(hdr Server) ]]; echo $?)"
 check "exactly one Content-Security-Policy" "$([[ $(grep -ci '^Content-Security-Policy:' "$tmp/h") == 1 ]]; echo $?)"
 
 areq "$BASE/apa-saja/deep/link?x=1"
-check "deep link /apa-saja/... returns index.html" "$([[ $code == 200 ]] && cmp -s "$tmp/b" "$tmp/index.html"; echo $?)"
+# Same document apart from the per-request CSP nonce (ISS-030).
+nononce() { sed -E 's/(name="csp-nonce" content=")[^"]*/\1/' "$1"; }
+check "deep link /apa-saja/... returns index.html (nonce aside)" "$([[ $code == 200 ]] && cmp -s <(nononce "$tmp/b") <(nononce "$tmp/index.html"); echo $?)"
 
 asset="$(grep -oE '/assets/[^"]+\.js' "$tmp/index.html" | head -1)"
 areq "$BASE$asset"
@@ -190,6 +192,8 @@ else
   # production account's secret never leaves the user's phone.
   totp="${SENTRA_APP_TOTP:-}"
   if [[ -z "$totp" && -n "${SENTRA_APP_TOTP_SECRET:-}" ]]; then
+    # The current 30 s step may already be used by an earlier sign-in (anti-replay): wait for a fresh one.
+    sleep "$((30 - $(date +%s) % 30))"
     totp="$(printf '%s' "$SENTRA_APP_TOTP_SECRET" | "$(dirname "$0")/../lib/totp.py")"
   fi
   if [[ -z "$totp" && -t 0 ]]; then read -rp "kode authenticator (6 digit) untuk $app_user: " totp; fi

@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
-import { appPass, appTotpSecret, appUser, artifactsDir, catalog, pass, totp, user, watchProblems } from "./helpers";
+import { appPass, appTotpSecret, appUser, artifactsDir, catalog, freshTotp, pass, user, watchProblems } from "./helpers";
 
 const id = catalog("id", "auth");
 const mobile = { width: 390, height: 844 };
@@ -60,8 +60,8 @@ test.describe("auth (signed out)", () => {
     await page.getByLabel(id.login.password).fill(appPass);
     await page.getByRole("button", { name: id.login.submit }).click();
     await expect(page).toHaveURL(/\/mfa\?next=%2Fdashboard$/);
-    // global-setup.ts used the current step: the next one is still inside the ±1 window (anti-replay).
-    await page.getByLabel(id.mfa.codeLabel).fill(totp(appTotpSecret, 1));
+    test.setTimeout(90_000); // waits for a fresh 30 s step
+    await page.getByLabel(id.mfa.codeLabel).fill(await freshTotp(appTotpSecret));
     await page.getByRole("button", { name: id.mfa.verify }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByTestId("user-name")).not.toBeEmpty();

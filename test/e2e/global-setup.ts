@@ -1,6 +1,6 @@
 import { request } from "@playwright/test";
 
-import { appPass, appTotpCode, appTotpSecret, appUser, pass, stateFile, totp, user } from "./helpers";
+import { appPass, appTotpCode, appTotpSecret, appUser, freshTotp, pass, stateFile, user } from "./helpers";
 
 /**
  * Signs in ONCE through the API (basic_auth + session login with Origin and CSRF header) and stores the cookies
@@ -30,7 +30,7 @@ export default async function globalSetup() {
   }
   // MFA step (v0.3.3): CSRF token from the cookie just set by the login.
   const csrf = (await ctx.storageState()).cookies.find((c) => c.name === "__Host-sentra_csrf")?.value ?? "";
-  const code = appTotpSecret ? totp(appTotpSecret) : appTotpCode;
+  const code = appTotpSecret ? await freshTotp(appTotpSecret) : appTotpCode;
   if (!code) {
     await ctx.dispose();
     throw new Error("no MFA code: SENTRA_APP_TOTP (run.sh asks for it) or SENTRA_APP_TOTP_SECRET (CI)");
