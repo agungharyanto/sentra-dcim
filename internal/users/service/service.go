@@ -59,6 +59,8 @@ const (
 	ActionDisable       = "user.disable"
 	ActionEnable        = "user.enable"
 	ActionPasswordReset = "user.password.reset"
+	ActionMFAReset      = "user.mfa.reset"
+	ActionUnlock        = "user.unlock"
 )
 
 // Limits.
@@ -106,6 +108,7 @@ type User struct {
 	Roles              []string   `json:"roles"`
 	MustChangePassword bool       `json:"must_change_password"`
 	Locked             bool       `json:"locked"`
+	MFAEnabled         bool       `json:"mfa_enabled"`
 	LastLoginAt        *time.Time `json:"last_login_at"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
@@ -151,7 +154,7 @@ func (s *Service) List(ctx context.Context, f Filter) ([]User, int64, error) {
 	for _, r := range rows {
 		out = append(out, view(repo.GetUserRow{ID: r.ID, Username: r.Username, DisplayName: r.DisplayName, Email: r.Email,
 			Status: r.Status, MustChangePassword: r.MustChangePassword, Locked: r.Locked, LastLoginAt: r.LastLoginAt,
-			CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, Roles: r.Roles}))
+			CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, Roles: r.Roles, MfaEnabled: r.MfaEnabled}))
 		total = r.Total
 	}
 	return out, total, nil
@@ -424,6 +427,58 @@ func (s *Service) ResetPassword(ctx context.Context, id uuid.UUID, meta audit.Me
 	return temp, nil
 }
 
+// ResetMFA removes the MFA enrolment and recovery codes of a user and revokes every session; the user enrols again
+// at the next sign-in. Not for one's own account (D-064). Without a principal in ctx (CLI) any account may be reset.
+func (s *Service) ResetMFA(ctx context.Context, id uuid.UUID, meta audit.Meta) error {
+	if self(ctx, id) {
+		s.recordRefusal(ctx, ActionMFAReset, id, meta, ErrSelf)
+		return ErrSelf
+	}
+	var revoked int64
+	err := s.tx(ctx, func(q *repo.Queries) error {
+		if _, err := s.get(ctx, q, id); err != nil {
+			return err
+		}
+		if _, err := q.DeleteUserMFA(ctx, id); err != nil {
+			return fmt.Errorf("delete mfa: %w", err)
+		}
+		if err := q.DeleteUserRecoveryCodes(ctx, id); err != nil {
+			return fmt.Errorf("delete recovery codes: %w", err)
+		}
+		var err error
+		revoked, err = q.RevokeUserSessions(ctx, id)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	s.record(ctx, ActionMFAReset, audit.ResultSuccess, id.String(), meta, map[string]any{"sessions_revoked": revoked})
+	return nil
+}
+
+// Unlock clears a lockout (wrong passwords/MFA codes) before it expires by itself (CLI emergency path; a lockout
+// otherwise always ends after AUTH_LOCK_DURATION).
+func (s *Service) Unlock(ctx context.Context, id uuid.UUID, meta audit.Meta) error {
+	n, err := s.q.UnlockUser(ctx, id)
+	if err != nil {
+		return fmt.Errorf("unlock: %w", err)
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	s.record(ctx, ActionUnlock, audit.ResultSuccess, id.String(), meta, nil)
+	return nil
+}
+
+// UserIDByUsername resolves a username (CLI).
+func (s *Service) UserIDByUsername(ctx context.Context, username string) (uuid.UUID, error) {
+	id, err := s.q.GetUserIDByUsername(ctx, strings.TrimSpace(username))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrNotFound
+	}
+	return id, err
+}
+
 // guardAdminLoss refuses changes that take away cur's Admin access (role removal or disabling) when cur is the
 // actor, or when no other active Admin would remain. Call with the admin role row locked.
 func (s *Service) guardAdminLoss(ctx context.Context, q *repo.Queries, cur User) error {
@@ -479,7 +534,11 @@ func (s *Service) tempPassword() (string, string, error) {
 }
 
 func (s *Service) record(ctx context.Context, action, result, target string, meta audit.Meta, md map[string]any) {
-	_ = s.audit.Record(ctx, audit.Event{Action: action, Result: result, TargetType: "user", TargetID: target, Meta: meta, Metadata: md})
+	ev := audit.Event{Action: action, Result: result, TargetType: "user", TargetID: target, Meta: meta, Metadata: md}
+	if _, ok := principal.From(ctx); !ok {
+		ev.ActorType, ev.ActorUsername = audit.ActorSystem, "cli" // server-side command (no session)
+	}
+	_ = s.audit.Record(ctx, ev)
 }
 
 // recordRefusal audits refusals that matter for security (self-actions, last Admin); validation errors are not
@@ -564,7 +623,8 @@ func checkEmail(v string) (pgtype.Text, error) {
 
 func view(r repo.GetUserRow) User {
 	u := User{ID: r.ID, Username: r.Username, DisplayName: r.DisplayName, Status: r.Status, Roles: r.Roles,
-		MustChangePassword: r.MustChangePassword, Locked: r.Locked, CreatedAt: r.CreatedAt.Time, UpdatedAt: r.UpdatedAt.Time}
+		MustChangePassword: r.MustChangePassword, Locked: r.Locked, MFAEnabled: r.MfaEnabled, CreatedAt: r.CreatedAt.Time,
+		UpdatedAt: r.UpdatedAt.Time}
 	if u.Roles == nil {
 		u.Roles = []string{}
 	}

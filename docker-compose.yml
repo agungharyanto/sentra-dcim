@@ -118,6 +118,8 @@ services:
       AUTH_RATE_IP_LIMIT: ${AUTH_RATE_IP_LIMIT:-30}
       AUTH_RATE_USER_LIMIT: ${AUTH_RATE_USER_LIMIT:-10}
       AUTH_RATE_WINDOW: ${AUTH_RATE_WINDOW:-10m}
+      MFA_ENC_KEY: ${MFA_ENC_KEY:?set MFA_ENC_KEY in .env (openssl rand -base64 32)}
+      MFA_ISSUER: ${MFA_ISSUER:-Sentra DCIM}
     read_only: true
     networks: [data, edge]
     depends_on:
@@ -154,10 +156,6 @@ services:
       # localhost = Caddy internal CA, no ACME (dev/CI). `make up` refuses a real DOMAIN without ACME_EMAIL.
       DOMAIN: ${DOMAIN:-localhost}
       ACME_EMAIL: ${ACME_EMAIL:-admin@localhost}
-      # Temporary basic_auth for the UI until Auth v0.3 (ISS-026). Default hash = bcrypt of a discarded random
-      # string, so an unset .env locks the UI instead of opening it ($$ escapes compose interpolation).
-      WEB_BASIC_AUTH_USER: ${WEB_BASIC_AUTH_USER:-sentra}
-      WEB_BASIC_AUTH_HASH: ${WEB_BASIC_AUTH_HASH:-$$2a$$14$$wA4jVT8NyygzV9uWV32bKOx2SNKJSSjNH6wBBg9TMt6E.Yaba7bBu}
     # Lets the non-root Caddy bind 80/443 inside its own network namespace without any capability.
     sysctls:
       net.ipv4.ip_unprivileged_port_start: 0

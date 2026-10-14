@@ -61,19 +61,30 @@ step() {
 }
 
 # drill_login proves the auth path end to end on the throwaway stack: `sentra user create-admin` (password on
-# stdin), login through Caddy (basic_auth + session cookie + CSRF), the forced password change, the help API, and
+# stdin), login through Caddy (session cookie + CSRF), MFA enrolment (v0.3.3), the forced password
+# change, the help API, and
 # the Admin role granted by create-admin (user list, /version details; v0.3.2).
 # Passwords are random, exist only in this drill and are never printed.
 drill_login() {
   local apw npw base=https://localhost:28443 jar="$dir/cookies" code csrf
   apw="admin-$(gen)"; npw="admin-new-$(gen)"
   printf '%s\n' "$apw" | compose exec -T app /sentra user create-admin --username drill.admin
-  local c=(curl -sk -u "drill:$pw" -b "$jar" -c "$jar" -H "Origin: $base" -H 'Content-Type: application/json'
+  local c=(curl -sk -b "$jar" -c "$jar" -H "Origin: $base" -H 'Content-Type: application/json'
     -o "$dir/body" -w '%{http_code}')
   code="$("${c[@]}" -H 'X-Sentra-CSRF: login' -d "{\"username\":\"drill.admin\",\"password\":\"$apw\"}" \
     "$base/api/v1/auth/login")"
   echo "login: $code"; [[ $code == 200 ]] || return 1
   csrf="$(awk '$6=="__Host-sentra_csrf"{print $7}' "$jar")"
+  code="$("${c[@]}" "$base/api/v1/help/index")"
+  echo "help before MFA: $code $(jq -r .error.code "$dir/body")"
+  [[ $code == 403 ]] && jq -e '.error.code=="mfa_required"' "$dir/body" >/dev/null || return 1
+  code="$("${c[@]}" -X POST -H "X-Sentra-CSRF: $csrf" "$base/api/v1/auth/mfa/enrol")"
+  echo "mfa enrol: $code"; [[ $code == 200 ]] || return 1
+  local secret totp
+  secret="$(jq -r .secret "$dir/body")"; rm -f "$dir/body"
+  totp="$(printf '%s' "$secret" | ./test/lib/totp.py)"
+  code="$("${c[@]}" -H "X-Sentra-CSRF: $csrf" -d "{\"code\":\"$totp\"}" "$base/api/v1/auth/mfa/enrol/confirm")"
+  echo "mfa confirm: $code $(jq '.recovery_codes|length' "$dir/body")"; [[ $code == 200 ]] || return 1
   code="$("${c[@]}" "$base/api/v1/help/index")"
   echo "help before password change: $code $(jq -r .error.code "$dir/body")"
   [[ $code == 403 ]] && jq -e '.error.code=="password_change_required"' "$dir/body" >/dev/null || return 1
@@ -106,16 +117,14 @@ step "fresh clone has no .env and no secrets tracked" "$dir/secrets.log" \
   bash -c '[[ ! -e .env ]] && ! git ls-files | grep -E "(^|/)\.env$|\.pem$|\.key$"'
 
 # Throwaway configuration: random secrets, no public domain, loopback ports that do not collide with production.
-pw="drill-$(gen)"
-hash="$(docker run --rm caddy:2.11.7-alpine caddy hash-password --bcrypt-cost 10 --plaintext "$pw")"
 umask 077
 sed -e "s/^POSTGRES_PASSWORD=CHANGE_ME/POSTGRES_PASSWORD=$(gen)/" -e "s/^REDIS_PASSWORD=CHANGE_ME/REDIS_PASSWORD=$(gen)/" \
+    -e "s|^MFA_ENC_KEY=$|MFA_ENC_KEY=$(openssl rand -base64 32)|" \
     -e "s/^DOMAIN=.*/DOMAIN=/" -e "s/^ACME_EMAIL=.*/ACME_EMAIL=/" \
     -e "s/^CADDY_PUBLIC_HTTP_BIND=.*/CADDY_PUBLIC_HTTP_BIND=127.0.0.1:28080/" \
     -e "s/^CADDY_PUBLIC_HTTPS_BIND=.*/CADDY_PUBLIC_HTTPS_BIND=127.0.0.1:28443/" \
     -e "s/^CADDY_HTTP_BIND=.*/CADDY_HTTP_BIND=127.0.0.1:28081/" \
     -e "s/^POSTGRES_HOST_PORT=.*/POSTGRES_HOST_PORT=25432/" -e "s/^REDIS_HOST_PORT=.*/REDIS_HOST_PORT=26379/" \
-    -e "s/^WEB_BASIC_AUTH_USER=.*/WEB_BASIC_AUTH_USER=drill/" -e "s|^WEB_BASIC_AUTH_HASH=.*|WEB_BASIC_AUTH_HASH='$hash'|" \
     .env.example > .env
 echo "APP_ALLOWED_ORIGINS=https://localhost:28443" >> .env
 umask 022
@@ -143,10 +152,10 @@ step "migrations up" "$dir/migrate.log" compose exec -T app /sentra migrate up
 step "smoke test against the drill stack (expects $describe)" "$dir/smoke.log" \
   env BASE_URL=http://127.0.0.1:28081 EXPECT_VERSION="$describe" ./test/api/smoke.sh
 tail -n 1 "$dir/smoke.log" | sed 's/^/        | /'
-step "web UI behind basic_auth (401 without, 200 with credentials)" "$dir/ui.log" bash -c \
-  "[[ \$(curl -sk -o /dev/null -w '%{http_code}' https://localhost:28443/) == 401 &&
-     \$(curl -sk -u 'drill:$pw' -o /dev/null -w '%{http_code}' https://localhost:28443/dashboard) == 200 ]]"
-step "admin via CLI, login, forced password change, help API, Admin role (session)" "$dir/login.log" drill_login
+step "login page public, data API needs a session (no basic_auth)" "$dir/ui.log" bash -c \
+  "[[ \$(curl -sk -o /dev/null -w '%{http_code}' https://localhost:28443/login) == 200 &&
+     \$(curl -sk -o /dev/null -w '%{http_code}' https://localhost:28443/api/v1/ui/bootstrap) == 401 ]]"
+step "admin via CLI, login, MFA enrolment, forced password change, help API, Admin role (session)" "$dir/login.log" drill_login
 # shellcheck disable=SC2016 # evaluated by the inner bash
 step "production stack untouched (project sentra still 4 healthy)" "$dir/prod.log" \
   bash -c '[[ $(docker ps --filter label=com.docker.compose.project=sentra --filter health=healthy -q | wc -l) -eq 4 ]]'

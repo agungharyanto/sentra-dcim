@@ -18,7 +18,7 @@ disabled so the audit trail stays intact.
 | Action | Role |
 |---|---|
 | View the user list and the role list | Admin, Auditor |
-| Create, edit, assign roles, disable/enable, reset password | Admin |
+| Create, edit, assign roles, disable/enable, reset password, reset MFA | Admin |
 
 Users without permission do not see this menu; opening its address directly shows *Access denied*.
 Roles and their permissions: [Roles & permissions](roles.md).
@@ -54,6 +54,12 @@ The username cannot be changed once the account exists (it is used in the audit 
 
 For your own account use [Change password](../auth/ganti-password.md).
 
+### Resetting two-step verification (MFA)
+If a user lost the phone and the recovery codes: on the user's page select **Reset MFA** and confirm. The user's MFA
+and recovery codes are removed, all sessions end, and they set it up again at the next sign-in
+([Two-step verification](../auth/mfa.md)). First make sure the request really comes from the account owner (e.g. in
+person). Your own MFA cannot be reset here. The **MFA not set up** marker in the list shows accounts without MFA yet.
+
 ## Built-in safeguards
 
 | Rule | Why |
@@ -77,6 +83,7 @@ administration command (see [Account & sign-in](../auth/index.md)).
 | `PUT /api/v1/users/{id}/roles` | `users.manage` |
 | `POST /api/v1/users/{id}/disable`, `POST /api/v1/users/{id}/enable` | `users.manage` |
 | `POST /api/v1/users/{id}/password-reset` | `users.manage` |
+| `POST /api/v1/users/{id}/mfa-reset` | `users.manage` |
 | `GET /api/v1/roles` | `roles.read` |
 
 Schema details: [API reference](/help/api/reference).

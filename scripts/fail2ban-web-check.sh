@@ -21,7 +21,7 @@ tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 f2b_render "$root" "$tmp"
 
 local drift=0 name want have
-for pair in "sentra-caddy-auth.conf:$filter_dst" "sentra-web.local:$jail_dst" "sentra-docker.conf:$dropin_dst"; do
+for pair in "sentra-app-login.conf:$filter_dst" "sentra-web.local:$jail_dst" "sentra-docker.conf:$dropin_dst"; do
   name="${pair%%:*}"; dst="${pair#*:}"
   want="$(sha256sum < "$tmp/$name" | cut -c1-64)"
   if [[ ! -r "$dst" ]]; then
@@ -34,6 +34,9 @@ for pair in "sentra-caddy-auth.conf:$filter_dst" "sentra-web.local:$jail_dst" "s
     echo "fail2ban-check: DRIFT   $dst (installed ${have:0:12}, repo ${want:0:12})"; drift=1
   fi
 done
+
+legacy="${F2B_DEST_ROOT:-}/etc/fail2ban/filter.d/sentra-caddy-auth.conf"
+if [[ -e "$legacy" ]]; then echo "fail2ban-check: LEGACY  $legacy (basic_auth filter, removed in v0.3.3)"; drift=1; fi
 
 if [[ $drift -ne 0 ]]; then
   echo "fail2ban-check: FAIL — installed jail sentra-web differs from the repository; run: make fail2ban-web" >&2

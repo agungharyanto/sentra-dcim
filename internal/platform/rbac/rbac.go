@@ -16,10 +16,11 @@ const (
 	UsersManage       Permission = "users.manage"        // create, edit, disable/enable, reset password, assign roles
 	RolesRead         Permission = "roles.read"          // list roles and their permissions
 	SystemVersionRead Permission = "system.version.read" // build details of /api/v1/version (commit, Go, server clock)
+	UIDesignSystem    Permission = "ui.design_system"    // developer showcase /design-system (UI only, ISS-029)
 )
 
 // All lists every permission (stable order, used by docs and tests).
-var All = []Permission{UsersRead, UsersManage, RolesRead, SystemVersionRead}
+var All = []Permission{UsersRead, UsersManage, RolesRead, SystemVersionRead, UIDesignSystem}
 
 // System role keys (seeded by migration 000004; labels are translated by the UI: users:roles.<key>).
 const (

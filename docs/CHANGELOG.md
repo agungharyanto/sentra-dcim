@@ -3,6 +3,56 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [v0.3.3] - 2026-10-14 — MFA & Cabut basic_auth
+
+Keputusan: D-061..D-067 (urutan v0.3.3/v0.3.4 ditukar; MFA wajib untuk semua role).
+
+### Ditambahkan
+- **MFA TOTP wajib untuk semua akun** (RFC 6238: SHA1, 6 digit, 30 detik, ±1 langkah; Google Authenticator,
+  Microsoft Authenticator, Authy). Setelah kata sandi benar sesi berstatus *mfa_pending* (`403 mfa_required` untuk
+  semua selain `auth/me`, `auth/logout`, `auth/mfa/*`). Enrolment: kode QR (SVG dari matriks server) + kunci manual,
+  diverifikasi 1 kode; 10 recovery code sekali pakai tampil sekali. Kode yang sudah dipakai ditolak (anti-replay
+  atomik per akun). Urutan: MFA lalu ganti kata sandi wajib.
+- Secret TOTP terenkripsi AES-256-GCM (key `MFA_ENC_KEY`, terikat ke id akun); recovery code disimpan sebagai
+  HMAC-SHA256; tidak ada yang di-log/diaudit. App menolak start tanpa key valid; `make preflight` memeriksanya.
+- Rate limit percobaan kode (per IP & per akun, batas sama dengan login) dan lockout bersama kata sandi (5 → 15 menit,
+  semua sesi dicabut). Langkah kata sandi tidak lagi me-reset penghitung gagal; reset hanya setelah MFA lolos.
+- **Reset MFA** oleh Admin (`POST /api/v1/users/{id}/mfa-reset`, bukan akun sendiri) dan CLI darurat
+  `sentra user reset-mfa --username X`; keduanya mencabut semua sesi dan diaudit.
+- UI: halaman verifikasi dua langkah (enrolment/verifikasi, recovery code), **Keamanan akun** (status, buat ulang
+  recovery code), penanda *MFA belum aktif* dan tombol *Reset MFA* di Pengguna & Role. Pusat Bantuan *Verifikasi dua
+  langkah* bergambar (ID/EN); Pusat Bantuan kini mendukung gambar dari `docs/help/assets/` (tervalidasi).
+- `/design-system` hanya untuk Admin (izin `ui.design_system`, ISS-029 dimajukan dari v0.3.4).
+- CLI darurat `sentra user unlock --username X` (membuka lockout sebelum 15 menit, diaudit `user.unlock`).
+- Build web gagal bila ada source map (`*.map` / `sourceMappingURL`) di `dist`.
+- Migrasi `000005_mfa` (`user_mfa`, `mfa_recovery_codes`, `sessions.mfa_verified_at`; sesi lama menjadi pending).
+
+### Dihapus
+- **basic_auth Caddy** (ISS-026, D-066) setelah MFA terbukti di produksi (D-067): UI web publik hanya berupa kerangka
+  SPA dan asetnya; semua data, konten & gambar Pusat Bantuan, dan OpenAPI hanya lewat API ber-sesi yang lolos MFA.
+  `WEB_BASIC_AUTH_*` tidak dipakai lagi. Menutup ISS-040 (dialog basic_auth muncul lagi saat login).
+
+### Diubah
+- **Jail fail2ban `sentra-web`** kini menghitung login dan kode MFA yang gagal (401 dari app pada `POST` login/MFA)
+  per IP: 10 dalam 10 menit → ban 1 jam (bertambah s/d 24 jam); `ignoreip` = localhost + `ADMIN_IPS`. Filter baru
+  `sentra-app-login` menggantikan `sentra-caddy-auth` (dihapus otomatis oleh `make fail2ban-web`; `make release`
+  menolak bila masih ada). Uji ban nyata memakai login gagal dari network namespace.
+- **CSP UI tanpa `'unsafe-inline'`** (ISS-030, D-065): nonce per request dari Caddy (`templates` +
+  `{http.request.uuid}`) di header dan `<meta name="csp-nonce">`; `index.html` `no-store` tanpa ETag. `sonner`
+  diganti komponen toast sendiri tanpa `<style>`.
+
+### Test
+- Go: paket `mfa` (vektor RFC 6238, jendela ±1, replay, enkripsi terikat akun, recovery code), integrasi MFA
+  (enrolment, sesi pending, replay lintas sesi, recovery code, lockout & rate limit, kata sandi tidak me-reset
+  lockout, reset Admin/CLI, urutan MFA → ganti kata sandi); terbukti gagal bila `MFAGuard` dilepas.
+- Web: alur enrolment/verifikasi/recovery/Keamanan akun/reset MFA Admin, toast tanpa `<style>`, nonce; e2e
+  `mfa.spec.ts` (halaman mock + screenshot, Keamanan akun, enrolment nyata di browser khusus CI).
+- `public.sh` (kini juga di CI): inventaris path tanpa sesi — kerangka SPA untuk semua route dan file tak dikenal
+  (`/.env`, `/openapi.yaml`, …), aset yang dimuat halaman login tanpa source map, 401 untuk bootstrap/Pusat Bantuan
+  (halaman, gambar, OpenAPI)/data/langkah MFA, login terjangkau (403 CSRF), tanpa `WWW-Authenticate`.
+- `ui.sh`: sesi pending → 403 `mfa_required`, verifikasi kode (diminta saat dijalankan), CSP tanpa `'unsafe-inline'`,
+  nonce header = meta & berbeda per request, `index.html` no-store.
+
 ## [v0.3.2] - 2026-10-14 — RBAC & Pengguna
 
 Sprint v0.3 "Auth, RBAC & Audit Log", sub-versi 2. Keputusan: D-053..D-060.

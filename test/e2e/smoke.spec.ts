@@ -1,15 +1,12 @@
 import { expect, test } from "@playwright/test";
 
-import { catalog, pass, user, watchProblems } from "./helpers";
+import { catalog, watchProblems } from "./helpers";
 
 const id = { shell: catalog("id", "shell"), common: catalog("id", "common") };
 const en = { shell: catalog("en", "shell"), common: catalog("en", "common") };
 
 test.describe("web UI smoke", () => {
-  test.use({ httpCredentials: { username: user, password: pass } });
-
-  test("loads behind basic auth, opens the dashboard and switches ID ↔ EN without console/CSP errors", async ({ page }) => {
-    test.skip(!user || !pass, "SENTRA_WEB_USER / SENTRA_WEB_PASS not set");
+  test("signed in: opens the dashboard and switches ID ↔ EN without console/CSP errors", async ({ page }) => {
     const problems = await watchProblems(page);
 
     const res = await page.goto("/");
@@ -42,9 +39,13 @@ test.describe("web UI smoke", () => {
   });
 });
 
-test("rejects the UI without credentials (401)", async ({ browser, baseURL }) => {
-  const ctx = await browser.newContext({ ignoreHTTPSErrors: true });
-  const res = await ctx.request.get(`${baseURL}/`);
+test("signed out: the login page is public, data needs a session (no basic_auth since v0.3.3)", async ({ browser, baseURL }) => {
+  const ctx = await browser.newContext({ ignoreHTTPSErrors: true, storageState: { cookies: [], origins: [] } });
+  const page = await ctx.newPage();
+  await page.goto(`${baseURL}/dashboard`);
+  await expect(page).toHaveURL(/\/login\?next=%2Fdashboard$/);
+  const res = await ctx.request.get(`${baseURL}/api/v1/ui/bootstrap`);
   expect(res.status()).toBe(401);
+  expect(res.headers()["www-authenticate"]).toBeUndefined();
   await ctx.close();
 });

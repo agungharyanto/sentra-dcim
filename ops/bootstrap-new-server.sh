@@ -95,7 +95,8 @@ elif [[ ! -f "$APP_DIR/.env" ]]; then
             -e "s/^UFW_OPEN_HTTP=.*/UFW_OPEN_HTTP=0/")
     fi
     (umask 077; sed -e "s/^POSTGRES_PASSWORD=CHANGE_ME/POSTGRES_PASSWORD=$(gen)/" \
-        -e "s/^REDIS_PASSWORD=CHANGE_ME/REDIS_PASSWORD=$(gen)/" "${mode[@]}" "$APP_DIR/.env.example" >"$APP_DIR/.env")
+        -e "s/^REDIS_PASSWORD=CHANGE_ME/REDIS_PASSWORD=$(gen)/" \
+        -e "s|^MFA_ENC_KEY=$|MFA_ENC_KEY=$(openssl rand -base64 32)|" "${mode[@]}" "$APP_DIR/.env.example" >"$APP_DIR/.env")
     chown "$APP_USER:$APP_USER" "$APP_DIR/.env"
     chmod 0600 "$APP_DIR/.env"
   fi

@@ -13,12 +13,13 @@ you are done.
 
 ## Signing in
 
-1. Open the Sentra DCIM address. During the transition (until v0.3.4) the browser first asks for **site access
-   credentials** that are separate from your account; ask your administrator for them.
-2. On the **Sign in** page, enter your **Username** (or NIP) and **Password**, then choose **Sign in**.
-3. If the account was just created or its password was reset, you are asked to
+1. Open the Sentra DCIM address; the **Sign in** page appears.
+2. Enter your **Username** (or NIP) and **Password**, then choose **Sign in**.
+3. Enter the 6-digit code from the authenticator app on your phone. At your first sign-in you set it up first
+   ([Two-step verification](mfa.md)).
+4. If the account was just created or its password was reset, you are asked to
    [change the password](ganti-password.md) right away, before using the application.
-4. You then land on the page you wanted to open (or the [Dashboard](../dashboard/index.md)). Your name is shown in
+5. You then land on the page you wanted to open (or the [Dashboard](../dashboard/index.md)). Your name is shown in
    the top right.
 
 ## Messages you may see

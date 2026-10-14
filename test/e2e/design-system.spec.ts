@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
-import { artifactsDir, catalog, pass, user, watchProblems } from "./helpers";
+import { artifactsDir, catalog, watchProblems } from "./helpers";
 
 const id = { ds: catalog("id", "ds"), common: catalog("id", "common") };
 const en = { ds: catalog("en", "ds") };
@@ -16,8 +16,6 @@ async function expectAccessible(page: Page, label: string) {
 }
 
 test.describe("design system showcase", () => {
-  test.skip(!user || !pass, "SENTRA_WEB_USER / SENTRA_WEB_PASS not set");
-  test.use({ httpCredentials: { username: user, password: pass } });
 
   for (const theme of ["dark", "light"] as const) {
     test(`${theme} theme: components, overlays, toast, ID↔EN, a11y, no console/CSP errors`, async ({ page }) => {
@@ -78,10 +76,9 @@ test.describe("design system showcase", () => {
 
       // Toast
       await page.getByRole("button", { name: id.ds.showcase.feedback.showToast }).click();
-      const toast = page.locator("[data-sonner-toast]");
+      const toast = page.locator("[data-toast]");
       await expect(toast).toContainText(id.ds.showcase.feedback.toastTitle);
-      await expect(toast).toHaveAttribute("data-mounted", "true");
-      await page.waitForTimeout(600); // let the enter transition (opacity/transform .4s) finish before measuring
+      await page.waitForTimeout(400); // let the enter animation finish before measuring
       await expectAccessible(page, `${theme} toast`);
       await page.screenshot({ path: `${artifactsDir}/design-system-${theme}-toast.png` });
       await expect(toast).toHaveCount(0, { timeout: 10_000 }); // auto-dismiss, so later scans see no fading toast

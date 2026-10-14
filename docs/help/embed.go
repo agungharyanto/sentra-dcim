@@ -4,7 +4,8 @@ package helpdocs
 
 import "embed"
 
-// FS holds <locale>/<slug>/index.md and <locale>/<slug>/<sub>.md for every supported locale.
+// FS holds <locale>/<slug>/index.md and <locale>/<slug>/<sub>.md for every supported locale, and the shared images
+// in assets/ (PNG/SVG, referenced as /api/v1/help/assets/<file>).
 //
-//go:embed id en
+//go:embed id en assets
 var FS embed.FS

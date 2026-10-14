@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
-import { artifactsDir, catalog, pass, stateFile, user, watchProblems } from "./helpers";
+import { artifactsDir, catalog, stateFile, watchProblems } from "./helpers";
 
 const cat = {
   id: { help: catalog("id", "help"), shell: catalog("id", "shell"), ds: catalog("id", "ds") },
@@ -20,8 +20,6 @@ const article = (page: Page) => page.locator("article[data-slug]");
 const helpNav = (page: Page, lng: "id" | "en" = "id") => page.getByRole("navigation", { name: cat[lng].help.pagesNav });
 
 test.describe("Help Center", () => {
-  test.skip(!user || !pass, "SENTRA_WEB_USER / SENTRA_WEB_PASS not set");
-  test.use({ httpCredentials: { username: user, password: pass } });
 
   test("opens from the sidebar, navigates pages and links, searches", async ({ page }) => {
     const problems = await watchProblems(page);
@@ -129,8 +127,7 @@ test.describe("Help Center", () => {
       hasTouch: true,
       isMobile: true,
       ignoreHTTPSErrors: true,
-      httpCredentials: { username: user, password: pass },
-      storageState: stateFile,
+        storageState: stateFile,
       reducedMotion: "reduce",
     });
     const mobile = await touch.newPage();

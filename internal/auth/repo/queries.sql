@@ -59,7 +59,9 @@ RETURNING *;
 SELECT s.id AS session_id, s.user_id, s.created_at AS session_created_at, s.last_seen_at, s.expires_at, s.idle_expires_at,
        u.username, u.display_name, u.status, u.must_change_password,
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-             WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles
+             WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
+       (s.mfa_verified_at IS NOT NULL)::boolean AS mfa_verified,
+       EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled
 FROM sessions s
 JOIN users u ON u.id = s.user_id
 WHERE s.token_hash = @token_hash
@@ -86,3 +88,40 @@ ORDER BY last_seen_at DESC;
 -- name: DeleteStaleSessions :execrows
 DELETE FROM sessions
 WHERE expires_at < @cutoff OR idle_expires_at < @cutoff OR revoked_at < @cutoff;
+
+-- name: GetUserMFA :one
+SELECT * FROM user_mfa WHERE user_id = @user_id;
+
+-- UpsertPendingMFA stores a new enrolment secret unless MFA is already active (then no row is returned).
+-- name: UpsertPendingMFA :one
+INSERT INTO user_mfa (user_id, secret_enc) VALUES (@user_id, @secret_enc)
+ON CONFLICT (user_id) DO UPDATE SET secret_enc = EXCLUDED.secret_enc, last_used_step = 0, updated_at = now()
+WHERE user_mfa.enabled_at IS NULL
+RETURNING user_id;
+
+-- name: EnableMFA :execrows
+UPDATE user_mfa SET enabled_at = now(), last_used_step = @step, updated_at = now()
+WHERE user_id = @user_id AND enabled_at IS NULL AND last_used_step < @step;
+
+-- UseTOTPStep records an accepted code atomically: a concurrent or later replay of the same step updates nothing.
+-- name: UseTOTPStep :execrows
+UPDATE user_mfa SET last_used_step = @step, updated_at = now()
+WHERE user_id = @user_id AND enabled_at IS NOT NULL AND last_used_step < @step;
+
+-- name: MarkSessionMFAVerified :exec
+UPDATE sessions SET mfa_verified_at = now() WHERE id = @id AND revoked_at IS NULL;
+
+-- name: DeleteRecoveryCodes :exec
+DELETE FROM mfa_recovery_codes WHERE user_id = @user_id;
+
+-- name: InsertRecoveryCode :exec
+INSERT INTO mfa_recovery_codes (user_id, code_hash) VALUES (@user_id, @code_hash);
+
+-- name: UseRecoveryCode :execrows
+UPDATE mfa_recovery_codes SET used_at = now() WHERE user_id = @user_id AND code_hash = @code_hash AND used_at IS NULL;
+
+-- name: CountUnusedRecoveryCodes :one
+SELECT count(*) FROM mfa_recovery_codes WHERE user_id = @user_id AND used_at IS NULL;
+
+-- name: RevokeUserSessions :execrows
+UPDATE sessions SET revoked_at = now() WHERE user_id = @user_id AND revoked_at IS NULL;

@@ -57,26 +57,52 @@ for p in /api/v1/ready /api/v1/does-not-exist /api/v2/health "/api/v1/health/../
   req --path-as-is "$BASE$p"
   check "GET $p rejected at proxy (403)" "$([[ $code == 403 ]] && jq -e '.error.code=="forbidden"' "$tmp/b" >/dev/null; echo $?)"
 done
-# Web UI (v0.2.1): behind temporary basic_auth until Auth v0.3 (ISS-026); full checks in test/api/ui.sh.
-for p in / /admin /api/v1/ui/bootstrap /api/v1/help/index /api/v1/help/pages/dashboard /api/v1/help/openapi; do
-  req "$BASE$p"
-  check "GET $p requires basic auth (401)" "$([[ $code == 401 && $(hdr WWW-Authenticate) == Basic* ]]; echo $?)"
+# ---- Without a session (basic_auth removed in v0.3.3, ISS-026, D-066) --------------------------------------------
+# Allowlist: the SPA shell (index.html for every UI route) and the assets it loads, health, the short version, and
+# reaching auth/login. Everything else — help content and images, OpenAPI, data APIs, MFA steps — needs a session.
+nononce() { sed -E 's/(name="csp-nonce" content=")[^"]*/\1/' "$1"; }
+req "$BASE/login"
+cp "$tmp/b" "$tmp/shell.html"
+check "GET /login = 200 SPA shell, no basic_auth challenge" "$([[ $code == 200 && -z $(hdr WWW-Authenticate) && $(hdr Content-Type) == text/html* ]] && grep -q '<div id="root">' "$tmp/shell.html"; echo $?)"
+check "SPA shell is small and holds no data (no JSON, < 4 KiB)" "$([[ $(wc -c <"$tmp/shell.html") -lt 4096 ]] && ! grep -q '"version"' "$tmp/shell.html"; echo $?)"
+for p in / /dashboard /mfa /change-password /design-system /users /help /help/auth/mfa /account/security /openapi.yaml /api.yaml /.env /.git/config /docs/help/id/auth/mfa.md /assets/; do
+  req --path-as-is "$BASE$p"
+  check "GET $p without session = SPA shell only (no file, no data)" "$([[ $code == 200 || $code == 404 ]] && { [[ $code == 404 ]] || cmp -s <(nononce "$tmp/b") <(nononce "$tmp/shell.html"); }; echo $?)"
 done
-check "401 keeps security headers (HSTS, nosniff, no Server)" "$([[ -n $(hdr Strict-Transport-Security) && $(hdr X-Content-Type-Options) == nosniff && -z $(hdr Server) ]]; echo $?)"
-check "401 body is the JSON error envelope" "$(jq -e '.error.code=="unauthorized"' "$tmp/b" >/dev/null; echo $?)"
-# Access log file for fail2ban (v0.2.5): grows per request, records the client IP, never the credentials.
+assets="$(grep -oE '/assets/[^"]+\.(js|css|svg)' "$tmp/shell.html" | sort -u)"
+for a in $assets; do
+  req "$BASE$a"
+  check "asset $a loaded by the login page = 200" "$([[ $code == 200 ]]; echo $?)"
+  if [[ $a == *.js || $a == *.css ]]; then
+    check "asset $a has no source map reference" "$(! grep -q 'sourceMappingURL' "$tmp/b"; echo $?)"
+    req "$BASE$a.map"
+    check "source map $a.map not served (404)" "$([[ $code == 404 ]]; echo $?)"
+  fi
+done
+for p in /api/v1/ui/bootstrap /api/v1/help/index /api/v1/help/pages/dashboard /api/v1/help/pages/auth/mfa /api/v1/help/openapi \
+  /api/v1/help/assets/help-mfa-qr-id.png /api/v1/help/assets/mfa-phone-scan.svg /api/v1/auth/me /api/v1/auth/sessions \
+  /api/v1/auth/mfa /api/v1/users /api/v1/roles; do
+  req "$BASE$p"
+  check "GET $p without session = 401 unauthenticated (no Basic challenge)" "$([[ $code == 401 && -z $(hdr WWW-Authenticate) ]] && jq -e '.error.code=="unauthenticated"' "$tmp/b" >/dev/null; echo $?)"
+done
+for p in /api/v1/auth/mfa/enrol /api/v1/auth/mfa/verify /api/v1/auth/mfa/enrol/confirm /api/v1/auth/mfa/recovery-codes; do
+  req -X POST -H "Origin: $BASE" -H 'X-Sentra-CSRF: x' -H 'Content-Type: application/json' -d '{"code":"000000"}' "$BASE$p"
+  check "POST $p without session = 401 unauthenticated" "$([[ $code == 401 ]] && jq -e '.error.code=="unauthenticated"' "$tmp/b" >/dev/null; echo $?)"
+done
+# Login is reachable without a session; CSRF is checked before credentials, so no failed login is counted.
+req -X POST -H 'Content-Type: application/json' -d '{"username":"edge.check","password":"x"}' "$BASE/api/v1/auth/login"
+check "POST /api/v1/auth/login reachable without session (403 csrf_failed, nothing counted)" "$([[ $code == 403 ]] && jq -e '.error.code=="csrf_failed"' "$tmp/b" >/dev/null; echo $?)"
+
+# Access log file for the fail2ban login jail: grows per request and records the client IP.
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 logsize() { docker compose -f "$root/docker-compose.yml" exec -T caddy stat -c %s /var/log/caddy/access.log 2>/dev/null || echo -1; }
-probe_user="logprobe$RANDOM" probe_pass="wrong-$RANDOM$RANDOM"
 size0="$(logsize)"
-req -u "$probe_user:$probe_pass" "$BASE/"
+req "$BASE/api/v1/auth/me?logprobe=$RANDOM"
 sleep 1
 size1="$(logsize)"
 check "access.log exists and grows after a request ($size0 → $size1 bytes)" "$(( size0 >= 0 && size1 > size0 ? 0 : 1 ))"
 last="$(docker compose -f "$root/docker-compose.yml" exec -T caddy tail -50 /var/log/caddy/access.log)"
-probe_b64="$(printf '%s:%s' "$probe_user" "$probe_pass" | base64 | tr -d '\n')"
-check "access.log records client_ip and Authorization as REDACTED" "$(grep -F "\"uri\":\"/\"" <<<"$last" | tail -1 | grep -q '"Authorization":\["REDACTED"\]' && grep -q '"client_ip":"' <<<"$last"; echo $?)"
-check "access.log never contains the credentials (plain or base64)" "$(! grep -qF -e "$probe_pass" -e "$probe_b64" -e "${probe_b64:0:16}" <<<"$last"; echo $?)"
+check "access.log records method, uri, status and client_ip" "$(grep -F 'logprobe=' <<<"$last" | tail -1 | grep -q '"method":"GET".*"client_ip":"\|"client_ip":".*"method":"GET"' && grep -F 'logprobe=' <<<"$last" | tail -1 | grep -q '"status":401'; echo $?)"
 
 req -X POST "$BASE/api/v1/health"
 check "POST /api/v1/health rejected (403)" "$([[ $code == 403 ]]; echo $?)"

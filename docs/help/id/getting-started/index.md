@@ -9,10 +9,8 @@ order: 20
 ## Masuk
 
 Masuk dengan **akun pribadi** Anda (nama pengguna atau NIP dan kata sandi) di halaman **Masuk**. Akun dibuat oleh
-administrator; kata sandi pertama wajib diganti. Langkah lengkap: [Masuk dan keluar](../auth/login.md).
-
-> Sampai v0.3.4 browser juga meminta **kredensial akses situs** sementara sebelum halaman Masuk tampil (catatan
-> internal ISS-026). Mintalah kepada administrator.
+administrator; kata sandi pertama wajib diganti. Setiap login juga meminta kode 6 digit dari aplikasi authenticator
+di HP ([Verifikasi dua langkah](../auth/mfa.md)). Langkah lengkap: [Masuk dan keluar](../auth/login.md).
 
 Setelah masuk, Anda dibawa ke [Dasbor](../dashboard/index.md). Nama Anda tampil di kanan atas; dari situ Anda bisa
 membuka [Sesi saya](../auth/sesi.md), [mengganti kata sandi](../auth/ganti-password.md), atau **Keluar**.

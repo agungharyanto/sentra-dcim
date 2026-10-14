@@ -1,7 +1,7 @@
 # Design System Sentra DCIM
 
 Sumber kebenaran tampilan UI web (`web/`). Berlaku sejak v0.2.2. Showcase interaktif: **`/design-system`**
-(halaman internal developer, tidak ada di registry menu, di balik basic_auth; mulai v0.3 dibatasi role admin/dev,
+(halaman internal developer, tidak ada di registry menu; sejak v0.3.3 hanya Admin, izin `ui.design_system`,
 ISS-029).
 
 ## 1. Token

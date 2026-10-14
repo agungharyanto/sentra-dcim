@@ -18,10 +18,10 @@ export function testBootstrap(overrides: Partial<UiBootstrap> = {}): UiBootstrap
 }
 
 /** Every permission (Admin); tests narrow it with testMe({ roles, permissions }). */
-export const allPermissions = ["roles.read", "system.version.read", "users.manage", "users.read"];
+export const allPermissions = ["roles.read", "system.version.read", "ui.design_system", "users.manage", "users.read"];
 
 /** Signed-in user for component tests (GET /api/v1/auth/me); an Admin unless overridden. */
-export function testMe(overrides: Partial<AuthMe["user"]> = {}): AuthMe {
+export function testMe(overrides: Partial<AuthMe["user"]> = {}, session: Partial<AuthMe["session"]> = {}): AuthMe {
   return {
     user: {
       id: "u-1",
@@ -30,6 +30,7 @@ export function testMe(overrides: Partial<AuthMe["user"]> = {}): AuthMe {
       must_change_password: false,
       roles: ["admin"],
       permissions: allPermissions,
+      mfa_enabled: true,
       ...overrides,
     },
     session: {
@@ -41,6 +42,8 @@ export function testMe(overrides: Partial<AuthMe["user"]> = {}): AuthMe {
       ip: null,
       user_agent: "",
       current: true,
+      mfa_verified: true,
+      ...session,
     },
   };
 }

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { toErrorCode } from "@/i18n/errors";
 import { ApiError } from "@/lib/api";
 
-import { safeNext, useAuth } from "./auth-context";
+import { pendingStepPath, safeNext, useAuth } from "./auth-context";
 import { AuthLayout } from "./AuthLayout";
 import { FormMessage } from "./FormMessage";
 
@@ -24,7 +24,7 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   if (me && !busy) {
-    return <Navigate to={me.user.must_change_password ? `/change-password?next=${encodeURIComponent(next)}` : next} replace />;
+    return <Navigate to={pendingStepPath(me, next) ?? next} replace />;
   }
 
   const submit = async (e: FormEvent) => {
@@ -38,9 +38,7 @@ export function LoginPage() {
     try {
       const res = await signIn(username.trim(), password);
       setPassword("");
-      await navigate(res.user.must_change_password ? `/change-password?next=${encodeURIComponent(next)}` : next, {
-        replace: true,
-      });
+      await navigate(pendingStepPath(res, next) ?? next, { replace: true });
     } catch (err) {
       setPassword("");
       if (err instanceof ApiError && err.code === "invalid_credentials") {

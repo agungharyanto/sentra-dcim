@@ -21,9 +21,18 @@ export function useAuth(): AuthState {
   return value;
 }
 
+/**
+ * Where a signed-in user has to go first: the MFA step (enrol or verify), then a forced password change, else next.
+ */
+export function pendingStepPath(me: AuthMe, next: string): string | undefined {
+  if (!me.session.mfa_verified) return `/mfa?next=${encodeURIComponent(next)}`;
+  if (me.user.must_change_password) return `/change-password?next=${encodeURIComponent(next)}`;
+  return undefined;
+}
+
 /** Only same-site paths are accepted as a post-login destination (no open redirect). */
 export function safeNext(next: string | null | undefined): string {
   if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return "/dashboard";
-  if (next.startsWith("/login") || next.startsWith("/change-password")) return "/dashboard";
+  if (next.startsWith("/login") || next.startsWith("/change-password") || next.startsWith("/mfa")) return "/dashboard";
   return next;
 }

@@ -139,17 +139,10 @@ jobs:
           gen() { openssl rand -hex 16; }
           sed -e "s/^POSTGRES_PASSWORD=CHANGE_ME/POSTGRES_PASSWORD=$(gen)/" \
               -e "s/^REDIS_PASSWORD=CHANGE_ME/REDIS_PASSWORD=$(gen)/" \
+              -e "s|^MFA_ENC_KEY=$|MFA_ENC_KEY=$(openssl rand -base64 32)|" \
               -e "s/^DOMAIN=.*/DOMAIN=/" -e "s/^ACME_EMAIL=.*/ACME_EMAIL=/" \
               -e "s/^CADDY_PUBLIC_HTTP_BIND=.*/CADDY_PUBLIC_HTTP_BIND=127.0.0.1:80/" \
               -e "s/^CADDY_PUBLIC_HTTPS_BIND=.*/CADDY_PUBLIC_HTTPS_BIND=127.0.0.1:443/" .env.example > .env
-          # Throwaway basic_auth for the UI tests (ISS-026); generated per run, never stored.
-          web_pass="$(gen)"
-          web_hash="$(docker run --rm caddy:2.11.7-alpine caddy hash-password --plaintext "$web_pass")"
-          sed -i -e "s/^WEB_BASIC_AUTH_USER=.*/WEB_BASIC_AUTH_USER=ci/" \
-                 -e "s|^WEB_BASIC_AUTH_HASH=.*|WEB_BASIC_AUTH_HASH='${web_hash}'|" .env
-          echo "::add-mask::$web_pass"
-          echo "SENTRA_WEB_USER=ci" >> "$GITHUB_ENV"
-          echo "SENTRA_WEB_PASS=$web_pass" >> "$GITHUB_ENV"
           make up
           make test-api
       - name: Throwaway app account (CLI create-admin + first password change via API)
@@ -159,15 +152,24 @@ jobs:
           echo "::add-mask::$first"; echo "::add-mask::$app_pass"
           printf '%s\n' "$first" | docker compose exec -T app /sentra user create-admin --username ci.e2e
           jar="$(mktemp)"
-          c=(curl -fsS -k -u "ci:$SENTRA_WEB_PASS" -b "$jar" -c "$jar" -H 'Origin: https://localhost' -H 'Content-Type: application/json')
+          c=(curl -fsS -k -b "$jar" -c "$jar" -H 'Origin: https://localhost' -H 'Content-Type: application/json')
           U=ci.e2e P="$first" jq -n '{username: env.U, password: env.P}' | "${c[@]}" -H 'X-Sentra-CSRF: login' --data-binary @- https://localhost/api/v1/auth/login >/dev/null
           csrf="$(awk '$6=="__Host-sentra_csrf"{print $7}' "$jar")"
+          # MFA enrolment (v0.3.3); the throwaway secret is masked and lets the tests compute codes.
+          totp_secret="$("${c[@]}" -X POST -H "X-Sentra-CSRF: $csrf" https://localhost/api/v1/auth/mfa/enrol | jq -r .secret)"
+          echo "::add-mask::$totp_secret"
+          C="$(printf '%s' "$totp_secret" | test/lib/totp.py)" jq -n '{code: env.C}' | "${c[@]}" -H "X-Sentra-CSRF: $csrf" --data-binary @- https://localhost/api/v1/auth/mfa/enrol/confirm >/dev/null
           C="$first" N="$app_pass" jq -n '{current_password: env.C, new_password: env.N}' | "${c[@]}" -H "X-Sentra-CSRF: $csrf" --data-binary @- https://localhost/api/v1/auth/password
           "${c[@]}" -X POST -H "X-Sentra-CSRF: $csrf" https://localhost/api/v1/auth/logout
           rm -f "$jar"
-          echo "SENTRA_APP_USER=ci.e2e" >> "$GITHUB_ENV"
-          echo "SENTRA_APP_PASS=$app_pass" >> "$GITHUB_ENV"
-      - name: UI edge test (basic_auth, SPA, headers, login, bootstrap)
+          {
+            echo "SENTRA_APP_USER=ci.e2e"
+            echo "SENTRA_APP_PASS=$app_pass"
+            echo "SENTRA_APP_TOTP_SECRET=$totp_secret"
+          } >> "$GITHUB_ENV"
+      - name: Public edge test without a session (allowlist inventory, no basic_auth)
+        run: DOMAIN=localhost ./test/api/public.sh
+      - name: UI edge test (SPA, headers, CSP nonce, login + MFA, bootstrap, users)
         run: BASE_URL=https://localhost ./test/api/ui.sh
       - name: Browser tests (Playwright + axe, UI screenshots)
         # E2E_MUTATIONS=1: the throwaway CI stack may create and change accounts (never set against production).

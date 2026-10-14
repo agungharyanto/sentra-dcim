@@ -29,6 +29,15 @@ type AuditEvent struct {
 	Hash          []byte             `json:"hash"`
 }
 
+// One-time MFA recovery codes (v0.3.3), stored as keyed hashes.
+type MfaRecoveryCode struct {
+	ID        int64              `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	CodeHash  []byte             `json:"code_hash"`
+	UsedAt    pgtype.Timestamptz `json:"used_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 // Operational runs recorded by ops/*.sh. Timestamps are UTC.
 type OpsRun struct {
 	ID         int64              `json:"id"`
@@ -65,6 +74,7 @@ type Session struct {
 	Ip            *netip.Addr        `json:"ip"`
 	UserAgent     string             `json:"user_agent"`
 	RevokedAt     pgtype.Timestamptz `json:"revoked_at"`
+	MfaVerifiedAt pgtype.Timestamptz `json:"mfa_verified_at"`
 }
 
 // Key/value metadata about this Sentra DCIM installation. All timestamps are UTC.
@@ -89,6 +99,16 @@ type User struct {
 	LastLoginAt        pgtype.Timestamptz `json:"last_login_at"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+// TOTP MFA per account (v0.3.3). Secrets only encrypted (MFA_ENC_KEY).
+type UserMfa struct {
+	UserID       pgtype.UUID        `json:"user_id"`
+	SecretEnc    []byte             `json:"secret_enc"`
+	EnabledAt    pgtype.Timestamptz `json:"enabled_at"`
+	LastUsedStep int64              `json:"last_used_step"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
 // Role assignments (v0.3.2). A user has the union of the permissions of its roles.

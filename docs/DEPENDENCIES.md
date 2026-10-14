@@ -11,7 +11,7 @@ ditambah, diubah versinya, atau dihapus.
 | Kernel Linux (`linux-image-oracle`) | 7.0.0-1013-oracle (berjalan sejak v0.2.9); 6.17.0-1020-oracle dipertahankan untuk rollback (ISS-036) | GPL-2.0 | Kernel host; GRUB menu 10 s untuk memilih kernel lewat serial console |
 | Oracle Cloud Agent (`snap oracle-cloud-agent`) | 1.61.0 (bawaan image) | Oracle (UPL/proprietary) | Agent OCI: monitoring, Run Command (jalur pemulihan darurat) |
 | Docker Engine | 29.9.0 | Apache-2.0 | Runtime container |
-| fail2ban (paket Ubuntu) | 1.0.2-3ubuntu0.1 | GPL-2.0 | Ban IP: jail `sshd` (v0.1) dan `sentra-web` (login basic_auth salah, v0.2.5) |
+| fail2ban (paket Ubuntu) | 1.0.2-3ubuntu0.1 | GPL-2.0 | Ban IP: jail `sshd` (v0.1) dan `sentra-web` (login aplikasi/kode MFA gagal per IP sejak v0.3.3; sebelumnya login basic_auth salah, v0.2.5) |
 | iptables (nf_tables) | 1.8.10-3ubuntu2 | GPL-2.0 | Aturan Docker & ban fail2ban di chain `DOCKER-USER` |
 | iproute2, curl (paket Ubuntu) | 6.1.0-1ubuntu6.4, 8.5.0-2ubuntu10.15 | GPL-2.0, curl | Uji ban nyata (`scripts/fail2ban-ban-test.sh`: network namespace + permintaan HTTPS) |
 | Docker Compose | 5.6.0 (plugin) | Apache-2.0 | Orkestrasi container lokal/server |
@@ -33,6 +33,7 @@ ditambah, diubah versinya, atau dihapus.
 | golang.org/x/time | 0.16.0 | BSD-3-Clause | Token bucket rate limiter |
 | golang.org/x/crypto | 0.58.0 | BSD-3-Clause | `argon2` (argon2id) untuk hash kata sandi (v0.3.1, ADR-003) |
 | golang.org/x/term | 0.47.0 | BSD-3-Clause | Prompt kata sandi tanpa echo di CLI `sentra user create-admin` (v0.3.1) |
+| rsc.io/qr | 0.2.0 | BSD-3-Clause | Matriks kode QR dari URI `otpauth://` untuk enrolment MFA (v0.3.3); TOTP sendiri diimplementasikan di `internal/auth/mfa` (stdlib, diuji vektor RFC 6238) |
 | github.com/google/uuid | 1.6.0 | BSD-3-Clause | Tipe UUID untuk `users`/`sessions` (sqlc override, v0.3.1) |
 | go.yaml.in/yaml/v3 | 3.0.5 | MIT / Apache-2.0 | Front matter Pusat Bantuan & konversi `api/openapi.yaml` → JSON (v0.2.4). Fork resmi yang dipelihara organisasi YAML (`gopkg.in/yaml.v3` tidak dipelihara lagi) |
 | golang.org/x/text (tidak langsung, via pgx) | 0.43.0 | BSD-3-Clause | Dinaikkan dari 0.38.0 karena GO-2026-5970 & GO-2026-6629 (ISS-033) |
@@ -64,7 +65,8 @@ pilih versi terbaru yang sudah melewati jendela itu.
 | radix-ui | 1.8.0 | MIT | Primitif aksesibel (Dialog/Sheet, Select, Tabs, Tooltip, DropdownMenu, Slot) untuk komponen shadcn/ui (v0.2.2) |
 | react-markdown | 10.1.0 | MIT | Renderer Markdown Pusat Bantuan (v0.2.4): tanpa raw HTML (tanpa rehype-raw), `urlTransform` hanya https/mailto/route app |
 | remark-gfm | 4.0.1 | MIT | GitHub Flavored Markdown (tabel, daftar, strikethrough) untuk halaman bantuan |
-| sonner | 2.0.8 | MIT | Toast (pengganti resmi Toast lama shadcn/ui); menyuntik `<style>` → ADR-002 |
+| ~~sonner~~ | — | — | **Dihapus di v0.3.3**: menyuntik `<style>` tanpa dukungan nonce (ISS-030); diganti `components/ui/toast.tsx` sendiri |
+| get-nonce | 1.0.1 | MIT | Memberi nonce CSP per request ke `react-style-singleton` (scroll lock Radix), v0.3.3 (ISS-030, D-065). Sudah dependensi tidak langsung; dijadikan langsung agar `setNonce()` bisa dipanggil |
 | @fontsource-variable/inter | 5.3.0 | OFL-1.1 | Font UI self-hosted (variable, hanya subset latin yang dibundel) |
 | @fontsource-variable/jetbrains-mono | 5.3.0 | OFL-1.1 | Font monospace self-hosted (kode, ID perangkat, angka teknis), subset latin |
 | vite | 8.3.4 | MIT | Bundler & dev server; output statis ber-hash tanpa inline script |

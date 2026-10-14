@@ -4,6 +4,7 @@
 package service
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -60,6 +61,29 @@ type Menu struct {
 type Catalog struct {
 	pages   map[string]map[string]Page // locale → slug → page
 	openAPI json.RawMessage
+	assets  map[string]Asset // file name → image
+}
+
+// Asset is an embedded help image.
+type Asset struct {
+	ContentType string
+	Data        []byte
+}
+
+// AssetPrefix is the URL path of help images in Markdown: ![alt](/api/v1/help/assets/<file>).
+const AssetPrefix = "/api/v1/help/assets/"
+
+var (
+	assetNameRE = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*\.(png|svg)$`)
+	imageRE     = regexp.MustCompile(`!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)`)
+	// SVG help images are our own drawings: nothing active or external.
+	svgUnsafeRE = regexp.MustCompile(`(?i)<script|<foreignobject|\son[a-z]+\s*=|javascript:|(?:href|src)\s*=\s*"(?:https?:)?//`)
+)
+
+// Asset returns an embedded help image by file name.
+func (c *Catalog) Asset(name string) (Asset, bool) {
+	a, ok := c.assets[name]
+	return a, ok
 }
 
 type frontMatter struct {
@@ -96,6 +120,9 @@ var infraPatterns = []struct {
 func Load(fsys fs.FS, locales []string, menus []Menu, openAPIYAML []byte) (*Catalog, error) {
 	var errs []error
 	c := &Catalog{pages: map[string]map[string]Page{}}
+	assets, aerrs := loadAssets(fsys)
+	errs = append(errs, aerrs...)
+	c.assets = assets
 
 	for _, loc := range locales {
 		pages, perrs := loadLocale(fsys, loc)
@@ -118,6 +145,7 @@ func Load(fsys fs.FS, locales []string, menus []Menu, openAPIYAML []byte) (*Cata
 				errs = append(errs, fmt.Errorf("%s: menu %q is not in the menu registry", where, p.Menu))
 			}
 			errs = append(errs, checkLinks(where, p.Markdown, p.dir, c.pages[loc], routes)...)
+			errs = append(errs, checkImages(where, p.Markdown, c.assets)...)
 			if loc == ref {
 				continue
 			}
@@ -296,6 +324,9 @@ func checkLinks(where, body, dir string, pages map[string]Page, routes map[strin
 	prose := inlineRE.ReplaceAllString(fenceRE.ReplaceAllString(body, ""), "")
 	for _, m := range linkRE.FindAllStringSubmatch(prose, -1) {
 		target := m[1]
+		if strings.HasPrefix(m[0], "!") {
+			continue // images: checkImages
+		}
 		switch {
 		case strings.HasPrefix(target, "https://"), strings.HasPrefix(target, "mailto:"), strings.HasPrefix(target, "#"):
 		case strings.HasPrefix(target, "/"):
@@ -375,3 +406,62 @@ func (c *Catalog) Page(locale, slug string) (Page, bool) {
 
 // OpenAPI returns the specification as JSON.
 func (c *Catalog) OpenAPI() json.RawMessage { return c.openAPI }
+
+// loadAssets reads assets/*.png|svg. Only well-named, safe files; anything else in the directory is an error.
+func loadAssets(fsys fs.FS) (map[string]Asset, []error) {
+	out := map[string]Asset{}
+	entries, err := fs.ReadDir(fsys, "assets")
+	if errors.Is(err, fs.ErrNotExist) {
+		return out, nil
+	}
+	if err != nil {
+		return nil, []error{fmt.Errorf("assets: %w", err)}
+	}
+	var errs []error
+	for _, e := range entries {
+		name := e.Name()
+		m := assetNameRE.FindStringSubmatch(name)
+		if e.IsDir() || m == nil {
+			errs = append(errs, fmt.Errorf("assets/%s: only lower-case kebab-case .png/.svg files are allowed", name))
+			continue
+		}
+		data, err := fs.ReadFile(fsys, "assets/"+name)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("assets/%s: %w", name, err))
+			continue
+		}
+		if len(data) > 512<<10 {
+			errs = append(errs, fmt.Errorf("assets/%s: larger than 512 KiB", name))
+		}
+		ct := "image/png"
+		if m[1] == "svg" {
+			ct = "image/svg+xml"
+			if svgUnsafeRE.Match(data) {
+				errs = append(errs, fmt.Errorf("assets/%s: SVG with scripts, event handlers or external references", name))
+			}
+		} else if !bytes.HasPrefix(data, []byte("\x89PNG\r\n\x1a\n")) {
+			errs = append(errs, fmt.Errorf("assets/%s: not a PNG file", name))
+		}
+		out[name] = Asset{ContentType: ct, Data: data}
+	}
+	return out, errs
+}
+
+// checkImages: every image is an existing help asset with a meaningful alt text (accessibility, WCAG 1.1.1).
+func checkImages(where, body string, assets map[string]Asset) []error {
+	var errs []error
+	prose := inlineRE.ReplaceAllString(fenceRE.ReplaceAllString(body, ""), "")
+	for _, m := range imageRE.FindAllStringSubmatch(prose, -1) {
+		alt, target := strings.TrimSpace(m[1]), m[2]
+		name, ok := strings.CutPrefix(target, AssetPrefix)
+		switch {
+		case !ok:
+			errs = append(errs, fmt.Errorf("%s: image %q must be %s<file>", where, target, AssetPrefix))
+		case assets[name].Data == nil:
+			errs = append(errs, fmt.Errorf("%s: image %q is not in docs/help/assets", where, target))
+		case len([]rune(alt)) < 8:
+			errs = append(errs, fmt.Errorf("%s: image %q needs a descriptive alt text", where, target))
+		}
+	}
+	return errs
+}

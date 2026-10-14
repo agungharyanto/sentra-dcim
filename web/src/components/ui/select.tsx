@@ -2,6 +2,8 @@ import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { Select as SelectPrimitive } from "radix-ui";
 import type * as React from "react";
 
+import { getNonce } from "get-nonce";
+
 import { cn } from "@/lib/utils";
 
 function Select(props: React.ComponentProps<typeof SelectPrimitive.Root>) {
@@ -52,7 +54,10 @@ function SelectContent({
         )}
         {...props}
       >
-        <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
+        {/* The viewport injects its own <style> (hidden scrollbar): it needs the per-request CSP nonce (ISS-030). */}
+        <SelectPrimitive.Viewport className="p-1" nonce={getNonce()}>
+          {children}
+        </SelectPrimitive.Viewport>
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
   );

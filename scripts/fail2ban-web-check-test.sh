@@ -22,21 +22,30 @@ cp "$repo/scripts/fail2ban-web-check.sh" "$repo/scripts/fail2ban-web-install.sh"
 cp "$repo/scripts/lib/fail2ban-web.sh" "$repo/scripts/lib/source-rev.sh" "$fake/scripts/lib/"
 cp -r "$repo/deploy/fail2ban" "$fake/deploy/"
 echo "DOMAIN=sentra.example.go.id" > "$fake/.env"
-export F2B_DEST_ROOT="$dest" F2B_LOGPATH=/var/lib/docker/volumes/test_caddy_logs/_data/access.log
+export F2B_DEST_ROOT="$dest" F2B_LOGPATH=/var/lib/docker/volumes/test_caddy_logs/_data/access.log F2B_ADMIN_IPS=""
 
 run_check "nothing installed → exit 1 + make fail2ban-web" 1 "run: make fail2ban-web"
 install_fake
 run_check "installed from this repo → exit 0" 0 "OK — jail sentra-web files match"
-echo "# local edit" >> "$dest/etc/fail2ban/filter.d/sentra-caddy-auth.conf"
-run_check "filter edited on the host → exit 1" 1 "DRIFT .*sentra-caddy-auth.conf"
+echo "# local edit" >> "$dest/etc/fail2ban/filter.d/sentra-app-login.conf"
+run_check "filter edited on the host → exit 1" 1 "DRIFT .*sentra-app-login.conf"
 install_fake
-echo "# newer rule" >> "$fake/deploy/fail2ban/filter.d/sentra-caddy-auth.conf"
-run_check "filter changed in the repo → exit 1" 1 "DRIFT .*sentra-caddy-auth.conf"
-cp "$repo/deploy/fail2ban/filter.d/sentra-caddy-auth.conf" "$fake/deploy/fail2ban/filter.d/"
+echo "# newer rule" >> "$fake/deploy/fail2ban/filter.d/sentra-app-login.conf"
+run_check "filter changed in the repo → exit 1" 1 "DRIFT .*sentra-app-login.conf"
+cp "$repo/deploy/fail2ban/filter.d/sentra-app-login.conf" "$fake/deploy/fail2ban/filter.d/"
 F2B_LOGPATH=/var/lib/docker/volumes/other_caddy_logs/_data/access.log run_check "jail log path differs → exit 1" 1 "DRIFT .*sentra-web.local"
 rm "$dest/etc/systemd/system/fail2ban.service.d/sentra-docker.conf"
 run_check "systemd drop-in missing → exit 1" 1 "MISSING .*sentra-docker.conf"
 install_fake
+# ADMIN_IPS go into ignoreip; a changed list is drift, an invalid entry stops the render.
+F2B_ADMIN_IPS="198.51.100.7,203.0.113.0/28" install_fake
+if grep -q 'ignoreip  = 127.0.0.1/8 ::1 198.51.100.7 203.0.113.0/28' "$dest/etc/fail2ban/jail.d/sentra-web.local"; then ok "ADMIN_IPS rendered into ignoreip" 0; else ok "ADMIN_IPS rendered into ignoreip" 1; fi
+F2B_ADMIN_IPS="198.51.100.7" run_check "ADMIN_IPS changed → exit 1" 1 "DRIFT .*sentra-web.local"
+F2B_ADMIN_IPS="not-an-ip" run_check "invalid ADMIN_IPS → exit 2" 2 "ADMIN_IPS: invalid"
+install_fake
+touch "$dest/etc/fail2ban/filter.d/sentra-caddy-auth.conf"
+run_check "legacy basic_auth filter still installed → exit 1" 1 "LEGACY .*sentra-caddy-auth.conf"
+rm "$dest/etc/fail2ban/filter.d/sentra-caddy-auth.conf"
 mv "$fake/.env" "$fake/.env.off"
 run_check "no DOMAIN in .env → exit 2" 2 "DOMAIN in .env"
 mv "$fake/.env.off" "$fake/.env"
@@ -44,7 +53,7 @@ mv "$fake/.env.off" "$fake/.env"
 local out rc=0
 out="$("$fake/scripts/fail2ban-web-install.sh" 2>&1)" || rc=$?
 expect "installer refuses test overrides" "$rc" 1 "$out" "test overrides of the check script only"
-unset F2B_DEST_ROOT F2B_LOGPATH
+unset F2B_DEST_ROOT F2B_LOGPATH F2B_ADMIN_IPS
 
 # --- 2. release.sh with a stubbed check ------------------------------------------------------------------------
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.invalid GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@example.invalid
@@ -81,7 +90,7 @@ install_fake() { # what fail2ban-web-install.sh would install, without root
   ( die() { echo "$*" >&2; exit 2; }
     # shellcheck source=lib/fail2ban-web.sh
     source "$fake/scripts/lib/fail2ban-web.sh"; f2b_dests; f2b_render "$fake" "$r"
-    install -D -m 0644 "$r/sentra-caddy-auth.conf" "$filter_dst"
+    install -D -m 0644 "$r/sentra-app-login.conf" "$filter_dst"
     install -D -m 0644 "$r/sentra-web.local" "$jail_dst"
     install -D -m 0644 "$r/sentra-docker.conf" "$dropin_dst" )
   rm -rf "$r"

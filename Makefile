@@ -51,16 +51,11 @@ preflight: .env ## Validate .env before starting (domain/ACME settings)
 	@set -a; source .env; set +a; \
 	if [[ -n "$${DOMAIN:-}" && "$$DOMAIN" != localhost && -z "$${ACME_EMAIL:-}" ]]; then \
 	  echo "preflight: DOMAIN=$$DOMAIN requires ACME_EMAIL in .env" >&2; exit 1; fi; \
-	if [[ -n "$${DOMAIN:-}" && "$$DOMAIN" != localhost && -z "$${WEB_BASIC_AUTH_HASH:-}" ]]; then \
-	  echo "preflight: DOMAIN=$$DOMAIN requires WEB_BASIC_AUTH_USER/WEB_BASIC_AUTH_HASH in .env (UI stays locked otherwise)" >&2; exit 1; fi; \
-	if [[ -n "$${WEB_BASIC_AUTH_HASH:-}" && ! "$$WEB_BASIC_AUTH_HASH" =~ ^\$$2[aby]\$$[0-9]{2}\$$[./A-Za-z0-9]{53}$$ ]]; then \
-	  echo "preflight: WEB_BASIC_AUTH_HASH is not a bcrypt hash (use single quotes in .env, see .env.example)" >&2; exit 1; fi; \
-	if [[ "$${WEB_BASIC_AUTH_HASH:-}" =~ ^\$$2[aby]\$$([0-9]{2})\$$ ]] && (( 10#$${BASH_REMATCH[1]} > 12 )); then \
-	  echo "preflight: WARNING bcrypt cost $${BASH_REMATCH[1]} > 12: each wrong basic_auth login costs ~1 s CPU at 14 (DoS risk, ISS-026). Regenerate with --bcrypt-cost 10 (docs/ops/runbooks/web-basic-auth.md)" >&2; fi; \
+	if [[ ! "$$(printf '%s' "$${MFA_ENC_KEY:-}" | base64 -d 2>/dev/null | wc -c)" == 32 ]]; then \
+	  echo "preflight: MFA_ENC_KEY must be 32 random bytes in base64 (openssl rand -base64 32), see .env.example" >&2; exit 1; fi; \
 	if [[ ! '$(VERSION)' =~ ^[A-Za-z0-9._-]+$$ ]]; then echo "preflight: invalid VERSION '$(VERSION)'" >&2; exit 1; fi
 
-CADDY_VALIDATE := docker run --rm -v "$$PWD/deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
-	-e WEB_BASIC_AUTH_USER=sentra -e 'WEB_BASIC_AUTH_HASH=$$2a$$14$$wA4jVT8NyygzV9uWV32bKOx2SNKJSSjNH6wBBg9TMt6E.Yaba7bBu'
+CADDY_VALIDATE := docker run --rm -v "$$PWD/deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro"
 caddy-validate: ## Validate the Caddyfile for production-like and empty (dev/CI) settings
 	$(CADDY_VALIDATE) -e DOMAIN=sentra.example.go.id -e ACME_EMAIL=admin@example.go.id caddy:2.11.7-alpine caddy validate --config /etc/caddy/Caddyfile
 	$(CADDY_VALIDATE) -e DOMAIN=localhost -e ACME_EMAIL=admin@localhost caddy:2.11.7-alpine caddy validate --config /etc/caddy/Caddyfile
@@ -112,10 +107,10 @@ fail2ban-web-check: ## Compare the installed jail sentra-web with the repository
 fail2ban-web-check-test: ## Test the drift check and release.sh fail2ban gate in a temporary directory (no sudo)
 	./scripts/fail2ban-web-check-test.sh
 
-fail2ban-web: ## Install/update the fail2ban jail sentra-web for wrong basic_auth logins (idempotent; sudo)
+fail2ban-web: ## Install/update the fail2ban jail sentra-web for failed app sign-ins/MFA codes, ADMIN_IPS exempt (idempotent; sudo)
 	sudo ./scripts/fail2ban-web-install.sh
 
-fail2ban-web-remove: ## Remove the sentra-web jail, filter and systemd drop-in (v0.3, with basic_auth; sudo)
+fail2ban-web-remove: ## Remove the sentra-web jail, filter and systemd drop-in (sudo)
 	sudo ./scripts/fail2ban-web-install.sh --remove
 
 fail2ban-ban-test: ## Real ban/unban test from a throwaway container network against this host (sudo)

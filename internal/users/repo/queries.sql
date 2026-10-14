@@ -4,6 +4,7 @@ SELECT u.id, u.username::text AS username, u.display_name, COALESCE(u.email::tex
        u.last_login_at, u.created_at, u.updated_at,
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
              WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
+       EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled,
        count(*) OVER () AS total
 FROM users u
 WHERE (@query::text = '' OR u.username::text ILIKE '%' || @query || '%' ESCAPE '\'
@@ -19,7 +20,8 @@ SELECT u.id, u.username::text AS username, u.display_name, COALESCE(u.email::tex
        (u.locked_until IS NOT NULL AND u.locked_until > now())::boolean AS locked,
        u.last_login_at, u.created_at, u.updated_at,
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-             WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles
+             WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
+       EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled
 FROM users u
 WHERE u.id = @id;
 
@@ -67,3 +69,15 @@ SELECT count(*) FROM users u
 JOIN user_roles ur ON ur.user_id = u.id
 JOIN roles r ON r.id = ur.role_id AND r.key = 'admin'
 WHERE u.status = 'active' AND u.id <> @user_id;
+
+-- name: DeleteUserMFA :execrows
+DELETE FROM user_mfa WHERE user_id = @user_id;
+
+-- name: DeleteUserRecoveryCodes :exec
+DELETE FROM mfa_recovery_codes WHERE user_id = @user_id;
+
+-- name: GetUserIDByUsername :one
+SELECT id FROM users WHERE username = @username;
+
+-- name: UnlockUser :execrows
+UPDATE users SET failed_attempts = 0, locked_until = NULL, updated_at = now() WHERE id = @id;

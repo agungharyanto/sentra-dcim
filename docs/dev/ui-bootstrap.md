@@ -9,13 +9,11 @@ zona waktu tampilan, dan **registry menu** (satu sumber di backend). UI tidak me
 ## Role yang dibutuhkan
 | Aksi | Role |
 |---|---|
-| `GET /api/v1/ui/bootstrap` lewat domain publik | Kredensial **basic_auth sementara** (sampai Auth v0.3, ISS-026) |
-| `GET /api/v1/ui/bootstrap` di server (`127.0.0.1:8080`) | Akses ke server |
+| `GET /api/v1/ui/bootstrap` | Sesi aplikasi yang lolos MFA (semua role), di domain publik maupun `127.0.0.1:8080` |
 
 ## Langkah-langkah
-1. Di server: `curl -s http://127.0.0.1:8080/api/v1/ui/bootstrap | jq`.
-2. Lewat domain publik (basic_auth): `curl -s -u <user> https://sentra.bajastu.id/api/v1/ui/bootstrap | jq`
-   (curl menanyakan password; jangan menulis password di command line).
+1. Masuk di browser, lalu buka DevTools → Network → request `ui/bootstrap` (respons JSON).
+2. Otomatis: `make test-ui` memeriksa field bootstrap dengan sesi akun uji (meminta kode MFA).
 3. Arti field:
    - `default_locale` — bahasa default (`DEFAULT_LOCALE` di `.env`, default `id`). Pengguna bisa mengganti bahasa
      di UI; pilihannya disimpan di browser dan mengalahkan default ini.
@@ -50,5 +48,6 @@ zona waktu tampilan, dan **registry menu** (satu sumber di backend). UI tidak me
 | GET | `/api/v1/version` | Versi publik; sama dengan `version` di bootstrap |
 
 ## Pertanyaan umum / pemecahan masalah
-- **401 di browser/curl**: basic_auth belum diisi atau salah — lihat [web-basic-auth.md](../ops/runbooks/web-basic-auth.md).
+- **401 `unauthenticated`**: belum masuk / sesi berakhir; **403 `mfa_required`**: sesi belum lolos verifikasi dua
+  langkah.
 - **UI menampilkan "Konfigurasi aplikasi gagal dimuat"**: cek `make ps` (app healthy?) dan endpoint di langkah 1.

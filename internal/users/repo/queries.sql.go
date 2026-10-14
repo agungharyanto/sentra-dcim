@@ -66,6 +66,27 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (uuid.UU
 	return id, err
 }
 
+const deleteUserMFA = `-- name: DeleteUserMFA :execrows
+DELETE FROM user_mfa WHERE user_id = $1
+`
+
+func (q *Queries) DeleteUserMFA(ctx context.Context, userID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteUserMFA, userID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteUserRecoveryCodes = `-- name: DeleteUserRecoveryCodes :exec
+DELETE FROM mfa_recovery_codes WHERE user_id = $1
+`
+
+func (q *Queries) DeleteUserRecoveryCodes(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteUserRecoveryCodes, userID)
+	return err
+}
+
 const deleteUserRoles = `-- name: DeleteUserRoles :exec
 DELETE FROM user_roles WHERE user_id = $1
 `
@@ -109,7 +130,8 @@ SELECT u.id, u.username::text AS username, u.display_name, COALESCE(u.email::tex
        (u.locked_until IS NOT NULL AND u.locked_until > now())::boolean AS locked,
        u.last_login_at, u.created_at, u.updated_at,
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-             WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles
+             WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
+       EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled
 FROM users u
 WHERE u.id = $1
 `
@@ -126,6 +148,7 @@ type GetUserRow struct {
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
 	Roles              []string
+	MfaEnabled         bool
 }
 
 func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (GetUserRow, error) {
@@ -143,8 +166,20 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (GetUserRow, error)
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Roles,
+		&i.MfaEnabled,
 	)
 	return i, err
+}
+
+const getUserIDByUsername = `-- name: GetUserIDByUsername :one
+SELECT id FROM users WHERE username = $1
+`
+
+func (q *Queries) GetUserIDByUsername(ctx context.Context, username string) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getUserIDByUsername, username)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const listRoles = `-- name: ListRoles :many
@@ -185,6 +220,7 @@ SELECT u.id, u.username::text AS username, u.display_name, COALESCE(u.email::tex
        u.last_login_at, u.created_at, u.updated_at,
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
              WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
+       EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled,
        count(*) OVER () AS total
 FROM users u
 WHERE ($1::text = '' OR u.username::text ILIKE '%' || $1 || '%' ESCAPE '\'
@@ -216,6 +252,7 @@ type ListUsersRow struct {
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
 	Roles              []string
+	MfaEnabled         bool
 	Total              int64
 }
 
@@ -246,6 +283,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUse
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Roles,
+			&i.MfaEnabled,
 			&i.Total,
 		); err != nil {
 			return nil, err
@@ -314,6 +352,18 @@ type SetUserStatusParams struct {
 
 func (q *Queries) SetUserStatus(ctx context.Context, arg SetUserStatusParams) (int64, error) {
 	result, err := q.db.Exec(ctx, setUserStatus, arg.Status, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const unlockUser = `-- name: UnlockUser :execrows
+UPDATE users SET failed_attempts = 0, locked_until = NULL, updated_at = now() WHERE id = $1
+`
+
+func (q *Queries) UnlockUser(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, unlockUser, id)
 	if err != nil {
 		return 0, err
 	}

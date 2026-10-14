@@ -23,7 +23,7 @@ role that fits (*least privilege*).
 
 | Role | For | Current permissions |
 |---|---|---|
-| Admin | Application administrators | All: `users.read`, `users.manage`, `roles.read`, `system.version.read` |
+| Admin | Application administrators | All: `users.read`, `users.manage`, `roles.read`, `system.version.read`, `ui.design_system` |
 | NOC | 24/7 monitoring operators | — (grows with the monitoring & alarm modules) |
 | Security | Security & physical access staff | — (grows with the access & visitor modules) |
 | Technician | Facility & equipment technicians | — (grows with the asset & maintenance modules) |
@@ -40,6 +40,7 @@ The current list is always shown on the **Roles** tab of the Users & Roles menu,
 | `users.manage` | Creating, editing, assigning roles, disabling/enabling and resetting passwords of users |
 | `roles.read` | Viewing the role list and its permissions |
 | `system.version.read` | Viewing application build details (commit, Go version, server clock) |
+| `ui.design_system` | Opening the UI component showcase page (for developers) |
 
 ## Related API endpoints
 

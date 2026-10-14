@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
-import { appPass, appUser, artifactsDir, catalog, pass, user, watchProblems } from "./helpers";
+import { appPass, appTotpSecret, appUser, artifactsDir, catalog, freshTotp, watchProblems } from "./helpers";
 
 const id = catalog("id", "auth");
 const mobile = { width: 390, height: 844 };
@@ -22,8 +22,7 @@ const noHorizontalScroll = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
 
 test.describe("auth (signed out)", () => {
-  test.skip(!user || !pass, "SENTRA_WEB_USER / SENTRA_WEB_PASS not set");
-  test.use({ httpCredentials: { username: user, password: pass }, storageState: signedOut });
+  test.use({ storageState: signedOut });
 
   test("login page and generic login error (mocked, no real attempt), desktop + mobile, axe", async ({ page }) => {
     const problems = await watchProblems(page);
@@ -51,13 +50,18 @@ test.describe("auth (signed out)", () => {
     expect(unexpected(problems)).toEqual([]);
   });
 
-  test("real login through the form, user name in the shell, logout", async ({ page }) => {
-    test.skip(!appUser || !appPass, "SENTRA_APP_USER / SENTRA_APP_PASS not set");
+  test("real login through the form with MFA, user name in the shell, logout", async ({ page }) => {
+    // A second real sign-in needs a second code: only with the CI throwaway secret (never a production phone).
+    test.skip(!appUser || !appPass || !appTotpSecret, "needs SENTRA_APP_TOTP_SECRET (CI throwaway account)");
     const problems = await watchProblems(page);
     await page.goto("/login");
     await page.getByLabel(id.login.username).fill(appUser);
     await page.getByLabel(id.login.password).fill(appPass);
     await page.getByRole("button", { name: id.login.submit }).click();
+    await expect(page).toHaveURL(/\/mfa\?next=%2Fdashboard$/);
+    test.setTimeout(90_000); // waits for a fresh 30 s step
+    await page.getByLabel(id.mfa.codeLabel).fill(await freshTotp(appTotpSecret));
+    await page.getByRole("button", { name: id.mfa.verify }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByTestId("user-name")).not.toBeEmpty();
 
@@ -75,8 +79,6 @@ test.describe("auth (signed out)", () => {
 });
 
 test.describe("auth (signed in)", () => {
-  test.skip(!user || !pass, "SENTRA_WEB_USER / SENTRA_WEB_PASS not set");
-  test.use({ httpCredentials: { username: user, password: pass } });
 
   test("forced password change page (must_change mocked; never submitted), desktop + mobile, axe", async ({ page }) => {
     const problems = await watchProblems(page);

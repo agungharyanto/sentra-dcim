@@ -48,6 +48,7 @@ func (h *Handler) Routes(r chi.Router, require func(rbac.Permission) func(http.H
 	r.With(manage).Post("/users/{id}/disable", h.status(service.StatusDisabled))
 	r.With(manage).Post("/users/{id}/enable", h.status(service.StatusActive))
 	r.With(manage).Post("/users/{id}/password-reset", h.resetPassword)
+	r.With(manage).Post("/users/{id}/mfa-reset", h.resetMFA)
 	r.With(require(rbac.RolesRead)).Get("/roles", h.roles)
 }
 
@@ -183,6 +184,18 @@ func (h *Handler) resetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	noStore(w)
 	httpserver.JSON(w, http.StatusOK, withPassword{TemporaryPassword: temp})
+}
+
+func (h *Handler) resetMFA(w http.ResponseWriter, r *http.Request) {
+	id, ok := userID(w, r)
+	if !ok {
+		return
+	}
+	if err := h.svc.ResetMFA(r.Context(), id, audit.MetaFromRequest(r)); err != nil {
+		h.fail(w, r, "reset mfa", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) roles(w http.ResponseWriter, r *http.Request) {

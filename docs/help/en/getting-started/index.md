@@ -9,10 +9,9 @@ order: 20
 ## Signing in
 
 Sign in with your **personal account** (username or NIP and password) on the **Sign in** page. Accounts are created
-by an administrator; the first password must be changed. Full steps: [Signing in and out](../auth/login.md).
-
-> Until v0.3.4 the browser also asks for temporary **site access credentials** before the Sign in page appears
-> (internal note ISS-026). Ask your administrator for them.
+by an administrator; the first password must be changed. Every sign-in also asks for a 6-digit code from the
+authenticator app on your phone ([Two-step verification](../auth/mfa.md)). Full steps:
+[Signing in and out](../auth/login.md).
 
 After signing in you land on the [Dashboard](../dashboard/index.md). Your name is shown in the top right; from there
 you can open [My sessions](../auth/sesi.md), [change your password](../auth/ganti-password.md) or **Sign out**.

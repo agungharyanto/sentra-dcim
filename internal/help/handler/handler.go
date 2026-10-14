@@ -1,10 +1,11 @@
-// Package handler exposes the Help Center under /api/v1/help. Until Auth (v0.3) the public routes are guarded by
-// Caddy basic_auth; from v0.3 pages are filtered by role via their audience (ISS-032).
+// Package handler exposes the Help Center under /api/v1/help (pages, images, OpenAPI). Every route needs a session
+// that passed MFA (default-deny, internal/api); filtering pages by role via their audience follows in v0.3.4 (ISS-032).
 package handler
 
 import (
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -33,6 +34,7 @@ func (h *Handler) Routes(r chi.Router) {
 		r.Get("/index", h.index)
 		r.Get("/pages/*", h.page)
 		r.Get("/openapi", h.openAPI)
+		r.Get("/assets/{name}", h.asset)
 	})
 }
 
@@ -88,4 +90,16 @@ func (h *Handler) openAPI(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(h.cat.OpenAPI())
+}
+
+// asset serves an embedded help image (whitelist lookup only; the name never reaches the filesystem).
+func (h *Handler) asset(w http.ResponseWriter, r *http.Request) {
+	a, ok := h.cat.Asset(chi.URLParam(r, "name"))
+	if !ok {
+		httpserver.Error(w, r, http.StatusNotFound, "not_found", "asset not found")
+		return
+	}
+	w.Header().Set("Content-Type", a.ContentType)
+	w.Header().Set("Content-Length", strconv.Itoa(len(a.Data)))
+	_, _ = w.Write(a.Data)
 }

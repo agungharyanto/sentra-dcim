@@ -12,12 +12,13 @@ Masuk ke Sentra DCIM dengan akun pribadi agar setiap tindakan tercatat atas nama
 
 ## Langkah masuk
 
-1. Buka alamat Sentra DCIM. Selama masa transisi (sampai v0.3.4) browser lebih dulu meminta **kredensial akses
-   situs** yang terpisah dari akun Anda; mintalah kepada administrator.
-2. Di halaman **Masuk**, isi **Nama pengguna** (atau NIP) dan **Kata sandi**, lalu pilih **Masuk**.
-3. Bila akun baru dibuat atau kata sandinya diatur ulang, Anda langsung diminta
+1. Buka alamat Sentra DCIM; halaman **Masuk** tampil.
+2. Isi **Nama pengguna** (atau NIP) dan **Kata sandi**, lalu pilih **Masuk**.
+3. Masukkan kode 6 digit dari aplikasi authenticator di HP. Saat masuk pertama kali Anda memasangnya dulu
+   ([Verifikasi dua langkah](mfa.md)).
+4. Bila akun baru dibuat atau kata sandinya diatur ulang, Anda langsung diminta
    [mengganti kata sandi](ganti-password.md) sebelum memakai aplikasi.
-4. Setelah berhasil, Anda dibawa ke halaman yang tadi ingin dibuka (atau [Dasbor](../dashboard/index.md)). Nama
+5. Setelah berhasil, Anda dibawa ke halaman yang tadi ingin dibuka (atau [Dasbor](../dashboard/index.md)). Nama
    Anda tampil di kanan atas.
 
 ## Pesan yang mungkin muncul

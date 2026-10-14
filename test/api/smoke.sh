@@ -54,7 +54,7 @@ fi
 echo "  info  version=$(jq -r .version "$tmp/b")"
 
 # Default-deny (v0.3.1): everything except health/ready/version/login needs a session.
-for p in /api/v1/ui/bootstrap /api/v1/help/index /api/v1/auth/me /api/v1/auth/sessions /api/v1/users /api/v1/roles; do
+for p in /api/v1/ui/bootstrap /api/v1/help/index /api/v1/auth/me /api/v1/auth/sessions /api/v1/auth/mfa /api/v1/users /api/v1/roles; do
   req GET "$p"
   check "GET $p without session = 401 unauthenticated" "$([[ $code == 401 ]] && jq -e '.error.code=="unauthenticated"' "$tmp/b" >/dev/null; echo $?)"
 done

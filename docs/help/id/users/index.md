@@ -18,7 +18,7 @@ dihapus** — akun dinonaktifkan agar jejak audit tetap utuh.
 | Aksi | Role |
 |---|---|
 | Melihat daftar pengguna dan daftar role | Admin, Auditor |
-| Membuat, mengubah, menetapkan role, menonaktifkan/mengaktifkan, reset kata sandi | Admin |
+| Membuat, mengubah, menetapkan role, menonaktifkan/mengaktifkan, reset kata sandi, reset MFA | Admin |
 
 Pengguna tanpa izin tidak melihat menu ini; bila membuka alamatnya langsung, halaman menampilkan *Akses ditolak*.
 Daftar role dan izinnya: [Role & izin](roles.md).
@@ -52,6 +52,13 @@ Nama pengguna tidak bisa diubah setelah akun dibuat (dipakai di log audit).
 
 Untuk akun Anda sendiri gunakan [Ganti kata sandi](../auth/ganti-password.md).
 
+### Mereset verifikasi dua langkah (MFA)
+Bila pengguna kehilangan HP dan recovery code-nya: pada halaman pengguna pilih **Reset MFA** lalu konfirmasi. MFA dan
+recovery code pengguna dihapus, semua sesinya ditutup, dan ia memasang ulang saat masuk berikutnya
+([Verifikasi dua langkah](../auth/mfa.md)). Pastikan dulu permintaan itu benar dari pemilik akun (mis. bertemu
+langsung). MFA akun Anda sendiri tidak bisa direset di sini. Kolom **MFA belum aktif** di daftar menandai akun yang
+belum memasang MFA.
+
 ## Pengaman bawaan
 
 | Aturan | Alasan |
@@ -75,6 +82,7 @@ administrasi server (lihat [Akun & masuk](../auth/index.md)).
 | `PUT /api/v1/users/{id}/roles` | `users.manage` |
 | `POST /api/v1/users/{id}/disable`, `POST /api/v1/users/{id}/enable` | `users.manage` |
 | `POST /api/v1/users/{id}/password-reset` | `users.manage` |
+| `POST /api/v1/users/{id}/mfa-reset` | `users.manage` |
 | `GET /api/v1/roles` | `roles.read` |
 
 Detail skema: [Referensi API](/help/api/reference).

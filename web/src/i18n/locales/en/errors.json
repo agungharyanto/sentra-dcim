@@ -24,6 +24,10 @@
     "validation_failed": "Invalid input. Check the highlighted field.",
     "username_taken": "That username is already taken.",
     "self_action": "This action is not allowed on your own account.",
-    "last_admin": "The last active Admin cannot lose Admin access."
+    "last_admin": "The last active Admin cannot lose Admin access.",
+    "mfa_required": "Complete two-step verification first.",
+    "invalid_mfa_code": "Wrong, expired or already used verification code.",
+    "mfa_already_enabled": "Two-step verification is already active.",
+    "mfa_not_enrolled": "Two-step verification is not set up."
   }
 }

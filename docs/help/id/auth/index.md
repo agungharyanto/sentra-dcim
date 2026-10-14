@@ -12,6 +12,7 @@ tercatat atas nama akun tersebut di log audit, jadi jangan pernah berbagi akun.
 | Topik | Isi |
 |---|---|
 | [Masuk dan keluar](login.md) | Cara masuk, pesan kesalahan, akun terkunci, keluar |
+| [Verifikasi dua langkah (MFA)](mfa.md) | Memasang Google Authenticator/Microsoft Authenticator/Authy, recovery code, HP hilang |
 | [Ganti kata sandi](ganti-password.md) | Kata sandi pertama (wajib diganti) dan penggantian sukarela |
 | [Sesi saya](sesi.md) | Melihat perangkat yang sedang masuk dan mencabutnya |
 

@@ -35,6 +35,9 @@ order: 30                # urutan di daftar (kecil = atas)
   (`ubuntu`, `root`), `sudo`, `ssh`. Detail seperti itu milik runbook ops.
 - Bahasa Indonesia adalah acuan; versi EN setara isinya.
 - Tanpa Mermaid/diagram berbasis skrip.
+- **Gambar** (v0.3.3): hanya file di `docs/help/assets/` (`.png`/`.svg`, kebab-case, ≤ 512 KiB, SVG tanpa skrip/
+  event handler/referensi luar), ditulis `![alt deskriptif](/api/v1/help/assets/<file>)` — alt wajib (≥ 8 karakter).
+  Tanpa teks berbahasa di gambar bila bisa (dipakai ID & EN); screenshot UI memakai data contoh, bukan data asli.
 
 ## Isi saat ini
 
@@ -46,6 +49,7 @@ order: 30                # urutan di daftar (kecil = atas)
 | `auth/login` | Masuk dan keluar | Signing in and out | user | — |
 | `auth/ganti-password` | Ganti kata sandi | Change password | user | — |
 | `auth/sesi` | Sesi saya | My sessions | user | — |
+| `auth/mfa` | Verifikasi dua langkah (MFA) | Two-step verification (MFA) | user | — |
 | `dashboard` | Dasbor | Dashboard | user | `dashboard` |
 | `users` | Pengguna & Role | Users & Roles | admin | `users` |
 | `users/roles` | Role & izin | Roles & permissions | admin | — |

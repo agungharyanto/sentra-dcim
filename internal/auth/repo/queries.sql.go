@@ -13,6 +13,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countUnusedRecoveryCodes = `-- name: CountUnusedRecoveryCodes :one
+SELECT count(*) FROM mfa_recovery_codes WHERE user_id = $1 AND used_at IS NULL
+`
+
+func (q *Queries) CountUnusedRecoveryCodes(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countUnusedRecoveryCodes, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countUsers = `-- name: CountUsers :one
 SELECT count(*) FROM users
 `
@@ -92,7 +103,7 @@ func (q *Queries) CreateAdminUser(ctx context.Context, arg CreateAdminUserParams
 const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (token_hash, user_id, expires_at, idle_expires_at, ip, user_agent)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, token_hash, user_id, created_at, last_seen_at, expires_at, idle_expires_at, ip, user_agent, revoked_at
+RETURNING id, token_hash, user_id, created_at, last_seen_at, expires_at, idle_expires_at, ip, user_agent, revoked_at, mfa_verified_at
 `
 
 type CreateSessionParams struct {
@@ -125,8 +136,18 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		&i.Ip,
 		&i.UserAgent,
 		&i.RevokedAt,
+		&i.MfaVerifiedAt,
 	)
 	return i, err
+}
+
+const deleteRecoveryCodes = `-- name: DeleteRecoveryCodes :exec
+DELETE FROM mfa_recovery_codes WHERE user_id = $1
+`
+
+func (q *Queries) DeleteRecoveryCodes(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteRecoveryCodes, userID)
+	return err
 }
 
 const deleteStaleSessions = `-- name: DeleteStaleSessions :execrows
@@ -142,11 +163,31 @@ func (q *Queries) DeleteStaleSessions(ctx context.Context, cutoff pgtype.Timesta
 	return result.RowsAffected(), nil
 }
 
+const enableMFA = `-- name: EnableMFA :execrows
+UPDATE user_mfa SET enabled_at = now(), last_used_step = $1, updated_at = now()
+WHERE user_id = $2 AND enabled_at IS NULL AND last_used_step < $1
+`
+
+type EnableMFAParams struct {
+	Step   int64
+	UserID uuid.UUID
+}
+
+func (q *Queries) EnableMFA(ctx context.Context, arg EnableMFAParams) (int64, error) {
+	result, err := q.db.Exec(ctx, enableMFA, arg.Step, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getActiveSession = `-- name: GetActiveSession :one
 SELECT s.id AS session_id, s.user_id, s.created_at AS session_created_at, s.last_seen_at, s.expires_at, s.idle_expires_at,
        u.username, u.display_name, u.status, u.must_change_password,
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-             WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles
+             WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
+       (s.mfa_verified_at IS NOT NULL)::boolean AS mfa_verified,
+       EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled
 FROM sessions s
 JOIN users u ON u.id = s.user_id
 WHERE s.token_hash = $1
@@ -168,6 +209,8 @@ type GetActiveSessionRow struct {
 	Status             string
 	MustChangePassword bool
 	Roles              []string
+	MfaVerified        bool
+	MfaEnabled         bool
 }
 
 func (q *Queries) GetActiveSession(ctx context.Context, tokenHash []byte) (GetActiveSessionRow, error) {
@@ -185,6 +228,8 @@ func (q *Queries) GetActiveSession(ctx context.Context, tokenHash []byte) (GetAc
 		&i.Status,
 		&i.MustChangePassword,
 		&i.Roles,
+		&i.MfaVerified,
+		&i.MfaEnabled,
 	)
 	return i, err
 }
@@ -239,6 +284,24 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 	return i, err
 }
 
+const getUserMFA = `-- name: GetUserMFA :one
+SELECT user_id, secret_enc, enabled_at, last_used_step, created_at, updated_at FROM user_mfa WHERE user_id = $1
+`
+
+func (q *Queries) GetUserMFA(ctx context.Context, userID uuid.UUID) (UserMfa, error) {
+	row := q.db.QueryRow(ctx, getUserMFA, userID)
+	var i UserMfa
+	err := row.Scan(
+		&i.UserID,
+		&i.SecretEnc,
+		&i.EnabledAt,
+		&i.LastUsedStep,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserRoleKeys = `-- name: GetUserRoleKeys :many
 SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = $1 ORDER BY r.key
 `
@@ -261,6 +324,20 @@ func (q *Queries) GetUserRoleKeys(ctx context.Context, userID uuid.UUID) ([]stri
 		return nil, err
 	}
 	return items, nil
+}
+
+const insertRecoveryCode = `-- name: InsertRecoveryCode :exec
+INSERT INTO mfa_recovery_codes (user_id, code_hash) VALUES ($1, $2)
+`
+
+type InsertRecoveryCodeParams struct {
+	UserID   uuid.UUID
+	CodeHash []byte
+}
+
+func (q *Queries) InsertRecoveryCode(ctx context.Context, arg InsertRecoveryCodeParams) error {
+	_, err := q.db.Exec(ctx, insertRecoveryCode, arg.UserID, arg.CodeHash)
+	return err
 }
 
 const listActiveSessions = `-- name: ListActiveSessions :many
@@ -306,6 +383,15 @@ func (q *Queries) ListActiveSessions(ctx context.Context, userID uuid.UUID) ([]L
 		return nil, err
 	}
 	return items, nil
+}
+
+const markSessionMFAVerified = `-- name: MarkSessionMFAVerified :exec
+UPDATE sessions SET mfa_verified_at = now() WHERE id = $1 AND revoked_at IS NULL
+`
+
+func (q *Queries) MarkSessionMFAVerified(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markSessionMFAVerified, id)
+	return err
 }
 
 const recordLoginFailure = `-- name: RecordLoginFailure :one
@@ -399,6 +485,18 @@ func (q *Queries) RevokeSession(ctx context.Context, arg RevokeSessionParams) (i
 	return result.RowsAffected(), nil
 }
 
+const revokeUserSessions = `-- name: RevokeUserSessions :execrows
+UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL
+`
+
+func (q *Queries) RevokeUserSessions(ctx context.Context, userID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeUserSessions, userID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const touchSession = `-- name: TouchSession :exec
 UPDATE sessions SET last_seen_at = now(), idle_expires_at = LEAST($1, expires_at) WHERE id = $2 AND revoked_at IS NULL
 `
@@ -429,4 +527,60 @@ type UpdatePasswordHashParams struct {
 func (q *Queries) UpdatePasswordHash(ctx context.Context, arg UpdatePasswordHashParams) error {
 	_, err := q.db.Exec(ctx, updatePasswordHash, arg.PasswordHash, arg.MustChangePassword, arg.ID)
 	return err
+}
+
+const upsertPendingMFA = `-- name: UpsertPendingMFA :one
+INSERT INTO user_mfa (user_id, secret_enc) VALUES ($1, $2)
+ON CONFLICT (user_id) DO UPDATE SET secret_enc = EXCLUDED.secret_enc, last_used_step = 0, updated_at = now()
+WHERE user_mfa.enabled_at IS NULL
+RETURNING user_id
+`
+
+type UpsertPendingMFAParams struct {
+	UserID    uuid.UUID
+	SecretEnc []byte
+}
+
+// UpsertPendingMFA stores a new enrolment secret unless MFA is already active (then no row is returned).
+func (q *Queries) UpsertPendingMFA(ctx context.Context, arg UpsertPendingMFAParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, upsertPendingMFA, arg.UserID, arg.SecretEnc)
+	var user_id uuid.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
+const useRecoveryCode = `-- name: UseRecoveryCode :execrows
+UPDATE mfa_recovery_codes SET used_at = now() WHERE user_id = $1 AND code_hash = $2 AND used_at IS NULL
+`
+
+type UseRecoveryCodeParams struct {
+	UserID   uuid.UUID
+	CodeHash []byte
+}
+
+func (q *Queries) UseRecoveryCode(ctx context.Context, arg UseRecoveryCodeParams) (int64, error) {
+	result, err := q.db.Exec(ctx, useRecoveryCode, arg.UserID, arg.CodeHash)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const useTOTPStep = `-- name: UseTOTPStep :execrows
+UPDATE user_mfa SET last_used_step = $1, updated_at = now()
+WHERE user_id = $2 AND enabled_at IS NOT NULL AND last_used_step < $1
+`
+
+type UseTOTPStepParams struct {
+	Step   int64
+	UserID uuid.UUID
+}
+
+// UseTOTPStep records an accepted code atomically: a concurrent or later replay of the same step updates nothing.
+func (q *Queries) UseTOTPStep(ctx context.Context, arg UseTOTPStepParams) (int64, error) {
+	result, err := q.db.Exec(ctx, useTOTPStep, arg.Step, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

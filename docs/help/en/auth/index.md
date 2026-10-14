@@ -12,6 +12,7 @@ that account in the audit log, so never share an account.
 | Topic | Content |
 |---|---|
 | [Signing in and out](login.md) | How to sign in, error messages, locked accounts, signing out |
+| [Two-step verification (MFA)](mfa.md) | Setting up Google Authenticator/Microsoft Authenticator/Authy, recovery codes, lost phone |
 | [Change password](ganti-password.md) | The first password (must be changed) and voluntary changes |
 | [My sessions](sesi.md) | See the devices that are signed in and revoke them |
 
