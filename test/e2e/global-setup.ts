@@ -1,9 +1,9 @@
 import { request } from "@playwright/test";
 
-import { appPass, appTotpCode, appTotpSecret, appUser, freshTotp, pass, stateFile, user } from "./helpers";
+import { appPass, appTotpCode, appTotpSecret, appUser, freshTotp, stateFile } from "./helpers";
 
 /**
- * Signs in ONCE through the API (basic_auth + session login with Origin and CSRF header) and stores the cookies
+ * Signs in ONCE through the API (session login with Origin and CSRF header, then MFA) and stores the cookies
  * for all specs. One login per run keeps far below the login rate limit and the account lockout; a wrong password
  * stops the run here instead of in every spec.
  */
@@ -13,7 +13,6 @@ export default async function globalSetup() {
   const ctx = await request.newContext({
     baseURL,
     ignoreHTTPSErrors: baseURL.startsWith("https://localhost"),
-    httpCredentials: { username: user, password: pass },
   });
   const res = await ctx.post("/api/v1/auth/login", {
     data: { username: appUser, password: appPass },

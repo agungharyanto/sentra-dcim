@@ -31,15 +31,6 @@
 	header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 }
 
-# Temporary gate for the web UI and /api/v1/ui/bootstrap until Auth (v0.3) — MUST be removed then (ISS-026, D-043).
-# Credentials come from .env (WEB_BASIC_AUTH_USER / WEB_BASIC_AUTH_HASH, bcrypt from `caddy hash-password`).
-# Without them docker-compose.yml supplies a lockout hash of a discarded random string: every login fails.
-(web_auth) {
-	basic_auth {
-		{$WEB_BASIC_AUTH_USER} {$WEB_BASIC_AUTH_HASH}
-	}
-}
-
 # Static SPA from the web image (web/Dockerfile → /srv/web). script-src stays 'self' (no inline/eval scripts).
 # style-src: a per-request nonce instead of 'unsafe-inline' (ISS-030, D-065). The same {http.request.uuid} goes into
 # the CSP header and, via templates, into <meta name="csp-nonce"> of index.html; the UI hands it to
@@ -97,7 +88,7 @@
 	encode zstd gzip
 	# Access log to stdout (docker logs) ...
 	log
-	# ... and to a rotated file for fail2ban (jail sentra-web, ISS-026). The file holds client IPs: kept at most 30 days
+	# ... and to a rotated file for fail2ban (jail sentra-web: failed app logins/MFA codes, D-066). The file holds client IPs: kept at most 30 days
 	# (roll_keep_for), ~220 MB max. Authorization values are always logged as "REDACTED" (never log_credentials).
 	log access_file {
 		output file /var/log/caddy/access.log {
@@ -112,7 +103,9 @@
 		max_size 1MB
 	}
 
-	# Only these endpoints are public (no basic_auth, no session); other API paths are rejected at the proxy.
+	# Access model since v0.3.3 (basic_auth removed, ISS-026, D-066): the SPA (index.html + hashed assets) is public so
+	# the login page loads; every data endpoint below requires an app session that passed MFA (default-deny in the
+	# app, ADR-003). Only health and the short version are public; other API paths are rejected at the proxy.
 	@public {
 		method GET HEAD
 		path /api/v1/health /api/v1/version
@@ -122,36 +115,31 @@
 		import app_proxy app:8080
 	}
 
-	# UI bootstrap document and Help Center API behind the temporary basic_auth (ISS-026); the app additionally
-	# requires a session (v0.3.1, default-deny).
+	# UI bootstrap document and Help Center API (pages, images, OpenAPI): session required by the app.
 	@bootstrap {
 		method GET HEAD
 		path /api/v1/ui/bootstrap /api/v1/help/*
 	}
 	handle @bootstrap {
-		import web_auth
 		import app_proxy app:8080
 	}
 
-	# Session auth API (v0.3.1). Still behind basic_auth until it is removed in v0.3.4 (ISS-026): the app ignores the
-	# Basic header and uses only its own __Host- cookies; its 401s are not counted by fail2ban (X-Request-Id).
+	# Session auth API: login is the only call without a session; the MFA steps need a pending session. Failed
+	# logins/codes (401 from the app) feed the fail2ban jail sentra-web (D-066).
 	@auth {
 		method GET HEAD POST DELETE
 		path /api/v1/auth/*
 	}
 	handle @auth {
-		import web_auth
 		import app_proxy app:8080
 	}
 
-	# User administration (v0.3.2): session + permission checked by the app (users.read/users.manage/roles.read),
-	# behind basic_auth until v0.3.4 like every non-public path.
+	# User administration: session + permission checked by the app (users.read/users.manage/roles.read).
 	@users {
 		method GET HEAD POST PUT PATCH
 		path /api/v1/users /api/v1/users/* /api/v1/roles
 	}
 	handle @users {
-		import web_auth
 		import app_proxy app:8080
 	}
 
@@ -160,18 +148,16 @@
 		respond `{"error":{"code":"forbidden","message":"not publicly available"}}` 403
 	}
 
-	# Web UI (SPA) behind the temporary basic_auth (ISS-026).
+	# Web UI (SPA): public code without data; the app shows the login page until a session exists.
 	handle {
-		import web_auth
 		import web_static
 	}
 
-	# Errors raised by handlers (basic_auth 401, file_server 404/405) bypass the deferred header block above;
+	# Errors raised by handlers (file_server 404/405) bypass the deferred header block above;
 	# re-apply the security headers and answer with the standard JSON error envelope.
 	handle_errors {
 		import security_headers
 		map {err.status_code} {err_code} {
-			401 unauthorized
 			404 not_found
 			405 method_not_allowed
 			default error

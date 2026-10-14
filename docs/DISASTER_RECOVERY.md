@@ -266,7 +266,7 @@ Semua akun wajib MFA (D-062). Pemulihan, dari yang paling ringan:
    `audit_events` (`user.mfa.reset`, aktor `system/cli`). Lakukan hanya setelah identitas pemilik akun dipastikan.
 4. **Akun terkunci** (5× kata sandi/kode MFA salah): terbuka sendiri setelah 15 menit (`AUTH_LOCK_DURATION`), tercatat
    `auth.lockout` di `audit_events`. Lockout tidak bisa membuat akun terkunci selamanya: tiap lockout selalu berakhir,
-   rate limit per IP/akun membatasi pemicunya, dan (setelah basic_auth dicabut) jail fail2ban login aplikasi mem-ban IP
+   rate limit per IP/akun membatasi pemicunya, dan jail fail2ban `sentra-web` mem-ban IP
    penyerang. Bila Admin harus masuk sebelum 15 menit, buka darurat dari server:
    ```bash
    sudo -u sentra docker compose exec app /sentra user unlock --username <nama-atau-NIP>

@@ -11,7 +11,7 @@ ditambah, diubah versinya, atau dihapus.
 | Kernel Linux (`linux-image-oracle`) | 7.0.0-1013-oracle (berjalan sejak v0.2.9); 6.17.0-1020-oracle dipertahankan untuk rollback (ISS-036) | GPL-2.0 | Kernel host; GRUB menu 10 s untuk memilih kernel lewat serial console |
 | Oracle Cloud Agent (`snap oracle-cloud-agent`) | 1.61.0 (bawaan image) | Oracle (UPL/proprietary) | Agent OCI: monitoring, Run Command (jalur pemulihan darurat) |
 | Docker Engine | 29.9.0 | Apache-2.0 | Runtime container |
-| fail2ban (paket Ubuntu) | 1.0.2-3ubuntu0.1 | GPL-2.0 | Ban IP: jail `sshd` (v0.1) dan `sentra-web` (login basic_auth salah, v0.2.5) |
+| fail2ban (paket Ubuntu) | 1.0.2-3ubuntu0.1 | GPL-2.0 | Ban IP: jail `sshd` (v0.1) dan `sentra-web` (login aplikasi/kode MFA gagal per IP sejak v0.3.3; sebelumnya login basic_auth salah, v0.2.5) |
 | iptables (nf_tables) | 1.8.10-3ubuntu2 | GPL-2.0 | Aturan Docker & ban fail2ban di chain `DOCKER-USER` |
 | iproute2, curl (paket Ubuntu) | 6.1.0-1ubuntu6.4, 8.5.0-2ubuntu10.15 | GPL-2.0, curl | Uji ban nyata (`scripts/fail2ban-ban-test.sh`: network namespace + permintaan HTTPS) |
 | Docker Compose | 5.6.0 (plugin) | Apache-2.0 | Orkestrasi container lokal/server |

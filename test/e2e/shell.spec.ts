@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
-import { artifactsDir, catalog, pass, registry, user, watchProblems } from "./helpers";
+import { artifactsDir, catalog, registry, watchProblems } from "./helpers";
 
 const cat = { id: catalog("id", "shell"), en: catalog("en", "shell") };
 const { menus } = registry();
@@ -25,8 +25,6 @@ function pageTestId(status: string, key: string) {
 const mainNav = (page: Page) => page.getByRole("navigation", { name: cat.id.layout.mainNav });
 
 test.describe("app shell", () => {
-  test.skip(!user || !pass, "SENTRA_WEB_USER / SENTRA_WEB_PASS not set");
-  test.use({ httpCredentials: { username: user, password: pass } });
 
   test("clicks all 14 menus: URL, aria-current, title and standard page", async ({ page }) => {
     const problems = await watchProblems(page);

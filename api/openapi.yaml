@@ -8,8 +8,7 @@ info:
     zona tampilan diatur server lewat `DISPLAY_TIMEZONE` (default `Asia/Jakarta`, WIB, UTC+7).
 
     Setiap operasi memiliki ekstensi **`x-sentra-access`** yang menyatakan siapa yang dapat memanggilnya lewat domain
-    publik: `public` (tanpa login), `login` (perlu sesi aplikasi; lewat domain publik juga basic_auth sementara sampai
-    v0.3.4), `internal` (hanya listener internal server; ditolak `403` di edge). Viewer API di Pusat Bantuan
+    publik: `public` (tanpa login), `login` (perlu sesi aplikasi yang lolos MFA), `internal` (hanya listener internal server; ditolak `403` di edge). Viewer API di Pusat Bantuan
     menampilkan label dari nilai ini.
 
     **Autentikasi (sejak v0.3.1, ADR-003):** sesi server-side. `POST /api/v1/auth/login` memasang cookie
@@ -40,8 +39,8 @@ info:
 
     **Akses publik:** lewat `https://sentra.bajastu.id` hanya `/api/v1/health` dan `/api/v1/version` yang
     diteruskan tanpa autentikasi. `/api/v1/auth/*`, `/api/v1/ui/bootstrap`, `/api/v1/help/*` (dan UI web di `/`)
-    juga dilindungi **basic_auth sementara** di proxy sampai v0.3.4 (ISS-026); permintaan API lain ditolak proxy
-    dengan `403`. Listener internal server (`127.0.0.1:8080`, hanya dari server itu sendiri) menerapkan aturan sesi
+    tidak lagi dilindungi basic_auth (dicabut v0.3.3, ISS-026): aplikasi sendiri yang mensyaratkan sesi; permintaan API
+    lain ditolak proxy dengan `403`. Listener internal server (`127.0.0.1:8080`, hanya dari server itu sendiri) menerapkan aturan sesi
     yang sama. Detail operasional `/api/v1/version` (commit, versi Go, waktu server) hanya dikirim ke sesi dengan
     izin `system.version.read` (Admin), di listener mana pun.
   license:
@@ -162,7 +161,7 @@ paths:
 
         **Breaking sejak v0.2.3:** field `menu_groups` dan `menus[].group` baru; path Dasbor `/` → `/dashboard`.
 
-        Perlu sesi (sejak v0.3.1); lewat domain publik juga basic_auth sementara (sampai v0.3.4, ISS-026).
+        Perlu sesi yang lolos MFA.
       security:
         - sessionCookie: []
       responses:
@@ -302,7 +301,7 @@ paths:
       x-sentra-access: login
       summary: Masuk dengan nama pengguna (atau NIP) dan kata sandi
       description: |
-        Tidak memerlukan sesi (lewat domain publik masih di balik basic_auth sementara sampai v0.3.4). Wajib header
+        Tidak memerlukan sesi. Wajib header
         `Origin` dari domain aplikasi dan `X-Sentra-CSRF` (nilai apa pun yang tidak kosong).
 
         Berhasil → sesi baru (sesi lama di browser ini dicabut, *rotation*), cookie `__Host-sentra_session`
@@ -844,8 +843,8 @@ components:
       description: |
         Sesi server-side (token acak 256-bit; server hanya menyimpan SHA-256-nya). Dipasang oleh `POST /api/v1/auth/login`.
         Idle 30 menit, absolut 12 jam. Metode yang mengubah data juga butuh `Origin` + `X-Sentra-CSRF`.
-        Lewat domain publik proxy masih meminta basic_auth sementara di depan UI, `auth/*`, `ui/*`, `help/*`
-        sampai v0.3.4 (ISS-026, D-043); itu bukan bagian dari API aplikasi.
+        Lewat domain publik tidak ada lagi basic_auth (dicabut v0.3.3); login & kode MFA yang gagal dihitung jail
+        fail2ban per IP (D-066).
   headers:
     X-Request-Id:
       description: ID unik request untuk penelusuran log
@@ -854,7 +853,7 @@ components:
     Unauthenticated:
       description: |
         Tanpa sesi yang valid (`unauthenticated`): cookie tidak ada, sesi kedaluwarsa (idle/absolut), dicabut, atau
-        akun dinonaktifkan. Lewat domain publik proxy juga dapat menjawab 401 bila basic_auth sementara salah.
+        akun dinonaktifkan.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorBody" }

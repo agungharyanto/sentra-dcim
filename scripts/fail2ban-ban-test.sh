@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Real ban/unban test of the fail2ban jail sentra-web (v0.2.5). Needs root and the installed jail.
+# Real ban/unban test of the fail2ban jail sentra-web (failed app sign-ins since v0.3.3, D-066). Needs root and the
+# installed jail.
 #
-# A throwaway network namespace with a routed (non-NAT) veth and the documentation address 198.51.100.10 sends wrong
-# basic_auth credentials to this host's private IP:443. Its packets take exactly the path of an Internet client —
+# A throwaway network namespace with a routed (non-NAT) veth and the documentation address 198.51.100.10 sends failed
+# app logins (random unknown usernames: no real account is locked; each attempt leaves an auth.login.failure audit
+# row) to this host's private IP:443. Its packets take exactly the path of an Internet client —
 # PREROUTING DNAT → FORWARD → DOCKER-USER — with the source address preserved, until it is banned; the test proves
 # the connection is then rejected and unbans it. Admin IPs are never involved and are checked not to be banned.
 #
@@ -52,12 +54,17 @@ start_tester() {
   ip -n "$NS" link set lo up && ip -n "$NS" link set "$VETH_NS" up
   ip -n "$NS" route add default via "$GW_IP"
 }
-# HTTP status from the tester ("000" + curl exit code when the connection is refused/blocked).
-probe() { # [user:pass]
-  local auth=() out rc=0
-  [[ -n "${1:-}" ]] && auth=(-u "$1")
-  out="$(ip netns exec "$NS" curl -s -o /dev/null -w '%{http_code}' --max-time 5 --resolve "$domain:443:$host_ip" "${auth[@]}" "https://$domain/")" || rc=$?
+# HTTP status of /api/v1/health from the tester ("000" + curl exit code when the connection is refused/blocked).
+probe() {
+  local out rc=0
+  out="$(ip netns exec "$NS" curl -s -o /dev/null -w '%{http_code}' --max-time 5 --resolve "$domain:443:$host_ip" "https://$domain/api/v1/health")" || rc=$?
   echo "$out/$rc"
+}
+# One failed app login from the tester (unknown user → 401 invalid_credentials).
+fail_login() {
+  ip netns exec "$NS" curl -s -o /dev/null -w '%{http_code}' --max-time 5 --resolve "$domain:443:$host_ip" \
+    -H "Origin: https://$domain" -H 'X-Sentra-CSRF: login' -H 'Content-Type: application/json' \
+    -d "{\"username\":\"f2b.test.$RANDOM\",\"password\":\"not-a-real-password\"}" "https://$domain/api/v1/auth/login" || true
 }
 banned() { fail2ban-client status "$JAIL" | grep -q "Banned IP list:.*\b${TESTER_IP//./\\.}\b"; }
 wait_banned() { for _ in $(seq 1 40); do banned && return 0; sleep 0.5; done; return 1; }
@@ -67,9 +74,10 @@ echo "fail2ban ban test → https://$domain via $host_ip from $TESTER_IP (jail $
 fail2ban-client status "$JAIL" >/dev/null || { echo "jail $JAIL is not running (make fail2ban-web)"; exit 1; }
 cleanup; start_tester
 
-check "tester reaches the site before the test (401 challenge)" "$([[ $(probe) == 401/0 ]]; echo $?)"
-for _ in $(seq 1 "$ATTEMPTS"); do probe "f2b-test:wrong-$RANDOM" >/dev/null; done
-check "tester IP banned after $ATTEMPTS wrong logins (> maxretry 10)" "$(wait_banned; echo $?)"
+check "tester reaches the site before the test (health 200)" "$([[ $(probe) == 200/0 ]]; echo $?)"
+check "a failed app login answers 401" "$([[ $(fail_login) == 401 ]]; echo $?)"
+for _ in $(seq 2 "$ATTEMPTS"); do fail_login >/dev/null; done
+check "tester IP banned after $ATTEMPTS failed app logins (> maxretry 10)" "$(wait_banned; echo $?)"
 check "DOCKER-USER → f2b-$JAIL rejects $TESTER_IP" "$(iptables -S "f2b-$JAIL" | grep -q -- "-s $TESTER_IP/32 .*-j REJECT"; echo $?)"
 r="$(probe)"; check "banned tester's connection is rejected (got ${r})" "$([[ ${r%%/*} == 000 && ${r##*/} != 0 ]]; echo $?)"
 
@@ -98,7 +106,7 @@ check "site still answers from the host (health 200)" "$(curl -sf -o /dev/null "
 
 fail2ban-client set "$JAIL" unbanip "$TESTER_IP" >/dev/null
 check "unban removes the tester from the jail" "$(! banned; echo $?)"
-r="$(probe)"; check "after unban the tester reaches the site again (got ${r})" "$([[ $r == 401/0 ]]; echo $?)"
+r="$(probe)"; check "after unban the tester reaches the site again (got ${r})" "$([[ $r == 200/0 ]]; echo $?)"
 
 echo "fail2ban ban test: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

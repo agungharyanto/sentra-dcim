@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
-import { artifactsDir, catalog, pass, user, watchProblems } from "./helpers";
+import { artifactsDir, catalog, watchProblems } from "./helpers";
 
 const id = { ds: catalog("id", "ds"), common: catalog("id", "common") };
 const en = { ds: catalog("en", "ds") };
@@ -16,8 +16,6 @@ async function expectAccessible(page: Page, label: string) {
 }
 
 test.describe("design system showcase", () => {
-  test.skip(!user || !pass, "SENTRA_WEB_USER / SENTRA_WEB_PASS not set");
-  test.use({ httpCredentials: { username: user, password: pass } });
 
   for (const theme of ["dark", "light"] as const) {
     test(`${theme} theme: components, overlays, toast, ID↔EN, a11y, no console/CSP errors`, async ({ page }) => {

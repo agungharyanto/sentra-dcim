@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
-# Web UI edge tests (v0.2.1, v0.3.1): temporary basic_auth (ISS-026), SPA fallback, security & cache headers, app
-# login (session cookie + CSRF), bootstrap and help API.
+# Web UI edge tests (v0.2.1–v0.3.3): SPA fallback, security & cache headers, CSP nonce, app login (session cookie +
+# CSRF + MFA), bootstrap, help and users API. No basic_auth since v0.3.3 (ISS-026); the no-session inventory is in
+# test/api/public.sh.
 # Usage: test/api/ui.sh            (DOMAIN from .env; BASE_URL overrides, e.g. https://localhost)
-# basic_auth credentials, never stored in the repo — first match wins:
-#   1. SENTRA_WEB_USER + SENTRA_WEB_PASS environment variables
-#   2. file $SENTRA_WEB_AUTH_FILE (default ~/.config/sentra/web-auth, mode 600, one line "user:password")
-#   3. interactive prompt (TTY only)
-# Application account for the session checks (an active account that already changed its first password), same
-# order: SENTRA_APP_USER + SENTRA_APP_PASS, file $SENTRA_APP_AUTH_FILE (default ~/.config/sentra/app-auth), prompt.
+# Application account for the session checks (an active account with MFA set up), never stored in the repo — first
+# match wins: SENTRA_APP_USER + SENTRA_APP_PASS, file $SENTRA_APP_AUTH_FILE (default ~/.config/sentra/app-auth, mode
+# 600, one line "user:password"), prompt. The MFA code is asked for (or SENTRA_APP_TOTP).
 # Without it the session checks are skipped (reported as SKIP, the run is then not a complete regression).
 set -uo pipefail
 
@@ -36,20 +34,6 @@ elif [[ "$BASE" == https://localhost* ]]; then
   curl_ca=(--cacert "$tmp/ca.crt")
 fi
 
-user="${SENTRA_WEB_USER:-}" pw="${SENTRA_WEB_PASS:-}"
-auth_file="${SENTRA_WEB_AUTH_FILE:-$HOME/.config/sentra/web-auth}"
-if [[ -z "$user" || -z "$pw" ]] && [[ -r "$auth_file" ]]; then
-  IFS= read -r line <"$auth_file"; user="${line%%:*}" pw="${line#*:}"
-fi
-if [[ -z "$user" || -z "$pw" ]] && [[ -t 0 ]]; then
-  read -rp "basic_auth user: " user; read -rsp "basic_auth password: " pw; echo
-fi
-[[ -n "$user" && -n "$pw" ]] || { echo "no basic_auth credentials (see header of $0)"; exit 2; }
-# curl config strings treat \ as an escape: escape backslashes first, then double quotes.
-curl_quote() { local v="${1//\\/\\\\}"; printf '%s' "${v//\"/\\\"}"; }
-# Credentials go through a curl config file (mode 600), never the process list.
-umask 077; printf 'user = "%s"\n' "$(curl_quote "$user:$pw")" >"$tmp/auth.cfg"
-
 app_user="${SENTRA_APP_USER:-}" app_pw="${SENTRA_APP_PASS:-}"
 app_file="${SENTRA_APP_AUTH_FILE:-$HOME/.config/sentra/app-auth}"
 if [[ -z "$app_user" || -z "$app_pw" ]] && [[ -r "$app_file" ]]; then
@@ -62,7 +46,7 @@ fi
 
 check() { if [[ "$2" == "0" ]]; then printf '  PASS  %s\n' "$1"; pass=$((pass+1)); else printf '  FAIL  %s\n' "$1"; fail=$((fail+1)); fi; }
 req() { code="$(curl -sS "${curl_ca[@]}" -o "$tmp/b" -D "$tmp/h" -w '%{http_code}' "$@")"; }
-areq() { req -K "$tmp/auth.cfg" "$@"; }
+areq() { req "$@"; }   # was: with basic_auth credentials (removed in v0.3.3)
 hdr() { grep -i "^$1:" "$tmp/h" | head -1 | cut -d' ' -f2- | tr -d '\r'; }
 
 echo "UI edge test → $BASE"
@@ -73,44 +57,26 @@ for p in /api/v1/health /api/v1/version; do
   check "GET $p without auth = 200" "$([[ $code == 200 ]]; echo $?)"
 done
 
-# Credential probe FIRST, exactly one authenticated request. Every request with wrong credentials counts towards
-# the fail2ban jail sentra-web (10 per 10 min → ban of this server's public IP, ISS-034): stop immediately on 401.
-# The probe uses the SPA (basic_auth only); bootstrap/help additionally need an app session since v0.3.1.
-areq "$BASE/"
-case "$code" in
-  200) ;;
-  401) echo "STOP: kredensial salah (401) untuk user '$user' — tidak ada percobaan lain dikirim (fail2ban, ISS-034)." >&2
-       echo "      Cek login di browser (incognito) dulu; lihat docs/ops/runbooks/fail2ban.md." >&2
-       exit 3 ;;
-  000) # Distinguish a refused connection (fail2ban REJECT) from TLS/DNS problems.
-       rc=0; curl -s "${curl_ca[@]}" -o /dev/null --max-time 5 "$BASE/api/v1/health" || rc=$?
-       if [[ $rc == 7 ]]; then
-         echo "STOP: koneksi ke $BASE ditolak — IP ini kemungkinan di-ban jail sentra-web (sudo fail2ban-client status sentra-web)." >&2
-       else
-         echo "STOP: $BASE tidak bisa dihubungi (curl exit $rc: TLS/DNS/timeout), bukan masalah kredensial." >&2
-       fi
-       exit 3 ;;
-  *)   echo "STOP: probe kredensial mendapat HTTP $code (diharapkan 200)." >&2; exit 3 ;;
-esac
+# Reachability first: a refused connection usually means this IP is banned by the jail sentra-web.
+rc=0; curl -s "${curl_ca[@]}" -o /dev/null --max-time 5 "$BASE/api/v1/health" || rc=$?
+if [[ $rc != 0 ]]; then
+  if [[ $rc == 7 ]]; then
+    echo "STOP: koneksi ke $BASE ditolak — IP ini kemungkinan di-ban jail sentra-web (sudo fail2ban-client status sentra-web)." >&2
+  else
+    echo "STOP: $BASE tidak bisa dihubungi (curl exit $rc: TLS/DNS/timeout)." >&2
+  fi
+  exit 3
+fi
 
-# Without (or with wrong) credentials: 401 + Basic challenge.
-for p in / /index.html /some/deep/link /api/v1/ui/bootstrap /api/v1/help/index /api/v1/help/openapi /api/v1/auth/me /api/v1/users; do
-  req "$BASE$p"
-  check "GET $p without auth = 401" "$([[ $code == 401 && $(hdr WWW-Authenticate) == Basic* ]]; echo $?)"
-done
-# The only intentionally wrong login of a run (1 of maxretry 10).
-req -u "$user:wrong-$RANDOM" "$BASE/"
-check "GET / with wrong password = 401" "$([[ $code == 401 ]]; echo $?)"
-
-# Other API paths stay rejected, even with credentials.
+# Other API paths stay rejected at the proxy.
 for p in /api/v1/ready /api/v1/ui/does-not-exist /api/v2/ui/bootstrap; do
   areq "$BASE$p"
-  check "GET $p with auth still 403" "$([[ $code == 403 ]] && jq -e '.error.code=="forbidden"' "$tmp/b" >/dev/null; echo $?)"
+  check "GET $p rejected at proxy (403)" "$([[ $code == 403 ]] && jq -e '.error.code=="forbidden"' "$tmp/b" >/dev/null; echo $?)"
 done
 
-# SPA with credentials.
+# SPA (public shell).
 areq "$BASE/"
-check "GET / with auth = 200 html" "$([[ $code == 200 && $(hdr Content-Type) == text/html* ]] && grep -q '<div id="root">' "$tmp/b"; echo $?)"
+check "GET / = 200 html" "$([[ $code == 200 && $(hdr Content-Type) == text/html* ]] && grep -q '<div id="root">' "$tmp/b"; echo $?)"
 cp "$tmp/b" "$tmp/index.html"
 check "index.html has no inline <script>" "$(! grep -Eq '<script( type="module")?( crossorigin)?>' "$tmp/index.html"; echo $?)"
 # index.html carries a per-request CSP nonce (ISS-030): never cached or revalidated.
@@ -146,11 +112,10 @@ check "missing asset = 404 (no SPA fallback, not immutable)" "$([[ $code == 404 
 areq -X POST "$BASE/"
 check "POST / rejected (405)" "$([[ $code == 405 ]]; echo $?)"
 
-# App session API behind basic_auth (v0.3.1). Without a session: the app's own 401, no Basic challenge (the browser
-# must not show its login dialog) and never counted by fail2ban.
+# App session API without a session: the app's own 401 (no Basic challenge since basic_auth is gone).
 for p in /api/v1/ui/bootstrap /api/v1/help/index /api/v1/auth/me /api/v1/users; do
   areq "$BASE$p"
-  check "GET $p with basic_auth, no session = 401 unauthenticated" "$([[ $code == 401 && -z $(hdr WWW-Authenticate) ]] && jq -e '.error.code=="unauthenticated"' "$tmp/b" >/dev/null; echo $?)"
+  check "GET $p without session = 401 unauthenticated" "$([[ $code == 401 && -z $(hdr WWW-Authenticate) ]] && jq -e '.error.code=="unauthenticated"' "$tmp/b" >/dev/null; echo $?)"
 done
 areq -X POST -H 'Content-Type: application/json' -d '{"username":"x","password":"y"}' "$BASE/api/v1/auth/login"
 check "POST /auth/login without CSRF header = 403" "$([[ $code == 403 ]] && jq -e '.error.code=="csrf_failed"' "$tmp/b" >/dev/null; echo $?)"

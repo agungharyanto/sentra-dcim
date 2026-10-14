@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
-import { appPass, appTotpSecret, appUser, artifactsDir, catalog, freshTotp, pass, user, watchProblems } from "./helpers";
+import { appPass, appTotpSecret, appUser, artifactsDir, catalog, freshTotp, watchProblems } from "./helpers";
 
 const id = catalog("id", "auth");
 const mobile = { width: 390, height: 844 };
@@ -22,8 +22,7 @@ const noHorizontalScroll = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
 
 test.describe("auth (signed out)", () => {
-  test.skip(!user || !pass, "SENTRA_WEB_USER / SENTRA_WEB_PASS not set");
-  test.use({ httpCredentials: { username: user, password: pass }, storageState: signedOut });
+  test.use({ storageState: signedOut });
 
   test("login page and generic login error (mocked, no real attempt), desktop + mobile, axe", async ({ page }) => {
     const problems = await watchProblems(page);
@@ -80,8 +79,6 @@ test.describe("auth (signed out)", () => {
 });
 
 test.describe("auth (signed in)", () => {
-  test.skip(!user || !pass, "SENTRA_WEB_USER / SENTRA_WEB_PASS not set");
-  test.use({ httpCredentials: { username: user, password: pass } });
 
   test("forced password change page (must_change mocked; never submitted), desktop + mobile, axe", async ({ page }) => {
     const problems = await watchProblems(page);

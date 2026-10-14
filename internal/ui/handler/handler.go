@@ -10,7 +10,7 @@ import (
 	"github.com/agungharyanto/sentra-dcim/internal/ui/service"
 )
 
-// Handler serves /api/v1/ui/bootstrap. Until Auth (v0.3) the public route is guarded by Caddy basic_auth.
+// Handler serves /api/v1/ui/bootstrap (session required, default-deny in internal/api).
 type Handler struct {
 	svc *service.Service
 }

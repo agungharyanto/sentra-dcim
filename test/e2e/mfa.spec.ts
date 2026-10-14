@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
-import { artifactsDir, catalog, pass, totp, user, watchProblems } from "./helpers";
+import { artifactsDir, catalog, totp, watchProblems } from "./helpers";
 
 const tx = catalog("id", "auth");
 const ux = catalog("id", "users");
@@ -29,8 +29,6 @@ const demo = JSON.parse(readFileSync(new URL("./fixtures/mfa-demo-qr.json", impo
 const FAKE_CODES = ["abcde-fghjk", "bcdef-ghjkm", "cdefg-hjkmn", "defgh-jkmnp", "efghj-kmnpq", "fghjk-mnpqr", "ghjkm-npqrs", "hjkmn-pqrst", "jkmnp-qrstu", "kmnpq-rstuv"];
 
 test.describe("MFA", () => {
-  test.skip(!user || !pass, "SENTRA_WEB_USER / SENTRA_WEB_PASS not set");
-  test.use({ httpCredentials: { username: user, password: pass } });
 
   test("enrolment and verification pages (mocked; nothing changes on the server), desktop + mobile, axe", async ({ page }) => {
     const problems = await watchProblems(page);
@@ -178,7 +176,7 @@ test.describe("MFA", () => {
     expect(created.status()).toBe(201);
     const temp = (await created.json()).temporary_password as string;
 
-    const ctx = await browser.newContext({ httpCredentials: { username: user, password: pass }, storageState: { cookies: [], origins: [] } });
+    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const p = await ctx.newPage();
     await p.goto("/login");
     await p.getByLabel(tx.login.username).fill(username);

@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
-import { artifactsDir, catalog, pass, user, watchProblems } from "./helpers";
+import { artifactsDir, catalog, watchProblems } from "./helpers";
 
 const tx = catalog("id", "users");
 const shell = catalog("id", "shell");
@@ -23,8 +23,6 @@ async function signedInUser(page: Page) {
 }
 
 test.describe("users & roles", () => {
-  test.skip(!user || !pass, "SENTRA_WEB_USER / SENTRA_WEB_PASS not set");
-  test.use({ httpCredentials: { username: user, password: pass } });
 
   test("list, roles tab and own account (read-only), desktop + mobile, axe", async ({ page }) => {
     const problems = await watchProblems(page);
@@ -103,7 +101,7 @@ test.describe("users & roles", () => {
     await expect(dialog).toHaveCount(0);
 
     // The new account signs in with the temporary password and must change it.
-    const other = await browser.newContext({ httpCredentials: { username: user, password: pass }, storageState: { cookies: [], origins: [] } });
+    const other = await browser.newContext({ storageState: { cookies: [], origins: [] } });
     const login = await other.request.post("/api/v1/auth/login", {
       headers: { "X-Sentra-CSRF": "login", Origin: new URL(page.url()).origin },
       data: { username, password: temp },

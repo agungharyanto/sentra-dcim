@@ -1,30 +1,29 @@
 # Uji e2e (Playwright)
 
-Smoke test browser (Chromium) untuk UI web: login basic_auth sementara (ISS-026), ganti bahasa ID ↔ EN, deep link,
-tanpa error console dan tanpa pelanggaran CSP. Dijalankan di container `mcr.microsoft.com/playwright` (arm64/amd64),
-host tidak perlu Node maupun browser. Dipakai ulang di full regression penutup sprint (`.9`).
+Smoke test browser (Chromium) untuk UI web: login aplikasi + verifikasi dua langkah (MFA), ganti bahasa ID ↔ EN,
+deep link, tanpa error console dan tanpa pelanggaran CSP (nonce). Dijalankan di container
+`mcr.microsoft.com/playwright` (arm64/amd64), host tidak perlu Node maupun browser. Sejak v0.3.3 tidak ada lagi
+basic_auth (ISS-026).
 
 ```bash
 make test-e2e            # = test/e2e/run.sh, BASE_URL default https://$DOMAIN dari .env
 BASE_URL=https://localhost make test-e2e
 ```
 
-Kredensial basic_auth **tidak pernah** disimpan di repo. Urutan sumber:
+Dibutuhkan **akun aplikasi** yang aktif, sudah mengganti kata sandi pertama, dan sudah memasang MFA:
+`SENTRA_APP_USER` + `SENTRA_APP_PASS`, atau file `~/.config/sentra/app-auth` (mode 600, satu baris `user:password`;
+lokasi lain via `SENTRA_APP_AUTH_FILE`), atau prompt. Kredensial **tidak pernah** disimpan di repo. Lalu `run.sh`
+meminta **satu kode 6 digit** dari aplikasi authenticator (atau `SENTRA_APP_TOTP`); secret MFA tidak pernah
+disimpan di server. Playwright masuk **sekali** lewat API (`global-setup.ts`, storageState) — satu login atau kode
+salah menghentikan run sebelum spec berjalan (lockout akun 5×).
 
-1. variabel lingkungan `SENTRA_WEB_USER` + `SENTRA_WEB_PASS`;
-2. file `~/.config/sentra/web-auth` (mode 600, satu baris `user:password`; lokasi lain via `SENTRA_WEB_AUTH_FILE`);
-3. prompt interaktif (hanya bila ada TTY).
+Hanya di CI (akun sekali pakai, `SENTRA_APP_TOTP_SECRET` + `E2E_MUTATIONS=1`): login nyata lewat form dengan kode
+baru, serta spec yang membuat/mengubah akun (Pengguna & Role, pemasangan MFA di browser). Terhadap produksi spec itu
+di-skip. Layar error login, wajib ganti kata sandi, dan halaman MFA memakai respons tiruan (`page.route`).
 
-Sejak v0.3.1 juga dibutuhkan **akun aplikasi** (login sesi) yang aktif dan sudah mengganti kata sandi pertamanya:
-`SENTRA_APP_USER` + `SENTRA_APP_PASS`, atau file `~/.config/sentra/app-auth` (mode 600, satu baris
-`user:password`; lokasi lain via `SENTRA_APP_AUTH_FILE`), atau prompt. Playwright masuk **sekali** lewat API
-(`global-setup.ts`, storageState) — satu login salah menghentikan run sebelum spec berjalan (lockout akun 5×).
-Spec `auth.spec.ts` menambah satu login nyata lewat form lalu Keluar (sesi itu saja yang dicabut).
-Layar error login dan wajib ganti kata sandi memakai respons tiruan (`page.route`), jadi akun tidak terkunci dan
-kata sandinya tidak pernah diubah oleh test.
-
-`test/api/ui.sh` (`make test-ui`) memakai sumber kredensial yang sama; tanpa akun aplikasi cek sesi dilewati
-(`SKIP`, run tidak sah sebagai regresi lengkap).
+`test/api/ui.sh` (`make test-ui`) memakai sumber akun yang sama dan juga meminta satu kode MFA; tanpa akun aplikasi
+cek sesi dilewati (`SKIP`, run tidak sah sebagai regresi lengkap). `test/api/public.sh` tidak butuh akun: ia
+memeriksa bahwa semua path tanpa sesi ditolak kecuali allowlist (kerangka SPA + asetnya, health, version, login).
 
 Sejak v0.2.2 ada `design-system.spec.ts`: halaman `/design-system` dalam tema gelap & terang, Dialog/Sheet/Tooltip/
 Select/Dropdown/Toast, ganti ID↔EN, console & CSP bersih, dan **axe-core** (WCAG 2.1 A/AA) tanpa pelanggaran

@@ -16,8 +16,6 @@ export function registry(): {
   return JSON.parse(readFileSync(new URL("../../web/src/test/fixtures/ui-registry.json", import.meta.url), "utf8"));
 }
 
-export const user = process.env.SENTRA_WEB_USER ?? "";
-export const pass = process.env.SENTRA_WEB_PASS ?? "";
 
 /** Application account (session login, v0.3.1): an active account that already changed its first password. */
 export const appUser = process.env.SENTRA_APP_USER ?? "";

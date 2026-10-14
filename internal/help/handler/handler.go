@@ -1,5 +1,5 @@
-// Package handler exposes the Help Center under /api/v1/help. Until Auth (v0.3) the public routes are guarded by
-// Caddy basic_auth; from v0.3 pages are filtered by role via their audience (ISS-032).
+// Package handler exposes the Help Center under /api/v1/help (pages, images, OpenAPI). Every route needs a session
+// that passed MFA (default-deny, internal/api); filtering pages by role via their audience follows in v0.3.4 (ISS-032).
 package handler
 
 import (

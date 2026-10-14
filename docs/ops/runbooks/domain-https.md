@@ -47,7 +47,7 @@ Nilai di `.env` (tidak di-commit; contoh ada di `.env.example`):
 | Permintaan | Hasil |
 |---|---|
 | `GET`/`HEAD` `/api/v1/health`, `/api/v1/version` | Diteruskan ke aplikasi |
-| `GET`/`HEAD` `/api/v1/ui/bootstrap` dan UI web (`/`, path non-API) — sejak v0.2.1 | basic_auth sementara: `401` tanpa kredensial ([web-basic-auth.md](web-basic-auth.md)) |
+| `GET`/`HEAD` `/api/v1/ui/bootstrap` dan UI web (`/`, path non-API) — sejak v0.2.1 | UI publik (kerangka SPA tanpa data); API wajib sesi yang lolos MFA sejak v0.3.3, basic_auth dicabut ([web-basic-auth.md](web-basic-auth.md)) |
 | Path `/api/...` lain (termasuk `/api/v1/ready`) | `403` `{"error":{"code":"forbidden",...}}` |
 | `http://...` | `308` ke `https://...` |
 

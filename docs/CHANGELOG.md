@@ -27,7 +27,16 @@ Keputusan: D-061..D-067 (urutan v0.3.3/v0.3.4 ditukar; MFA wajib untuk semua rol
 - Build web gagal bila ada source map (`*.map` / `sourceMappingURL`) di `dist`.
 - Migrasi `000005_mfa` (`user_mfa`, `mfa_recovery_codes`, `sessions.mfa_verified_at`; sesi lama menjadi pending).
 
+### Dihapus
+- **basic_auth Caddy** (ISS-026, D-066) setelah MFA terbukti di produksi (D-067): UI web publik hanya berupa kerangka
+  SPA dan asetnya; semua data, konten & gambar Pusat Bantuan, dan OpenAPI hanya lewat API ber-sesi yang lolos MFA.
+  `WEB_BASIC_AUTH_*` tidak dipakai lagi. Menutup ISS-040 (dialog basic_auth muncul lagi saat login).
+
 ### Diubah
+- **Jail fail2ban `sentra-web`** kini menghitung login dan kode MFA yang gagal (401 dari app pada `POST` login/MFA)
+  per IP: 10 dalam 10 menit → ban 1 jam (bertambah s/d 24 jam); `ignoreip` = localhost + `ADMIN_IPS`. Filter baru
+  `sentra-app-login` menggantikan `sentra-caddy-auth` (dihapus otomatis oleh `make fail2ban-web`; `make release`
+  menolak bila masih ada). Uji ban nyata memakai login gagal dari network namespace.
 - **CSP UI tanpa `'unsafe-inline'`** (ISS-030, D-065): nonce per request dari Caddy (`templates` +
   `{http.request.uuid}`) di header dan `<meta name="csp-nonce">`; `index.html` `no-store` tanpa ETag. `sonner`
   diganti komponen toast sendiri tanpa `<style>`.
@@ -38,6 +47,9 @@ Keputusan: D-061..D-067 (urutan v0.3.3/v0.3.4 ditukar; MFA wajib untuk semua rol
   lockout, reset Admin/CLI, urutan MFA → ganti kata sandi); terbukti gagal bila `MFAGuard` dilepas.
 - Web: alur enrolment/verifikasi/recovery/Keamanan akun/reset MFA Admin, toast tanpa `<style>`, nonce; e2e
   `mfa.spec.ts` (halaman mock + screenshot, Keamanan akun, enrolment nyata di browser khusus CI).
+- `public.sh` (kini juga di CI): inventaris path tanpa sesi — kerangka SPA untuk semua route dan file tak dikenal
+  (`/.env`, `/openapi.yaml`, …), aset yang dimuat halaman login tanpa source map, 401 untuk bootstrap/Pusat Bantuan
+  (halaman, gambar, OpenAPI)/data/langkah MFA, login terjangkau (403 CSRF), tanpa `WWW-Authenticate`.
 - `ui.sh`: sesi pending → 403 `mfa_required`, verifikasi kode (diminta saat dijalankan), CSP tanpa `'unsafe-inline'`,
   nonce header = meta & berbeda per request, `index.html` no-store.
 

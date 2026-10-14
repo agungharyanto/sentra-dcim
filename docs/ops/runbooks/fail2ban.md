@@ -1,18 +1,20 @@
-# fail2ban: Ban Login basic_auth yang Salah
+# fail2ban: Ban IP dengan Login Aplikasi Gagal
 
-**Modul:** ops · **Tersedia sejak:** v0.2.5 · **Status:** Available (sementara, dicabut bersama basic_auth di v0.3)
+**Modul:** ops · **Tersedia sejak:** v0.2.5 · **Diperbarui:** v0.3.3 (login aplikasi + MFA, basic_auth dicabut) ·
+**Status:** Available
 
 ## Tujuan
-Mengurangi beban CPU akibat serbuan login basic_auth yang salah (setiap percobaan = satu hitungan bcrypt, lihat
-[web-basic-auth.md](web-basic-auth.md)). Brute force bukan ancaman utama (password acak 24 byte); yang dimitigasi
-adalah **DoS CPU**. ISS-026, v0.2.5.
+Menghentikan tebakan kata sandi atau kode MFA dari satu alamat IP yang mencoba banyak akun. Per akun aplikasi sudah
+mengunci 5× gagal → 15 menit dan membatasi laju per IP/akun; jail ini menambahkan ban di jaringan sehingga satu IP
+tidak bisa terus memicu lockout akun lain (D-066). Sampai v0.3.2 jail yang sama menghitung login basic_auth salah
+(ISS-026, dicabut di v0.3.3).
 
 ## Cara kerja
 | Komponen | Isi |
 |---|---|
 | Log | Caddy menulis access log JSON ke volume `caddy_logs` (di container `/var/log/caddy/access.log`; di host: `docker volume inspect sentra_caddy_logs -f '{{.Mountpoint}}'`), rotasi 20 MiB × 10 berkas |
-| Filter `sentra-caddy-auth` | Hanya baris dengan **status 401 + header `Authorization` ada** (kredensial salah) + host publik. 401 tanpa `Authorization` (challenge browser normal) **tidak** dihitung. Tidak bergantung urutan key JSON |
-| Jail `sentra-web` | 10 percobaan salah dalam 10 menit → ban 1 jam; pelanggaran berulang dilipatgandakan sampai maks. 24 jam. `ignoreip` hanya localhost (IP admin **tidak** dikecualikan) |
+| Filter `sentra-app-login` | Hanya `POST` ke `/api/v1/auth/login`, `/auth/mfa/verify`, `/auth/mfa/enrol/confirm`, `/auth/mfa/recovery-codes` dengan **status 401** (kata sandi salah, pengguna tak dikenal, kode MFA salah/terpakai) + host publik. Tidak dihitung: `GET /auth/me` 401 (belum masuk, normal), 403 CSRF, 429. Tidak bergantung urutan key JSON; nilai header tidak bisa memalsukan field |
+| Jail `sentra-web` | 10 login/kode gagal dari satu IP dalam 10 menit → ban 1 jam; pelanggaran berulang dilipatgandakan sampai maks. 24 jam. `ignoreip` = localhost + **`ADMIN_IPS`** di `.env` (divalidasi installer) |
 | Blokir | `iptables` chain **`DOCKER-USER`** → `f2b-sentra-web`, port 80/443, `REJECT` (klien langsung gagal terhubung). Port publik di-DNAT ke container Caddy, jadi trafiknya lewat FORWARD/`DOCKER-USER`, bukan INPUT |
 | Urutan boot | Drop-in systemd `fail2ban.service.d/sentra-docker.conf`: `After=`/`Requires=docker.service` → fail2ban ikut restart setelah Docker dan memasang ulang aturannya |
 | Jail `sshd` | Tidak disentuh (file terpisah `jail.d/sentra.local`) |
@@ -80,41 +82,30 @@ Access log berisi **IP klien** (data pribadi). Kebijakan: **disimpan maksimal 30
 Caddyfile) dan maksimal ~220 MB (`roll_size 20MiB`, `roll_keep 10`), mana yang lebih dulu tercapai. Log ini **tidak**
 ikut backup (`BACKUP_VOLUMES`). Nilai header `Authorization` tidak pernah tercatat (Caddy menulis `REDACTED`).
 
-### Test otomatis & kredensial salah
-- **Setiap request dengan kredensial salah dihitung**, bukan hanya satu per run. Karena itu `test/api/ui.sh` dan
-  `test/e2e/run.sh` melakukan **satu probe kredensial di awal** (`GET /api/v1/ui/bootstrap`); bila 401 keduanya
-  berhenti dengan pesan *"kredensial salah"* tanpa mengirim percobaan lain (exit 3). Bila koneksi ditolak (curl
-  exit 7) pesannya mengarah ke ban; TLS/DNS/timeout dilaporkan terpisah.
-- Jumlah percobaan salah per run: `ui.sh` **1** (probe gagal) atau **1** (cek "password salah" yang disengaja, bila
-  kredensial benar); `run.sh` **1** (probe gagal) atau **0**; `public.sh` **1** (cek log). Skenario terburuk —
-  password salah, lalu `test-ui` dan `test-e2e` — = 2, jauh di bawah `maxretry` 10 per 10 menit.
-- **Trafik dari server ini ke domain publiknya BISA di-ban.** Server tidak memegang IP publiknya secara lokal (IP
-  publik di-NAT gateway OCI), sehingga request ke `https://sentra.bajastu.id` dari server keluar lalu masuk lagi
-  lewat DNAT → FORWARD → `DOCKER-USER` dan tercatat dengan **IP publik server**. Bila IP itu terkena ban, semua
-  test dan `curl` dari server ke domain gagal dengan *connection refused*; pengguna lain tidak terdampak. Pulihkan:
-  `sudo fail2ban-client set sentra-web unbanip <IP publik server>` (hanya jail `sentra-web`).
-- `make test-e2e` menjalankan Playwright dengan `--network host`: sumbernya host (IP publik server via hairpin OCI),
-  **bukan** jaringan bridge Docker, jadi tidak pernah mem-ban IP gateway Docker. Gateway hanya tercatat untuk
-  container di jaringan bridge yang memanggil port publik (MASQUERADE, ISS-034) — tidak ada test yang melakukannya.
-- **Kenapa tidak menambah pengecualian `ignoreip`:**
-  - *Subnet Docker (172.16.0.0/12)*: bila kelak ada proxy/tunnel di dalam Docker yang meneruskan trafik luar
-    (ter-MASQUERADE), semua penyerang akan tampil sebagai gateway dan **perlindungan hilang total**. Tidak dipakai.
-  - *IP publik server*: tidak bisa dipalsukan (handshake TCP), risikonya rendah, tetapi dengan probe fail-fast tidak
-    diperlukan. Opsi ini dicatat bila test dari server kelak sering terkena ban.
+### Test otomatis & login salah
+- `public.sh`, `ui.sh`, dan `make test-e2e` tidak mengirim login yang salah (cek CSRF menjawab 403 sebelum kredensial
+  diperiksa, jadi tidak dihitung). Yang terhitung hanya salah ketik kata sandi/kode MFA oleh pemilik saat menjalankan
+  test: skrip berhenti pada login/kode pertama yang ditolak (1 hitungan per run).
+- **Trafik dari server ini ke domain publiknya BISA di-ban** (IP publik server via hairpin NAT OCI). Bila terjadi,
+  semua test dan `curl` dari server ke domain gagal dengan *connection refused*. Pulihkan:
+  `sudo fail2ban-client set sentra-web unbanip <IP publik server>` (hanya jail `sentra-web`), atau tambahkan IP itu
+  ke `ADMIN_IPS` lalu `make fail2ban-web`.
+- `ADMIN_IPS` dikecualikan dari ban. **Jangan** menambahkan subnet Docker (172.16.0.0/12): trafik luar yang
+  ter-MASQUERADE akan tampil sebagai gateway dan perlindungan hilang.
+- Uji ban nyata (`make fail2ban-ban-test`) memakai **network namespace** yang mengirim login gagal dengan nama
+  pengguna acak tak dikenal (tidak mengunci akun asli; meninggalkan baris audit `auth.login.failure`).
 - CI tidak memakai fail2ban (hanya `fail2ban-regex` di container).
-- Uji ban nyata memakai **network namespace** (bukan container): Docker me-MASQUERADE trafik dari jaringan
-  container ke port publik, sehingga yang tercatat & terban adalah IP gateway bridge, bukan sumber uji.
-- **Uji reboot sungguhan** (bukan hanya restart service) masuk full regression v0.2.9.
 
-### Mencabut semuanya (v0.3, bersama basic_auth — ISS-026)
+### Mencabut jail
 ```
 make fail2ban-web-remove      # hapus jail, filter, drop-in; reload fail2ban (jail sshd tetap)
 ```
-Lalu hapus logger `access_file` di Caddyfile dan volume `caddy_logs` bila tidak dipakai fitur lain
-(`docker volume rm sentra_caddy_logs` setelah `make up`).
 
 ## Pertanyaan umum / pemecahan masalah
 - **`make fail2ban-web`: "access log … not found"**: jalankan `make up` lalu buka situs sekali.
+- **`ADMIN_IPS: invalid IP/CIDR`**: perbaiki format di `.env` (dipisah koma, mis. `203.0.113.5,198.51.100.0/24`).
+- **Setelah upgrade ke v0.3.3**: `make fail2ban-web` memasang filter baru dan menghapus filter lama
+  `sentra-caddy-auth.conf`; `make release` menolak melanjutkan selama filter lama masih ada.
 - **Ban tercatat tapi trafik tidak terblokir**: pastikan `iptables -S DOCKER-USER` berisi `-j f2b-sentra-web`;
   jalankan `make fail2ban-web` (memasang ulang) atau `sudo systemctl restart fail2ban`.
 - **Peringatan `'allowipv6' not defined`**: dari `fail2ban.conf` bawaan paket Ubuntu, tidak berbahaya.
