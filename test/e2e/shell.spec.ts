@@ -18,6 +18,7 @@ async function expectAccessible(page: Page, label: string) {
 function pageTestId(status: string, key: string) {
   if (key === "dashboard") return "dashboard-empty";
   if (key === "help") return "help-center";
+  if (key === "users") return "users-page"; // the test account has users.read (Admin)
   return status === "not_connected" ? "not-connected" : "coming-soon";
 }
 
@@ -27,10 +28,10 @@ test.describe("app shell", () => {
   test.skip(!user || !pass, "SENTRA_WEB_USER / SENTRA_WEB_PASS not set");
   test.use({ httpCredentials: { username: user, password: pass } });
 
-  test("clicks all 13 menus: URL, aria-current, title and standard page", async ({ page }) => {
+  test("clicks all 14 menus: URL, aria-current, title and standard page", async ({ page }) => {
     const problems = await watchProblems(page);
     await page.goto("/dashboard");
-    expect(menus).toHaveLength(13);
+    expect(menus).toHaveLength(14);
     for (const m of menus) {
       const link = mainNav(page).locator(`a[data-menu="${m.key}"]`);
       await link.click();

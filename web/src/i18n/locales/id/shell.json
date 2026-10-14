@@ -18,6 +18,7 @@
     "maintenance": "Pemeliharaan",
     "analytics": "Analitik",
     "help": "Pusat Bantuan",
+    "users": "Pengguna & Role",
     "settings": "Pengaturan"
   },
   "menuDescription": {
@@ -33,6 +34,7 @@
     "maintenance": "Jadwal pemeliharaan, work order, dan SLA.",
     "analytics": "Analitik, deteksi anomali, dan ekspor laporan.",
     "help": "Panduan penggunaan dan dokumentasi API Sentra DCIM.",
+    "users": "Akun pengguna, role, dan izin akses aplikasi.",
     "settings": "Pengaturan regional, akses, dan sistem."
   },
   "menuStatus": {
@@ -61,6 +63,11 @@
     "notConnected": {
       "title": "Belum terhubung",
       "body": "Modul {{menu}} sudah tersedia, tetapi sumber datanya belum terhubung. Hubungi administrator untuk mengaktifkan integrasinya.",
+      "back": "Kembali ke Dasbor"
+    },
+    "forbidden": {
+      "title": "Akses ditolak",
+      "body": "Akun Anda tidak memiliki izin untuk membuka halaman ini. Hubungi Admin bila Anda membutuhkannya.",
       "back": "Kembali ke Dasbor"
     },
     "notFound": {

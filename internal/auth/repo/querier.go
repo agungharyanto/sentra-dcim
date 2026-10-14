@@ -13,12 +13,14 @@ import (
 
 type Querier interface {
 	CountUsers(ctx context.Context) (int64, error)
+	// CreateAdminUser creates an account with the Admin role in one statement (CLI create-admin; atomic).
+	CreateAdminUser(ctx context.Context, arg CreateAdminUserParams) (CreateAdminUserRow, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
-	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteStaleSessions(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	GetActiveSession(ctx context.Context, tokenHash []byte) (GetActiveSessionRow, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
+	GetUserRoleKeys(ctx context.Context, userID uuid.UUID) ([]string, error)
 	ListActiveSessions(ctx context.Context, userID uuid.UUID) ([]ListActiveSessionsRow, error)
 	// RecordLoginFailure counts a wrong password and locks the account at the threshold. A lock that has already
 	// expired starts a fresh count, so an unlocked account gets the full number of attempts again.

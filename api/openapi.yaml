@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sentra DCIM API
-  version: 0.3.1
+  version: 0.3.2
   summary: REST API Sentra DCIM — Diskominfo Provinsi Bali
   description: |
     Semua endpoint berada di bawah `/api/v1`. Waktu dikirim dalam UTC (RFC 3339);
@@ -20,6 +20,12 @@ info:
     yang tidak kosong) → bila tidak, `403 csrf_failed`. Selama akun wajib ganti kata sandi, semua endpoint kecuali
     `auth/me`, `auth/password`, `auth/logout` menjawab `403 password_change_required`.
 
+    **Otorisasi (sejak v0.3.2, RBAC):** izin didefinisikan di kode, role di database. Operasi yang butuh izin
+    memiliki ekstensi **`x-sentra-permission`**; tanpa izin itu jawabannya `403 forbidden` (dicatat di log audit
+    sebagai `authz.denied`). Operasi tanpa ekstensi ini terbuka untuk semua pengguna yang masuk. Role sistem: Admin
+    (semua izin), NOC, Security, Teknisi, Viewer, Auditor (`users.read`, `roles.read`). Role dibaca ulang setiap
+    request, jadi perubahan role berlaku seketika.
+
     Setiap respons menyertakan header `X-Request-Id` untuk penelusuran. Error memakai format `ErrorBody`.
     Rate limit per IP klien (default 20 req/detik, burst 40) — respons `429` menyertakan `Retry-After`.
     Endpoint `GET` juga melayani `HEAD`.
@@ -28,8 +34,8 @@ info:
     diteruskan tanpa autentikasi. `/api/v1/auth/*`, `/api/v1/ui/bootstrap`, `/api/v1/help/*` (dan UI web di `/`)
     juga dilindungi **basic_auth sementara** di proxy sampai v0.3.4 (ISS-026); permintaan API lain ditolak proxy
     dengan `403`. Listener internal server (`127.0.0.1:8080`, hanya dari server itu sendiri) menerapkan aturan sesi
-    yang sama. Detail operasional (mis. commit & waktu server pada `/api/v1/version`) hanya dikirim oleh listener
-    internal; mulai v0.3.2 juga mensyaratkan role Admin.
+    yang sama. Detail operasional `/api/v1/version` (commit, versi Go, waktu server) hanya dikirim ke sesi dengan
+    izin `system.version.read` (Admin), di listener mana pun.
   license:
     name: Proprietary
     identifier: LicenseRef-Proprietary
@@ -47,6 +53,8 @@ tags:
     description: Pusat Bantuan — halaman Markdown (ID/EN) dan spesifikasi OpenAPI untuk viewer read-only
   - name: auth
     description: Masuk/keluar, sesi sendiri, ganti kata sandi (sesi server-side, ADR-003)
+  - name: users
+    description: Pengguna & Role — akun, penetapan role, nonaktifkan, reset kata sandi (RBAC, v0.3.2)
 paths:
   /api/v1/health:
     get:
@@ -92,18 +100,19 @@ paths:
       tags: [system]
       operationId: getVersion
       x-sentra-access: public
-      summary: Versi aplikasi (publik) / versi build + waktu server (internal)
+      summary: Versi aplikasi; detail build untuk Admin
       description: |
         `version` selalu sama dengan `git describe --tags --always --dirty` dari commit yang di-build
         (`make up` me-rebuild image dan memverifikasinya).
 
-        - Publik (`https://sentra.bajastu.id`): hanya `{"version": "..."}` (`PublicVersion`).
-        - Listener internal `127.0.0.1:8080`: `Version` lengkap — commit, tanggal build, versi Go, waktu server UTC
-          dan zona tampilan. Mulai v0.3 detail ini juga mensyaratkan role Admin.
+        - Tanpa sesi, atau sesi tanpa izin `system.version.read`: hanya `{"version": "..."}` (`PublicVersion`).
+        - Sesi dengan izin `system.version.read` (Admin): `Version` lengkap — commit, tanggal build, versi Go, waktu
+          server UTC dan zona tampilan. Sama di domain publik dan listener internal (D-054, v0.3.2). Cookie sesi
+          yang tidak valid diabaikan (tidak pernah `401`).
       security: []
       responses:
         "200":
-          description: Informasi versi (bentuk bergantung listener)
+          description: Informasi versi (bentuk bergantung izin pemanggil)
           headers:
             Cache-Control:
               schema: { type: string, enum: [no-store] }
@@ -117,8 +126,8 @@ paths:
                 public:
                   summary: Publik
                   value: { version: v0.1.8 }
-                internal:
-                  summary: Listener internal
+                admin:
+                  summary: Sesi Admin (system.version.read)
                   value:
                     version: v0.1.8
                     commit: 1a2b3c4
@@ -159,16 +168,16 @@ paths:
               schema: { $ref: "#/components/schemas/UiBootstrap" }
               example:
                 app_name: Sentra DCIM
-                version: v0.2.3
+                version: v0.3.2
                 default_locale: id
                 supported_locales: [id, en]
                 timezone: Asia/Jakarta
                 menu_groups:
                   - { key: monitoring, order: 10 }
-                  - { key: infrastructure, order: 20 }
+                  - { key: system, order: 90 }
                 menus:
-                  - { key: dashboard, path: /dashboard, icon: layout-dashboard, status: available, group: monitoring, order: 10 }
-                  - { key: facility, path: /facility, icon: building-2, status: coming_soon, group: infrastructure, order: 10 }
+                  - { key: dashboard, path: /dashboard, icon: layout-dashboard, status: available, group: monitoring, order: 10, permission: "" }
+                  - { key: users, path: /users, icon: user-cog, status: available, group: system, order: 15, permission: users.read }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
@@ -402,8 +411,244 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/users:
+    get:
+      tags: [users]
+      operationId: listUsers
+      x-sentra-access: login
+      x-sentra-permission: users.read
+      summary: Daftar pengguna (cari, filter, halaman)
+      description: Urut nama pengguna. `q` dicari literal (tanpa wildcard) di nama pengguna dan nama tampilan.
+      security:
+        - sessionCookie: []
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 64 } }
+        - { name: status, in: query, schema: { type: string, enum: [active, disabled] } }
+        - { name: role, in: query, schema: { type: string, example: admin } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        "200":
+          description: Satu halaman pengguna dan jumlah total yang cocok
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+    post:
+      tags: [users]
+      operationId: createUser
+      x-sentra-access: login
+      x-sentra-permission: users.manage
+      summary: Buat pengguna dengan kata sandi sementara
+      description: |
+        Server membuat kata sandi sementara acak (`xxxx-xxxx-xxxx-xxxx`) yang dikirim **sekali** di respons ini
+        (`Cache-Control: no-store`), tidak pernah dicatat. Pengguna wajib menggantinya saat login pertama.
+        Nama pengguna tidak bisa diubah setelah dibuat.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserCreate" }
+      responses:
+        "201":
+          description: Pengguna dibuat
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserWithPassword" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+  /api/v1/users/{id}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [users]
+      operationId: getUser
+      x-sentra-access: login
+      x-sentra-permission: users.read
+      summary: Detail pengguna
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Pengguna
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [users]
+      operationId: updateUser
+      x-sentra-access: login
+      x-sentra-permission: users.manage
+      summary: Ubah nama tampilan dan/atau e-mail
+      description: Field yang tidak dikirim tidak berubah; `email` kosong menghapus e-mail.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserProfileUpdate" }
+      responses:
+        "200":
+          description: Pengguna setelah diubah
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+  /api/v1/users/{id}/roles:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    put:
+      tags: [users]
+      operationId: setUserRoles
+      x-sentra-access: login
+      x-sentra-permission: users.manage
+      summary: Ganti seluruh role pengguna
+      description: |
+        Minimal satu role. Berlaku seketika. Ditolak `409 self_action` bila mencabut role Admin sendiri, `409
+        last_admin` bila mencabut role Admin dari Admin aktif terakhir.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserRoles" }
+      responses:
+        "200":
+          description: Pengguna setelah diubah
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+  /api/v1/users/{id}/disable:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      tags: [users]
+      operationId: disableUser
+      x-sentra-access: login
+      x-sentra-permission: users.manage
+      summary: Nonaktifkan pengguna (semua sesinya dicabut)
+      description: Idempoten. Ditolak `409 self_action` untuk akun sendiri dan `409 last_admin` untuk Admin aktif terakhir.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      responses:
+        "200":
+          description: Pengguna setelah diubah
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/users/{id}/enable:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      tags: [users]
+      operationId: enableUser
+      x-sentra-access: login
+      x-sentra-permission: users.manage
+      summary: Aktifkan kembali pengguna
+      description: Idempoten. Kata sandi tidak berubah.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      responses:
+        "200":
+          description: Pengguna setelah diubah
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/users/{id}/password-reset:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      tags: [users]
+      operationId: resetUserPassword
+      x-sentra-access: login
+      x-sentra-permission: users.manage
+      summary: Atur ulang kata sandi (kata sandi sementara baru)
+      description: |
+        Kata sandi sementara baru dikirim **sekali** (`Cache-Control: no-store`), wajib diganti saat login, lockout
+        dibuka, semua sesi pengguna dicabut. Tidak untuk akun sendiri (`409 self_action`; pakai `auth/password`).
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      responses:
+        "200":
+          description: Kata sandi sementara
+          headers:
+            Cache-Control:
+              schema: { type: string, enum: [no-store] }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TemporaryPassword" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/roles:
+    get:
+      tags: [users]
+      operationId: listRoles
+      x-sentra-access: login
+      x-sentra-permission: roles.read
+      summary: Daftar role, izinnya, dan jumlah pengguna
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Role sistem (urutan tampilan) dan semua izin yang dikenal
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoleList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
 components:
   parameters:
+    UserId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     HelpLocale:
       name: locale
       in: query
@@ -441,12 +686,25 @@ components:
     Forbidden:
       description: |
         `csrf_failed` (Origin bukan domain aplikasi / header `X-Sentra-CSRF` tidak ada atau tidak cocok),
-        `password_change_required` (akun wajib ganti kata sandi dulu), atau `forbidden` (ditolak proxy).
+        `password_change_required` (akun wajib ganti kata sandi dulu), atau `forbidden` (tanpa izin yang
+        disyaratkan `x-sentra-permission`, atau ditolak proxy).
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorBody" }
     NotFound:
       description: Data tidak ditemukan (`not_found`)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+    Conflict:
+      description: |
+        `username_taken` (nama pengguna sudah ada, tidak peka huruf besar/kecil), `self_action` (aksi tidak boleh
+        pada akun sendiri), atau `last_admin` (Admin aktif terakhir tidak boleh kehilangan akses)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+    ValidationFailed:
+      description: Input tidak valid (`validation_failed`); `error.field` menyebut field-nya
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorBody" }
@@ -507,12 +765,18 @@ components:
             max_length: { type: integer, example: 128 }
     AuthUser:
       type: object
-      required: [id, username, display_name, must_change_password]
+      required: [id, username, display_name, must_change_password, roles, permissions]
       properties:
         id: { type: string, format: uuid }
         username: { type: string }
         display_name: { type: string }
         must_change_password: { type: boolean, description: "Bila true, hanya auth/me, auth/password, auth/logout yang dapat dipakai" }
+        roles: { type: array, items: { type: string }, example: [admin] }
+        permissions:
+          type: array
+          items: { type: string }
+          description: Gabungan izin semua role (UI menyembunyikan menu tanpa izin; API tetap memeriksa)
+          example: [roles.read, system.version.read, users.manage, users.read]
     SessionInfo:
       type: object
       required: [id, created_at, last_seen_at, expires_at, idle_expires_at, ip, user_agent, current]
@@ -604,7 +868,7 @@ components:
     MenuItem:
       type: object
       additionalProperties: false
-      required: [key, path, icon, status, group, order]
+      required: [key, path, icon, status, group, order, permission]
       properties:
         key: { type: string, description: "Kunci terjemahan `shell:sidebar.<key>`", example: dashboard }
         path: { type: string, example: / }
@@ -614,6 +878,7 @@ components:
           enum: [available, coming_soon, not_connected]
         group: { type: string, description: "`key` salah satu `menu_groups`", example: monitoring }
         order: { type: integer, description: Urutan di dalam grup, example: 10 }
+        permission: { type: string, description: "Izin untuk melihat menu (kosong = semua pengguna yang masuk)", example: "" }
     HelpHeading:
       type: object
       additionalProperties: false
@@ -667,6 +932,77 @@ components:
               description: |
                 Kode stabil (diterjemahkan UI lewat `errors:code.<code>`), antara lain `not_found`, `forbidden`,
                 `rate_limited`, `unauthenticated`, `invalid_credentials`, `csrf_failed`, `password_change_required`,
-                `password_policy`, `invalid_current_password`, `invalid_request`, `auth_unavailable`.
+                `password_policy`, `invalid_current_password`, `invalid_request`, `auth_unavailable`,
+                `validation_failed`, `username_taken`, `self_action`, `last_admin`.
             message: { type: string, description: Pesan teknis berbahasa Inggris; jangan ditampilkan apa adanya }
+            field: { type: string, description: "Field input yang tidak valid (validation_failed, username_taken)", example: email }
             request_id: { type: string }
+    User:
+      type: object
+      required: [id, username, display_name, email, status, roles, must_change_password, locked, last_login_at, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string, description: Tidak bisa diubah }
+        display_name: { type: string }
+        email: { type: [string, "null"] }
+        status: { type: string, enum: [active, disabled] }
+        roles: { type: array, items: { type: string }, example: [technician] }
+        must_change_password: { type: boolean }
+        locked: { type: boolean, description: Sedang terkunci karena salah kata sandi (lockout) }
+        last_login_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    UserList:
+      type: object
+      required: [users, total, limit, offset]
+      properties:
+        users: { type: array, items: { $ref: "#/components/schemas/User" } }
+        total: { type: integer, description: Jumlah semua pengguna yang cocok }
+        limit: { type: integer }
+        offset: { type: integer }
+    UserCreate:
+      type: object
+      additionalProperties: false
+      required: [username, display_name, roles]
+      properties:
+        username: { type: string, pattern: "^[A-Za-z0-9._-]{3,64}$", description: Nama pengguna atau NIP }
+        display_name: { type: string, minLength: 1, maxLength: 128 }
+        email: { type: string, maxLength: 254, description: Opsional }
+        roles: { type: array, minItems: 1, maxItems: 16, uniqueItems: true, items: { type: string }, example: [technician] }
+    UserProfileUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        display_name: { type: string, minLength: 1, maxLength: 128 }
+        email: { type: string, maxLength: 254, description: String kosong menghapus e-mail }
+    UserRoles:
+      type: object
+      additionalProperties: false
+      required: [roles]
+      properties:
+        roles: { type: array, minItems: 1, maxItems: 16, uniqueItems: true, items: { type: string } }
+    TemporaryPassword:
+      type: object
+      required: [temporary_password]
+      properties:
+        temporary_password: { type: string, format: password, pattern: "^[A-Za-z2-9]{4}(-[A-Za-z2-9]{4}){3}$", description: Ditampilkan sekali; tidak tersimpan selain sebagai hash }
+    UserWithPassword:
+      type: object
+      required: [user, temporary_password]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        temporary_password: { type: string, format: password }
+    Role:
+      type: object
+      required: [key, system, permissions, user_count]
+      properties:
+        key: { type: string, description: "Kunci terjemahan `users:roles.<key>`", example: auditor }
+        system: { type: boolean }
+        permissions: { type: array, items: { type: string }, example: [users.read, roles.read] }
+        user_count: { type: integer }
+    RoleList:
+      type: object
+      required: [roles, permissions]
+      properties:
+        roles: { type: array, items: { $ref: "#/components/schemas/Role" } }
+        permissions: { type: array, items: { type: string }, description: Semua izin yang dikenal aplikasi }

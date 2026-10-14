@@ -37,6 +37,8 @@ import (
 	systemservice "github.com/agungharyanto/sentra-dcim/internal/system/service"
 	uihandler "github.com/agungharyanto/sentra-dcim/internal/ui/handler"
 	uiservice "github.com/agungharyanto/sentra-dcim/internal/ui/service"
+	usershandler "github.com/agungharyanto/sentra-dcim/internal/users/handler"
+	usersservice "github.com/agungharyanto/sentra-dcim/internal/users/service"
 )
 
 // Test passwords are generated per run; they only exist in the throwaway database.
@@ -56,6 +58,7 @@ type authEnv struct {
 	srv  *httptest.Server
 	pool *pgxpool.Pool
 	svc  *authservice.Service
+	usr  *usersservice.Service
 }
 
 func testAuthConfig() config.Auth {
@@ -109,8 +112,8 @@ func newAuthEnv(t *testing.T, mod func(*config.Auth)) *authEnv {
 		mod(&cfg)
 	}
 	log := logging.Discard()
-	svc, err := authservice.New(authrepo.New(pool), authservice.NewRedisLimiter(rdb, prefix),
-		auditservice.New(auditrepo.New(pool), log), log, cfg)
+	rec := auditservice.New(auditrepo.New(pool), log)
+	svc, err := authservice.New(authrepo.New(pool), authservice.NewRedisLimiter(rdb, prefix), rec, log, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,8 +127,10 @@ func newAuthEnv(t *testing.T, mod func(*config.Auth)) *authEnv {
 		Help:   helphandler.New(nil, "id", []string{"id", "en"}),
 		Auth:   authhandler.New(svc, log, []string{srv.URL}),
 	}
+	usr := usersservice.New(pool, rec, log, cfg)
+	mods.Users = usershandler.New(usr, log)
 	srv.Config.Handler = httpserver.NewRouter(log, nil, nil, api.Mount(mods, false))
-	return &authEnv{t: t, srv: srv, pool: pool, svc: svc}
+	return &authEnv{t: t, srv: srv, pool: pool, svc: svc, usr: usr}
 }
 
 // createUser creates an account through the CLI code path; ready=true clears must_change_password.
@@ -196,6 +201,8 @@ func (c *client) del(p string) resp { return c.do(http.MethodDelete, p, nil) }
 func (c *client) post(p string, body any, opts ...reqOpt) resp {
 	return c.do(http.MethodPost, p, body, opts...)
 }
+func (c *client) put(p string, body any) resp   { return c.do(http.MethodPut, p, body) }
+func (c *client) patch(p string, body any) resp { return c.do(http.MethodPatch, p, body) }
 
 // do sends a browser-like request: same Origin and the double-submit CSRF header (cookie value, or a placeholder
 // before login).
@@ -611,5 +618,13 @@ func TestCLICreateAdmin(t *testing.T) {
 	_ = pool.QueryRow(context.Background(), "SELECT count(*) FROM audit_events WHERE action='user.create_admin' AND actor_type='system'").Scan(&events)
 	if users != 1 || events < 1 {
 		t.Fatalf("users=%d create_admin events=%d", users, events)
+	}
+	var roles []string
+	if err := pool.QueryRow(context.Background(), `SELECT array_agg(r.key) FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+		JOIN users u ON u.id = ur.user_id WHERE u.username = '199001012020011001'`).Scan(&roles); err != nil {
+		t.Fatal(err)
+	}
+	if len(roles) != 1 || roles[0] != "admin" {
+		t.Fatalf("create-admin roles = %v, want [admin]", roles)
 	}
 }

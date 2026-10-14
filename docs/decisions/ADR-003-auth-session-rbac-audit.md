@@ -1,7 +1,7 @@
 # ADR-003 — Autentikasi, Sesi, RBAC & Audit Log
 
 - **Status:** Accepted (2026-10-14, keputusan pemilik di awal sprint v0.3)
-- **Keputusan terkait:** D-046 – D-052; menggantikan basic_auth sementara D-043/D-045 mulai v0.3.4 (ISS-026)
+- **Keputusan terkait:** D-046 – D-060; menggantikan basic_auth sementara D-043/D-045 mulai v0.3.4 (ISS-026)
 
 ## Konteks
 Sentra DCIM butuh akun pengguna, peran, dan jejak audit sebelum modul operasional (v0.4+) dibuka. Pengguna adalah
@@ -20,7 +20,7 @@ pegawai/teknisi Diskominfo dan tenant; server tunggal (Go monolith + PostgreSQL 
 | Otorisasi | Middleware **default-deny** untuk `/api/v1/*`; allowlist publik: `health`, `version` (versi singkat), `auth/login`. Test mengenumerasi semua route |
 | Admin pertama | Lewat **CLI** (`sentra user create-admin`, password dari stdin, wajib ganti saat login pertama) — tidak ada pendaftaran publik |
 | MFA | **TOTP wajib untuk Admin** di v0.3.4 |
-| RBAC | **Permission didefinisikan di kode**, **role di DB** (v0.3.2). Role sistem: Admin, NOC, Security, Teknisi, Viewer, Auditor |
+| RBAC | **Permission didefinisikan di kode**, **role di DB** (v0.3.2). Role sistem: Admin, NOC, Security, Teknisi, Viewer, Auditor. Izin per route (`Auth.Require`), role dibaca ulang tiap request; rincian D-058 |
 | Audit | Tabel `audit_events` **append-only** (UPDATE/DELETE ditolak trigger) sejak v0.3.1; **hash chain** + viewer + ekspor + **retensi default 365 hari** di v0.3.3. Tidak pernah mencatat password, token, atau hash |
 | Principal | Konteks request membawa principal `{type, id, username}`; `type=user` sekarang, **token mesin** (API key perangkat/integrasi) **ditunda ke v0.6** |
 | basic_auth | Tetap aktif sampai **v0.3.4**, lalu dicabut (ISS-026) |

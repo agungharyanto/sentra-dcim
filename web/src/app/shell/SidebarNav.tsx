@@ -1,9 +1,10 @@
-import { createElement } from "react";
+import { createElement, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, useMatch } from "react-router";
 
 import { MenuStatusBadge } from "@/components/domain/MenuStatusBadge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { canSeeMenu, usePermissions } from "@/features/auth/permissions";
 import type { MenuItem } from "@/features/bootstrap/api";
 import { useBootstrap } from "@/features/bootstrap/regional";
 import { cn } from "@/lib/utils";
@@ -11,14 +12,21 @@ import { cn } from "@/lib/utils";
 import { menuIcon } from "./icons";
 import { groupMenus, useMenuText } from "./menu";
 
-/** Grouped menu from the backend registry; shared by the desktop sidebar and the mobile drawer. */
+/**
+ * Grouped menu from the backend registry, without menus the user has no permission for; shared by the desktop
+ * sidebar and the mobile drawer.
+ */
 export function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const boot = useBootstrap();
+  const perms = usePermissions();
   const { groupLabel } = useMenuText();
 
   return (
     <div className="flex flex-col gap-4">
-      {groupMenus(boot.menu_groups, boot.menus).map(({ group, items }) => (
+      {groupMenus(
+        boot.menu_groups,
+        boot.menus.filter((m) => canSeeMenu(m, perms)),
+      ).map(({ group, items }) => (
         <div key={group.key} role="group" aria-labelledby={`nav-group-${group.key}`} data-group={group.key}>
           <p
             id={`nav-group-${group.key}`}
@@ -61,9 +69,15 @@ function MenuLink({
   const { menuLabel } = useMenuText();
   const active = useMatch({ path: m.path, end: false }) !== null;
   const label = menuLabel(m.key);
+  const ref = useRef<HTMLAnchorElement>(null);
+  // The sidebar scrolls on short screens (e.g. 1280×720): keep the active menu visible, also after a deep link.
+  useEffect(() => {
+    if (active) ref.current?.scrollIntoView?.({ block: "nearest" });
+  }, [active]);
 
   const link = (
     <NavLink
+      ref={ref}
       to={m.path}
       onClick={onNavigate}
       data-menu={m.key}

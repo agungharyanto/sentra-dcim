@@ -23,6 +23,7 @@ import (
 	"github.com/agungharyanto/sentra-dcim/internal/auth/service"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/httpserver"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/principal"
+	"github.com/agungharyanto/sentra-dcim/internal/platform/rbac"
 )
 
 // Cookie and header names. `__Host-` forces Secure, Path=/ and no Domain attribute.
@@ -43,6 +44,7 @@ const (
 	CodeInvalidCurrentPassword = "invalid_current_password"
 	CodeInvalidRequest         = "invalid_request"
 	CodeUnavailable            = "auth_unavailable"
+	CodeForbidden              = "forbidden"
 )
 
 // Handler serves the auth endpoints.
@@ -107,6 +109,44 @@ func (h *Handler) Authenticate(next http.Handler) http.Handler {
 		ctx = principal.With(ctx, sess.Principal)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// Identify is the optional variant of Authenticate for public routes whose answer depends on the caller (e.g.
+// /version details): a valid session sets the principal, anything else continues anonymously. It never fails.
+func (h *Handler) Identify(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if c, err := r.Cookie(SessionCookie); err == nil && c.Value != "" && h.svc != nil {
+			if sess, err := h.svc.Authenticate(r.Context(), c.Value); err == nil {
+				ctx := context.WithValue(r.Context(), sessionKey{}, sess)
+				r = r.WithContext(principal.With(ctx, sess.Principal))
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// Require answers 403 "forbidden" (and records authz.denied) unless the principal holds perm. Mount it on each
+// route that needs a permission, behind Authenticate; routes without it are open to every signed-in user and must be
+// listed in api.SelfServiceRoutes (enforced by the integration test TestPermissionDefaultDeny).
+func (h *Handler) Require(perm rbac.Permission) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			p, ok := principal.From(r.Context())
+			if !ok {
+				httpserver.Error(w, r, http.StatusUnauthorized, CodeUnauthenticated, "authentication required")
+				return
+			}
+			if !p.Can(perm) {
+				if h.svc != nil {
+					route := r.Method + " " + chi.RouteContext(r.Context()).RoutePattern()
+					h.svc.RecordDenied(r.Context(), perm, route, audit.MetaFromRequest(r))
+				}
+				httpserver.Error(w, r, http.StatusForbidden, CodeForbidden, "permission denied")
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // CSRF protects unsafe methods: the Origin (or Referer) must be an allowed origin and X-Sentra-CSRF must be

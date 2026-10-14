@@ -47,6 +47,8 @@ order: 30                # urutan di daftar (kecil = atas)
 | `auth/ganti-password` | Ganti kata sandi | Change password | user | — |
 | `auth/sesi` | Sesi saya | My sessions | user | — |
 | `dashboard` | Dasbor | Dashboard | user | `dashboard` |
+| `users` | Pengguna & Role | Users & Roles | admin | `users` |
+| `users/roles` | Role & izin | Roles & permissions | admin | — |
 | `api` | Dokumentasi API | API documentation | admin | — |
 
 Referensi API (viewer read-only, dari `api/openapi.yaml`): route UI `/help/api/reference`.

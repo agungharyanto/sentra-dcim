@@ -106,6 +106,39 @@ describe("API reference viewer", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
+  it("merges path-level parameters and shows the required permission", async () => {
+    const users: OpenApiDoc = {
+      openapi: "3.1.0",
+      tags: [{ name: "users" }],
+      paths: {
+        "/api/v1/users/{id}": {
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+          get: {
+            tags: ["users"],
+            summary: "Detail",
+            "x-sentra-access": "login",
+            "x-sentra-permission": "users.read",
+            parameters: [{ name: "verbose", in: "query", schema: { type: "boolean" } }],
+            responses: {},
+          },
+        },
+      },
+    };
+    const [[, ops = []] = []] = groupOperations(users);
+    expect(ops.map((o) => o.method)).toEqual(["get"]);
+    expect(ops[0]?.op.parameters?.map((p) => ("name" in p ? p.name : ""))).toEqual(["id", "verbose"]);
+    mockApi({ "/api/v1/help/openapi": users });
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <TooltipProvider>
+          <ApiReference />
+        </TooltipProvider>
+      </QueryClientProvider>,
+    );
+    const op = (await screen.findByTestId("api-reference")).querySelector('[data-operation="GET /api/v1/users/{id}"]');
+    expect(op?.querySelector("[data-permission]")).toHaveTextContent("izin users.read");
+  });
+
   it("copies the plain path without toggling the endpoint", async () => {
     mockApi({ "/api/v1/help/openapi": doc });
     const writeText = vi.fn().mockResolvedValue(undefined);

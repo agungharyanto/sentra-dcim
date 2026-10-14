@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/agungharyanto/sentra-dcim/internal/platform/rbac"
 )
 
 var update = flag.Bool("update", false, "rewrite web/src/test/fixtures/ui-registry.json from the registry")
@@ -39,6 +41,8 @@ func TestRegistryIsConsistent(t *testing.T) {
 			t.Fatalf("menu %q: invalid status %q", m.Key, m.Status)
 		case m.Icon == "":
 			t.Fatalf("menu %q: missing icon", m.Key)
+		case m.Permission != "" && !slices.Contains(rbac.All, rbac.Permission(m.Permission)):
+			t.Fatalf("menu %q: unknown permission %q", m.Key, m.Permission)
 		}
 		keys[m.Key], paths[m.Path], used[m.Group] = true, true, true
 	}
@@ -55,7 +59,7 @@ func TestRegistryGrouping(t *testing.T) {
 		GroupMonitoring:     {"dashboard", "alarms", "power", "environment"},
 		GroupInfrastructure: {"facility", "assets", "tenants"},
 		GroupOperations:     {"access", "visitors", "maintenance", "analytics"},
-		GroupSystem:         {"help", "settings"},
+		GroupSystem:         {"help", "users", "settings"},
 	}
 	got := map[string][]string{}
 	for _, m := range menus {

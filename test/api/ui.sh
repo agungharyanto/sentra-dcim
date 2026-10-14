@@ -94,7 +94,7 @@ case "$code" in
 esac
 
 # Without (or with wrong) credentials: 401 + Basic challenge.
-for p in / /index.html /some/deep/link /api/v1/ui/bootstrap /api/v1/help/index /api/v1/help/openapi /api/v1/auth/me; do
+for p in / /index.html /some/deep/link /api/v1/ui/bootstrap /api/v1/help/index /api/v1/help/openapi /api/v1/auth/me /api/v1/users; do
   req "$BASE$p"
   check "GET $p without auth = 401" "$([[ $code == 401 && $(hdr WWW-Authenticate) == Basic* ]]; echo $?)"
 done
@@ -140,7 +140,7 @@ check "POST / rejected (405)" "$([[ $code == 405 ]]; echo $?)"
 
 # App session API behind basic_auth (v0.3.1). Without a session: the app's own 401, no Basic challenge (the browser
 # must not show its login dialog) and never counted by fail2ban.
-for p in /api/v1/ui/bootstrap /api/v1/help/index /api/v1/auth/me; do
+for p in /api/v1/ui/bootstrap /api/v1/help/index /api/v1/auth/me /api/v1/users; do
   areq "$BASE$p"
   check "GET $p with basic_auth, no session = 401 unauthenticated" "$([[ $code == 401 && -z $(hdr WWW-Authenticate) ]] && jq -e '.error.code=="unauthenticated"' "$tmp/b" >/dev/null; echo $?)"
 done
@@ -182,7 +182,7 @@ else
   check "GET /api/v1/ui/bootstrap with session = 200" "$([[ $code == 200 ]]; echo $?)"
   check "bootstrap fields" "$(jq -e 'keys==["app_name","default_locale","menu_groups","menus","supported_locales","timezone","version"]' "$tmp/b" >/dev/null; echo $?)"
   check "bootstrap locale & timezone valid" "$(jq -e '(.default_locale as $l | .supported_locales|index($l))!=null and (.timezone|length>0)' "$tmp/b" >/dev/null; echo $?)"
-  check "bootstrap menus: no labels, valid status, known group" "$(jq -e '(.menus|length>0) and all(.menus[]; (keys==["group","icon","key","order","path","status"]) and (.status|IN("available","coming_soon","not_connected"))) and ([.menu_groups[].key] as $g | all(.menus[]; .group as $x | $g|index($x) != null))' "$tmp/b" >/dev/null; echo $?)"
+  check "bootstrap menus: no labels, valid status, known group" "$(jq -e '(.menus|length>0) and all(.menus[]; (keys==["group","icon","key","order","path","permission","status"]) and (.status|IN("available","coming_soon","not_connected"))) and ([.menu_groups[].key] as $g | all(.menus[]; .group as $x | $g|index($x) != null))' "$tmp/b" >/dev/null; echo $?)"
   check "bootstrap Cache-Control no-store" "$([[ $(hdr Cache-Control) == no-store ]]; echo $?)"
   bver="$(jq -r .version "$tmp/b")"
   req "$BASE/api/v1/version"
@@ -202,6 +202,31 @@ else
   check "GET /api/v1/help/openapi = 200 JSON spec" "$([[ $code == 200 ]] && jq -e '.openapi and .paths["/api/v1/auth/login"]' "$tmp/b" >/dev/null; echo $?)"
   sreq -X POST "$BASE/api/v1/help/index"
   check "POST /api/v1/help/index rejected (403)" "$([[ $code == 403 ]]; echo $?)"
+
+  # RBAC (v0.3.2): answers follow the permissions of the test account (Admin in CI; any role works).
+  sreq "$BASE/api/v1/auth/me"
+  perms="$(jq -c '.user.permissions // []' "$tmp/b")"
+  has() { jq -e --arg p "$1" 'index($p) != null' <<<"$perms" >/dev/null; }
+  echo "  info  account permissions: $perms"
+  if has users.read; then exp=200; else exp=403; fi
+  sreq "$BASE/api/v1/users?limit=5"
+  check "GET /api/v1/users = $exp (users.read)" "$([[ $code == "$exp" ]] && { [[ $exp == 403 ]] || jq -e '.users and (.total >= 1) and all(.users[]; has("password_hash")|not)' "$tmp/b" >/dev/null; }; echo $?)"
+  if has roles.read; then exp=200; else exp=403; fi
+  sreq "$BASE/api/v1/roles"
+  check "GET /api/v1/roles = $exp (roles.read)" "$([[ $code == "$exp" ]] && { [[ $exp == 403 ]] || jq -e '[.roles[].key]|index("admin") != null' "$tmp/b" >/dev/null; }; echo $?)"
+  # PATCH passes the proxy and CSRF; an unknown id proves it reached the app without changing anything.
+  if has users.manage; then exp=404; else exp=403; fi
+  sreq -X PATCH -H "X-Sentra-CSRF: $csrf" -H 'Content-Type: application/json' -d '{}' \
+    "$BASE/api/v1/users/00000000-0000-4000-8000-000000000000"
+  check "PATCH /api/v1/users/<unknown> = $exp (proxy + CSRF pass, users.manage)" "$([[ $code == "$exp" ]]; echo $?)"
+  sreq -X DELETE -H "X-Sentra-CSRF: $csrf" "$BASE/api/v1/users/00000000-0000-4000-8000-000000000000"
+  check "DELETE /api/v1/users/* rejected at proxy (403, users are disabled, never deleted)" "$([[ $code == 403 ]] && jq -e '.error.message=="not publicly available"' "$tmp/b" >/dev/null; echo $?)"
+  sreq "$BASE/api/v1/version"
+  if has system.version.read; then
+    check "GET /version with Admin session = build details" "$(jq -e '.commit and .server_time_display' "$tmp/b" >/dev/null; echo $?)"
+  else
+    check "GET /version without system.version.read = {version} only" "$(jq -e 'keys==["version"]' "$tmp/b" >/dev/null; echo $?)"
+  fi
 
   # Unsafe request with the session but without the CSRF token is refused; with it, logout works.
   sreq -X POST "$BASE/api/v1/auth/logout"

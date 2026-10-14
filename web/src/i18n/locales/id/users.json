@@ -1,0 +1,132 @@
+{
+  "tabs": {
+    "users": "Pengguna",
+    "roles": "Role"
+  },
+  "list": {
+    "description": "Kelola akun, role, dan akses pengguna Sentra DCIM. Akun tidak dihapus, tetapi dinonaktifkan.",
+    "search": "Cari nama atau nama pengguna",
+    "searchLabel": "Cari pengguna",
+    "statusFilter": "Filter status",
+    "roleFilter": "Filter role",
+    "allStatuses": "Semua status",
+    "allRoles": "Semua role",
+    "add": "Tambah pengguna",
+    "name": "Nama",
+    "roles": "Role",
+    "status": "Status",
+    "lastLogin": "Login terakhir",
+    "actions": "Aksi",
+    "manage": "Kelola",
+    "view": "Lihat",
+    "manageLabel": "Kelola {{name}}",
+    "viewLabel": "Lihat {{name}}",
+    "never": "Belum pernah",
+    "empty": "Belum ada pengguna.",
+    "emptyFiltered": "Tidak ada pengguna yang cocok dengan filter.",
+    "range": "{{from}}–{{to}} dari {{total}}",
+    "prev": "Sebelumnya",
+    "next": "Berikutnya",
+    "pagination": "Halaman daftar pengguna",
+    "you": "Anda"
+  },
+  "status": {
+    "active": "Aktif",
+    "disabled": "Nonaktif",
+    "locked": "Terkunci",
+    "mustChange": "Wajib ganti kata sandi"
+  },
+  "roles": {
+    "admin": "Admin",
+    "noc": "NOC",
+    "security": "Security",
+    "technician": "Teknisi",
+    "viewer": "Viewer",
+    "auditor": "Auditor"
+  },
+  "roleDescription": {
+    "admin": "Pengelola aplikasi: semua izin, termasuk pengguna & role.",
+    "noc": "Operator pemantauan 24/7.",
+    "security": "Petugas keamanan & akses fisik.",
+    "technician": "Teknisi fasilitas & perangkat.",
+    "viewer": "Hanya melihat (pimpinan/pemangku kepentingan).",
+    "auditor": "Pemeriksa: melihat pengguna & role (log audit menyusul)."
+  },
+  "permission": {
+    "users_read": "Melihat pengguna",
+    "users_manage": "Mengelola pengguna",
+    "roles_read": "Melihat role",
+    "system_version_read": "Melihat detail build"
+  },
+  "rolesTab": {
+    "description": "Role adalah kumpulan izin. Pengguna mendapat gabungan izin semua role-nya. Semua pengguna yang masuk dapat memakai Dasbor, Pusat Bantuan, dan akun sendiri.",
+    "role": "Role",
+    "permissions": "Izin",
+    "users": "Pengguna",
+    "noPermissions": "Belum ada izin modul (bertambah saat modulnya hadir)",
+    "system": "Bawaan"
+  },
+  "create": {
+    "title": "Tambah pengguna",
+    "description": "Kata sandi sementara dibuat otomatis dan wajib diganti pengguna saat masuk pertama.",
+    "username": "Nama pengguna",
+    "usernameHint": "3–64 karakter: huruf, angka, titik, garis bawah, atau tanda hubung. Boleh NIP. Tidak bisa diubah nanti.",
+    "displayName": "Nama tampilan",
+    "email": "E-mail (opsional)",
+    "roles": "Role",
+    "rolesHint": "Pilih minimal satu role. Pilih yang paling sempit sesuai tugasnya.",
+    "submit": "Simpan",
+    "submitting": "Menyimpan…",
+    "cancel": "Batal",
+    "required": "Isi nama pengguna, nama tampilan, dan pilih minimal satu role."
+  },
+  "temp": {
+    "title": "Kata sandi sementara",
+    "forUser": "Untuk {{username}}",
+    "warning": "Salin sekarang. Kata sandi ini hanya ditampilkan sekali dan tidak dapat dilihat lagi. Serahkan langsung kepada pengguna, jangan lewat grup chat.",
+    "label": "Kata sandi sementara",
+    "copy": "Salin kata sandi sementara",
+    "done": "Sudah saya salin"
+  },
+  "detail": {
+    "back": "Kembali ke daftar pengguna",
+    "notFound": "Pengguna tidak ditemukan.",
+    "readOnly": "Anda hanya dapat melihat data ini.",
+    "self": "Ini akun Anda. Menonaktifkan, mencabut role Admin, dan reset kata sandi tidak tersedia untuk akun sendiri.",
+    "profile": "Profil",
+    "profileDescription": "Nama pengguna tidak bisa diubah karena dipakai di log audit.",
+    "username": "Nama pengguna",
+    "displayName": "Nama tampilan",
+    "email": "E-mail",
+    "saveProfile": "Simpan profil",
+    "profileSaved": "Profil disimpan.",
+    "rolesTitle": "Role",
+    "rolesDescription": "Perubahan role berlaku seketika, tanpa perlu masuk ulang.",
+    "saveRoles": "Simpan role",
+    "rolesSaved": "Role disimpan.",
+    "account": "Status akun",
+    "created": "Dibuat",
+    "updated": "Terakhir diubah",
+    "lastLogin": "Login terakhir",
+    "disable": "Nonaktifkan",
+    "enable": "Aktifkan",
+    "disableTitle": "Nonaktifkan {{name}}?",
+    "disableBody": "Semua sesi pengguna ini langsung ditutup dan ia tidak bisa masuk sampai diaktifkan kembali.",
+    "enableTitle": "Aktifkan {{name}}?",
+    "enableBody": "Pengguna dapat masuk lagi dengan kata sandinya yang sekarang.",
+    "disabled": "Pengguna dinonaktifkan.",
+    "enabled": "Pengguna diaktifkan.",
+    "reset": "Reset kata sandi",
+    "resetTitle": "Reset kata sandi {{name}}?",
+    "resetBody": "Kata sandi sementara baru dibuat dan ditampilkan sekali. Semua sesi pengguna ini ditutup dan kunci akun dibuka.",
+    "confirm": "Ya, lanjutkan",
+    "cancel": "Batal",
+    "saving": "Menyimpan…"
+  },
+  "field": {
+    "username": "Nama pengguna tidak valid.",
+    "display_name": "Nama tampilan wajib diisi (maksimal 128 karakter, satu baris).",
+    "email": "Alamat e-mail tidak valid.",
+    "roles": "Pilih minimal satu role yang valid."
+  }
+}

@@ -110,13 +110,20 @@ export interface OpenApiOperation {
   responses?: Record<string, OpenApiResponse>;
   /** Who may call this at the public edge: public | internal | login (Sentra extension). */
   "x-sentra-access"?: string;
+  /** Permission the session needs (RBAC, v0.3.2; Sentra extension). */
+  "x-sentra-permission"?: string;
 }
+
+export type HttpMethod = "get" | "post" | "put" | "patch" | "delete" | "head" | "options";
+
+/** Path item: operations by method, plus path-level `parameters` shared by them. */
+export type OpenApiPathItem = Partial<Record<HttpMethod, OpenApiOperation>> & { parameters?: OpenApiParameter[] };
 
 export interface OpenApiDoc {
   openapi: string;
   info?: { title?: string; version?: string };
   tags?: { name: string; description?: string }[];
-  paths: Record<string, Record<string, OpenApiOperation>>;
+  paths: Record<string, OpenApiPathItem>;
   components?: {
     schemas?: Record<string, OpenApiSchema>;
     parameters?: Record<string, OpenApiParameter>;

@@ -223,8 +223,14 @@ Aturan migrasi (CLAUDE.md aturan 9): setiap migrasi wajib punya `down` dan backw
 
 ## Pemulihan akses admin aplikasi (v0.3.1+)
 
-Akun aplikasi (login Sentra DCIM) terpisah dari akun OS server. Admin pertama — dan admin darurat bila semua admin
-terkunci atau lupa kata sandi — dibuat **dari server** lewat CLI di container app; tidak ada jalur lewat web.
+Akun aplikasi (login Sentra DCIM) terpisah dari akun OS server.
+
+**Pengguna biasa lupa kata sandi / akun terkunci / harus dicabut (v0.3.2+):** Admin memakai menu **Pengguna &
+Role** di aplikasi — *Reset kata sandi* (kata sandi sementara tampil sekali, semua sesi ditutup, lockout dibuka) atau
+*Nonaktifkan*. Tidak perlu akses server.
+
+**Semua Admin kehilangan akses** (lupa kata sandi, terkunci, atau akun Admin dinonaktifkan): buat **Admin darurat
+dari server** lewat CLI di container app; tidak ada jalur lewat web. Akun dari CLI langsung ber-role Admin.
 
 ```bash
 cd /opt/sentra-dcim
@@ -236,8 +242,10 @@ sudo -u sentra docker compose exec app /sentra user create-admin --username <nam
 
 - Akun baru **wajib ganti kata sandi** saat pertama masuk; kata sandi sementara tidak berlaku lagi setelahnya.
 - Nama pengguna yang sudah ada ditolak (`username already exists`): pakai nama lain (mis. `admin.darurat`), lalu
-  setelah masuk tangani akun lama. Reset kata sandi & nonaktifkan akun lewat aplikasi hadir di v0.3.2 (menu
-  Pengguna & Role); role Admin diberikan ke akun CLI pada migrasi v0.3.2.
+  setelah masuk tangani akun lama di menu Pengguna & Role (reset kata sandi atau nonaktifkan). Setelah keadaan
+  normal, nonaktifkan akun darurat bila tidak dipakai lagi (akun tidak pernah dihapus — jejak audit).
+- Aplikasi menolak mencabut role Admin atau menonaktifkan **Admin aktif terakhir** (dan akun sendiri), sehingga
+  kondisi "tanpa Admin" lewat aplikasi tidak bisa terjadi; CLI tetap jalur cadangan.
 - Akun terkunci karena salah kata sandi terbuka sendiri setelah 15 menit (`AUTH_LOCK_DURATION`).
 - Setiap pembuatan tercatat di `audit_events` (`user.create_admin`, aktor `system`/`cli`), tanpa kata sandi.
 - Rate limit login ada di Redis; bila Redis mati, login ditolak (`503 auth_unavailable`, gagal tertutup) — pulihkan

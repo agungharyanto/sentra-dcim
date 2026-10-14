@@ -1,7 +1,18 @@
--- name: CreateUser :one
-INSERT INTO users (username, display_name, email, password_hash, must_change_password)
-VALUES (@username, @display_name, @email, @password_hash, @must_change_password)
-RETURNING *;
+-- CreateAdminUser creates an account with the Admin role in one statement (CLI create-admin; atomic).
+-- name: CreateAdminUser :one
+WITH u AS (
+    INSERT INTO users (username, display_name, email, password_hash, must_change_password)
+    VALUES (@username, @display_name, @email, @password_hash, true)
+    RETURNING *
+), granted AS (
+    INSERT INTO user_roles (user_id, role_id)
+    SELECT u.id, r.id FROM u CROSS JOIN roles r WHERE r.key = 'admin'
+    RETURNING role_id
+)
+SELECT u.*, (SELECT count(*) FROM granted)::int AS roles_granted FROM u;
+
+-- name: GetUserRoleKeys :many
+SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = @user_id ORDER BY r.key;
 
 -- name: GetUserByUsername :one
 SELECT * FROM users WHERE username = @username;
@@ -46,7 +57,9 @@ RETURNING *;
 
 -- name: GetActiveSession :one
 SELECT s.id AS session_id, s.user_id, s.created_at AS session_created_at, s.last_seen_at, s.expires_at, s.idle_expires_at,
-       u.username, u.display_name, u.status, u.must_change_password
+       u.username, u.display_name, u.status, u.must_change_password,
+       ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+             WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles
 FROM sessions s
 JOIN users u ON u.id = s.user_id
 WHERE s.token_hash = @token_hash

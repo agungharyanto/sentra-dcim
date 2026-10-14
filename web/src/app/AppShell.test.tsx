@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { App, createQueryClient } from "@/app/App";
 import { initI18n } from "@/i18n";
 import { resources } from "@/i18n/resources";
-import { mockBootstrapFetch, testBootstrap } from "@/test/bootstrap";
+import { mockApi, mockBootstrapFetch, testBootstrap, testMe } from "@/test/bootstrap";
 import registry from "@/test/fixtures/ui-registry.json";
 
 const shell = resources.id.shell;
@@ -44,7 +44,7 @@ describe("app shell", () => {
       expect(nav.getByRole("group", { name: shell.groups[g.key as keyof typeof shell.groups] })).toBeInTheDocument();
     }
     const links = nav.getAllByRole("link");
-    expect(links).toHaveLength(13);
+    expect(links).toHaveLength(14);
     expect(links.map((l) => l.getAttribute("href"))).toEqual(registry.menus.map((m) => m.path));
     expect(nav.getByRole("link", { name: shell.sidebar.dashboard })).toHaveAttribute("aria-current", "page");
     // Infrastructure group contains exactly its three menus, in order.
@@ -63,6 +63,36 @@ describe("app shell", () => {
     expect(nav.getByRole("link", { name: new RegExp(shell.sidebar.facility) })).toHaveAttribute("aria-current", "page");
     const crumbs = screen.getByRole("navigation", { name: shell.layout.breadcrumb });
     expect(crumbs).toHaveTextContent(`Sentra DCIM${shell.groups.infrastructure}${shell.sidebar.facility}`);
+  });
+
+  it("scrolls the active menu into view (short screens, deep links)", async () => {
+    const scrolled: string[] = [];
+    // jsdom has no layout: record which link asked to be scrolled into view.
+    Element.prototype.scrollIntoView = vi.fn(function (this: Element) {
+      scrolled.push(this.getAttribute("data-menu") ?? "");
+    });
+    mockApi({
+      "/api/v1/ui/bootstrap": testBootstrap(),
+      "/api/v1/users": { users: [], total: 0, limit: 50, offset: 0 },
+      "/api/v1/roles": { roles: [], permissions: [] },
+    });
+    window.history.pushState({}, "", "/users");
+    render(<App queryClient={createQueryClient()} />);
+    await screen.findByTestId("users-empty");
+    await waitFor(() => expect(scrolled).toContain("users"));
+    expect(new Set(scrolled.filter((k) => k !== ""))).toEqual(new Set(["users"]));
+  });
+
+  it("hides menus without permission and shows Access denied on their address", async () => {
+    mockApi({ "/api/v1/ui/bootstrap": testBootstrap(), "/api/v1/auth/me": testMe({ roles: ["viewer"], permissions: [] }) });
+    window.history.pushState({}, "", "/users");
+    render(<App queryClient={createQueryClient()} />);
+    expect(await screen.findByTestId("forbidden")).toHaveTextContent(shell.pages.forbidden.title);
+    const nav = await sidebar();
+    expect(nav.getAllByRole("link")).toHaveLength(13);
+    expect(nav.queryByRole("link", { name: shell.sidebar.users })).not.toBeInTheDocument();
+    // The title still names the menu, so the user knows what was refused.
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(shell.sidebar.users);
   });
 
   it("shows NotConnected for not_connected menus", async () => {

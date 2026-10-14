@@ -80,7 +80,7 @@ func TestBootstrap(t *testing.T) {
 	keys := map[string]bool{}
 	for _, m := range menus {
 		item := m.(map[string]any)
-		if len(item) != 6 {
+		if len(item) != 7 {
 			t.Fatalf("menu fields = %v (labels must not be sent)", item)
 		}
 		rank, ok := groupRank[item["group"].(string)]

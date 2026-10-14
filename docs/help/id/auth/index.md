@@ -21,5 +21,4 @@ tercatat atas nama akun tersebut di log audit, jadi jangan pernah berbagi akun.
 |---|---|
 | Masuk, keluar, ganti kata sandi sendiri, mengelola sesi sendiri | Semua pengguna yang memiliki akun |
 | Membuat akun administrator pertama atau darurat | Petugas operasional server (bukan lewat aplikasi) |
-
-Pengelolaan pengguna dan peran (role) lewat aplikasi hadir di versi berikutnya (v0.3.2).
+| Membuat, mengubah, menonaktifkan pengguna, menetapkan role, reset kata sandi pengguna lain | Admin, lewat menu [Pengguna & Role](../users/index.md) |

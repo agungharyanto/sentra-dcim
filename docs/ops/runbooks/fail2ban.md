@@ -39,6 +39,16 @@ make fail2ban-ban-test  # uji ban nyata dari network namespace uji (198.51.100.1
 ```
 `make fail2ban-web` gagal dengan pesan jelas bila volume/log belum ada atau DOMAIN tidak valid.
 
+### Saat rilis (D-057)
+`make release` tidak memakai sudo. Sebelum merge dan sesudah redeploy, `scripts/fail2ban-web-check.sh`
+membandingkan sha256 filter, jail dan drop-in terpasang dengan hasil render repo. Bila beda atau belum
+terpasang, rilis berhenti (exit 1) dengan pesan *"run make fail2ban-web"*:
+- gagal **sebelum merge** → belum ada yang di-merge/tag; jalankan `make fail2ban-web`, lalu ulangi `make release`;
+- gagal **sesudah redeploy** (rilis mengubah filter/jail) → tag sudah di-push; cukup jalankan `make fail2ban-web`.
+
+Cek manual kapan saja: `make fail2ban-web-check`. Tesnya (`make fail2ban-web-check-test`, juga di CI) memakai
+direktori & repo git sementara, tanpa sudo.
+
 ### Cek status & IP yang di-ban
 ```
 sudo fail2ban-client status sentra-web          # jumlah gagal, IP yang sedang di-ban

@@ -21,5 +21,4 @@ that account in the audit log, so never share an account.
 |---|---|
 | Sign in, sign out, change own password, manage own sessions | Every user with an account |
 | Create the first or an emergency administrator account | Server operations staff (not through the application) |
-
-User and role management in the application arrives in the next version (v0.3.2).
+| Create, edit, disable users, assign roles, reset other users' passwords | Admin, in the [Users & Roles](../users/index.md) menu |

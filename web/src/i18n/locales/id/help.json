@@ -38,6 +38,7 @@
       "public": "Dapat dipanggil tanpa login lewat domain publik.",
       "internal": "Hanya dari listener internal server; ditolak di domain publik.",
       "login": "Perlu masuk (sesi aplikasi; lewat domain publik juga akses situs sementara sampai v0.3.4)."
-    }
+    },
+    "permission": "izin {{permission}}"
   }
 }

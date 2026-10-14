@@ -6,6 +6,9 @@ export interface AuthUser {
   username: string;
   display_name: string;
   must_change_password: boolean;
+  /** Role keys (label: users:roles.<key>) and the union of their permissions (RBAC, v0.3.2). */
+  roles: string[];
+  permissions: string[];
 }
 
 /** Mirrors api/openapi.yaml#/components/schemas/SessionInfo. Times are UTC (RFC 3339). */

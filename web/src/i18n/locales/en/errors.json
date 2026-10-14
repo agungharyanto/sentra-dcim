@@ -20,6 +20,10 @@
     "password_policy": "The password does not meet the requirements.",
     "invalid_current_password": "The current password is incorrect.",
     "invalid_request": "Invalid request.",
-    "auth_unavailable": "Sign-in is temporarily unavailable. Please try again shortly."
+    "auth_unavailable": "Sign-in is temporarily unavailable. Please try again shortly.",
+    "validation_failed": "Invalid input. Check the highlighted field.",
+    "username_taken": "That username is already taken.",
+    "self_action": "This action is not allowed on your own account.",
+    "last_admin": "The last active Admin cannot lose Admin access."
   }
 }

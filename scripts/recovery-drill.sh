@@ -61,7 +61,8 @@ step() {
 }
 
 # drill_login proves the auth path end to end on the throwaway stack: `sentra user create-admin` (password on
-# stdin), login through Caddy (basic_auth + session cookie + CSRF), the forced password change, then the help API.
+# stdin), login through Caddy (basic_auth + session cookie + CSRF), the forced password change, the help API, and
+# the Admin role granted by create-admin (user list, /version details; v0.3.2).
 # Passwords are random, exist only in this drill and are never printed.
 drill_login() {
   local apw npw base=https://localhost:28443 jar="$dir/cookies" code csrf
@@ -82,6 +83,12 @@ drill_login() {
   code="$("${c[@]}" "$base/api/v1/help/index")"
   echo "help after password change: $code"
   [[ $code == 200 ]] && jq -e '.pages|length>0' "$dir/body" >/dev/null || return 1
+  code="$("${c[@]}" "$base/api/v1/users")"
+  echo "users as Admin: $code"
+  [[ $code == 200 ]] && jq -e '[.users[].roles[]]|index("admin") != null' "$dir/body" >/dev/null || return 1
+  code="$("${c[@]}" "$base/api/v1/version")"
+  echo "version details as Admin: $code"
+  [[ $code == 200 ]] && jq -e '.commit' "$dir/body" >/dev/null || return 1
   code="$("${c[@]}" -X POST -H "X-Sentra-CSRF: $csrf" "$base/api/v1/auth/logout")"
   echo "logout: $code"; [[ $code == 204 ]] || return 1
   code="$("${c[@]}" "$base/api/v1/auth/me")"
@@ -139,7 +146,7 @@ tail -n 1 "$dir/smoke.log" | sed 's/^/        | /'
 step "web UI behind basic_auth (401 without, 200 with credentials)" "$dir/ui.log" bash -c \
   "[[ \$(curl -sk -o /dev/null -w '%{http_code}' https://localhost:28443/) == 401 &&
      \$(curl -sk -u 'drill:$pw' -o /dev/null -w '%{http_code}' https://localhost:28443/dashboard) == 200 ]]"
-step "admin via CLI, login, forced password change, help API (session)" "$dir/login.log" drill_login
+step "admin via CLI, login, forced password change, help API, Admin role (session)" "$dir/login.log" drill_login
 # shellcheck disable=SC2016 # evaluated by the inner bash
 step "production stack untouched (project sentra still 4 healthy)" "$dir/prod.log" \
   bash -c '[[ $(docker ps --filter label=com.docker.compose.project=sentra --filter health=healthy -q | wc -l) -eq 4 ]]'
