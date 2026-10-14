@@ -3,21 +3,37 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
-## [Unreleased] — v0.3.9 Penutup Sprint v0.3
+## [v0.3.9] - 2026-10-15 — Penutup Sprint v0.3
 
 ### Ditambahkan
 - **Matriks izin** (`TestPermissionMatrix`): 6 role sistem × setiap endpoint ber-`x-sentra-permission` di OpenAPI —
   role dengan izin lolos pemeriksaan izin, role tanpa izin mendapat tepat `403 forbidden`.
 - `scripts/kernel-retire.sh`: memensiunkan kernel lama dengan pengaman (bukan kernel aktif, simulasi dulu, menolak bila
   purge menyentuh paket lain), lalu `update-grub` + verifikasi.
+- `scripts/env-perm-check.sh` (ISS-046): `make preflight`/`make up` dan `make release` **gagal keras** bila `.env` bukan
+  0600 (grup/lainnya tanpa akses, user bernama hanya baca, tanpa grup bernama/default ACL; admin yang menjalankan
+  `make` wajib punya ACL baca). Dipakai juga oleh full regression; tes rilis memastikan `.env` 0640 ditolak sebelum
+  merge. CI dan recovery drill membuat `.env` sementara dengan 0600.
 
 ### Diubah
 - `scripts/full-regression.sh` mengikuti v0.3: migrasi salinan lewat container `ops` (role app tanpa DDL), image compose
   mengikuti versi, `make audit-verify` pada DB live, verifikasi hash chain + anchor pada DB hasil restore, uji port dari
   alamat publik (hanya 22/80/443 terbuka), pemeriksaan kernel pasca-ISS-036.
 - `make boot-menu` / `scripts/host-boot-setup.sh` tidak lagi menahan kernel 6.17.
+- `scripts/post-reboot-check.sh`: memastikan kernel 6.17 **sudah tidak** terpasang (sebelumnya mengharapkan masih ada).
 - Dokumen: ROADMAP (v0.3 selesai, v0.3.8 dikosongkan, v0.4 berikutnya), DISASTER_RECOVERY (ringkasan prosedur darurat
   auth, rollback kernel pasca-6.17), DEPENDENCIES (diaudit), runbook rollback kernel.
+
+### Diperbaiki
+- Ban test fail2ban (ISS-045): menunggu jail `sentra-web` (backend polling) benar-benar menghitung login gagal tester
+  sebelum mengirim sisa percobaan — gagal bila fail2ban baru di-restart (mis. oleh hardening di full regression).
+- `.env` produksi kembali 0600 + ACL `ubuntu:r` (ISS-046; sempat 0640 setelah diedit ulang).
+- CI (ISS-047): tes halaman pemeliharaan menunggu health API dan SPA; langkah akun CI menunggu sertifikat internal
+  Caddy untuk `localhost`.
+
+### Dihapus
+- Kernel `6.17.0-1020-oracle` (7 paket) dan pin APT-nya (ISS-036); server berjalan di `7.0.0-1013-oracle` sejak reboot
+  2026-10-15 03:04 WIB.
 
 ## [v0.3.7] - 2026-10-15 — Kebijakan Sesi & Kata Sandi
 
