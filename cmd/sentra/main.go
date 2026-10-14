@@ -137,6 +137,7 @@ func serve() error {
 	}
 	authH := authhandler.New(auth, log, cfg.Auth.AllowedOrigins)
 	go cleanupSessions(ctx, auth, log)
+	go rec.RunThrottle(ctx) // summaries of repeated denials (authz.denied.repeated, security.csrf_denied.repeated)
 	// Daily hash-chain verification of the audit log (D-073); failures are logged at error level (Alarm Engine v0.5).
 	integrity := chain.NewMonitor(pool, log, nil, 24*time.Hour)
 	go integrity.Run(ctx)

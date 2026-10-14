@@ -26,6 +26,12 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
   arsip cocok dengan ekspor ulang dalam transaksi yang sama, menyimpan checkpoint (hash baris terakhir) di
   `audit_checkpoints` dan mencatat event `audit.prune`. Chain tetap terverifikasi; arsip bisa diverifikasi offline
   dengan `sentra audit verify-archive`.
+- **Cakupan event audit**: semua route tulis terdaftar di `api.AuditedRoutes` dan diuji (route tulis baru tanpa
+  aksi audit menggagalkan tes). Event baru `auth.mfa.enrol_start` dan `security.csrf_denied`. Penolakan berulang
+  (403 `authz.denied`, CSRF) oleh aktor/IP yang sama pada route yang sama dalam 10 menit dicatat sekali, lalu
+  diringkas menjadi satu event `….repeated` (jumlah, waktu pertama/terakhir) — log tidak bisa dibanjiri.
+  Sanitasi metadata kini rekursif dan juga membuang kunci OTP/recovery code/kunci API; diuji bahwa kata sandi,
+  token sesi/CSRF, secret TOTP, kode MFA, dan recovery code tidak pernah masuk audit log.
 
 ### Diperbaiki
 - **ISS-042**: pengaman "Admin aktif terakhir" memakai advisory lock (sebelumnya `FOR UPDATE` yang butuh hak

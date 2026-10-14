@@ -59,7 +59,7 @@ func (s *Service) MFAStatus(ctx context.Context, sess Session) (MFAStatus, error
 }
 
 // StartEnrolment creates (or replaces) a pending secret for an account without active MFA.
-func (s *Service) StartEnrolment(ctx context.Context, sess Session) (Enrolment, error) {
+func (s *Service) StartEnrolment(ctx context.Context, sess Session, meta audit.Meta) (Enrolment, error) {
 	secret, err := mfa.NewSecret()
 	if err != nil {
 		return Enrolment{}, err
@@ -74,6 +74,7 @@ func (s *Service) StartEnrolment(ctx context.Context, sess Session) (Enrolment, 
 		}
 		return Enrolment{}, fmt.Errorf("store pending mfa: %w", err)
 	}
+	s.record(ctx, sess, ActionMFAEnrolStart, audit.ResultSuccess, meta, nil) // never the secret
 	uri := mfa.URI(s.cfg.MFAIssuer, sess.User.Username, secret)
 	qr, err := mfa.QR(uri)
 	if err != nil {
