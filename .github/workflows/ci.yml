@@ -143,6 +143,7 @@ jobs:
               -e "s/^DOMAIN=.*/DOMAIN=/" -e "s/^ACME_EMAIL=.*/ACME_EMAIL=/" \
               -e "s/^CADDY_PUBLIC_HTTP_BIND=.*/CADDY_PUBLIC_HTTP_BIND=127.0.0.1:80/" \
               -e "s/^CADDY_PUBLIC_HTTPS_BIND=.*/CADDY_PUBLIC_HTTPS_BIND=127.0.0.1:443/" .env.example > .env
+          chmod 600 .env
           make up
           make test-api
       - name: Throwaway app account (CLI create-admin + first password change via API)

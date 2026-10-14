@@ -163,8 +163,7 @@ check "live /ready still 200" bash -c "[[ \$(curl -s -o /dev/null -w '%{http_cod
 
 section "8. Permissions"
 # 0600; with --admin-user the ACL adds read for that one user only (stat shows the ACL mask as 640).
-check ".env owner-only (+ admin ACL read), no group/other access" bash -c \
-  '[[ $(stat -L -c %a .env) =~ ^6[04]0$ ]] && getfacl -cp .env | grep -qx "group::---" && getfacl -cp .env | grep -qx "other::---" && [[ -z $(getfacl -cp .env | grep -E "^user:[^:]+:.*w") ]]'
+check ".env owner-only (+ admin ACL read), no group/other access" ./scripts/env-perm-check.sh
 check "ops scripts not world-writable" bash -c '[[ -z $(find ops scripts -type f -perm -o+w) ]]'
 check "DB rejects wrong password" bash -c "! docker compose exec -T db sh -c 'PGPASSWORD=wrong psql -h 127.0.0.1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c \"select 1\"'"
 check "Redis rejects unauthenticated command" bash -c "docker compose exec -T redis sh -c 'REDISCLI_AUTH= redis-cli get x' 2>&1 | grep -q NOAUTH"

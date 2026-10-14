@@ -203,7 +203,9 @@ backup sebagai data rahasia (direktori 0700, file 0600, sudah diterapkan `ops/ba
 
 **Tidak** termasuk: file `.env` (berisi secret). Simpan salinan `.env` di brankas password tim (bukan Git, bukan
 folder backup yang sama tanpa enkripsi).
-`.env` milik user `sentra` (mode 640, ACL `ubuntu:r`). Ubah **sebagai `sentra`** (`sudo -u sentra -H nano .env`);
+`.env` milik user `sentra`, mode **0600** + ACL `ubuntu:r` (`stat` menampilkan `640` karena mask ACL — itu benar;
+`chmod 640` **salah**: grup ikut membaca, ISS-046). `make up`/`make release` menolak `.env` lain
+(`scripts/env-perm-check.sh`). Ubah **sebagai `sentra`** (`sudo -u sentra -H nano .env`);
 jangan `sed -i` sebagai admin — file diganti dan pemiliknya berubah, lalu backup dijalankan sebagai user yang salah
 (ISS-024).
 

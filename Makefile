@@ -50,7 +50,8 @@ version-check: .env ## Verify the running /api/v1/version == git describe of HEA
 	if [[ "$$got" != "$$want" ]]; then echo "version-check: running '$$got' != git describe $$want after 30 s (run: make up)" >&2; exit 1; fi; \
 	[[ $$i -gt 1 ]] && echo "version-check: OK $$got (after $$i attempts)" || echo "version-check: OK $$got"
 
-preflight: .env ## Validate .env before starting (domain/ACME settings)
+preflight: .env ## Validate .env before starting (owner-only permissions, domain/ACME, secrets format)
+	@./scripts/env-perm-check.sh
 	@set -a; source .env; set +a; \
 	if [[ -n "$${DOMAIN:-}" && "$$DOMAIN" != localhost && -z "$${ACME_EMAIL:-}" ]]; then \
 	  echo "preflight: DOMAIN=$$DOMAIN requires ACME_EMAIL in .env" >&2; exit 1; fi; \
