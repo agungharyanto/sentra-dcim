@@ -170,7 +170,7 @@ func serve() error {
 	go cleanupSessions(ctx, auth, log)
 	go rec.RunThrottle(ctx) // summaries of repeated denials (authz.denied.repeated, security.csrf_denied.repeated)
 
-	rl := httpserver.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
+	rl := httpserver.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst).Skip("/api/v1/allowlist/check")
 	go rl.Janitor(ctx)
 
 	// Public listener (behind Caddy's public site) and internal listener (Caddy 127.0.0.1 only) share all

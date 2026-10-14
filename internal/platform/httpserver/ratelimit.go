@@ -19,6 +19,7 @@ type RateLimiter struct {
 	ttl     time.Duration
 	mu      sync.Mutex
 	clients map[string]*client
+	skip    map[string]bool // exact paths never limited (see Skip)
 }
 
 type client struct {
@@ -29,6 +30,21 @@ type client struct {
 // NewRateLimiter creates a limiter allowing rps requests/second with the given burst per client IP.
 func NewRateLimiter(rps float64, burst int) *RateLimiter {
 	return &RateLimiter{rps: rate.Limit(rps), burst: burst, ttl: 10 * time.Minute, clients: map[string]*client{}}
+}
+
+// Skip exempts exact paths from the limit. Used for the Allowed IP decision endpoint that Caddy's forward_auth calls
+// for every public request (static assets included): counting it would spend each client's budget twice and turn
+// page loads into 429s. The request it guards is still limited when it reaches the API.
+func (rl *RateLimiter) Skip(paths ...string) *RateLimiter {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	if rl.skip == nil {
+		rl.skip = map[string]bool{}
+	}
+	for _, p := range paths {
+		rl.skip[p] = true
+	}
+	return rl
 }
 
 // Allow reports whether a request from key may proceed.
@@ -67,6 +83,13 @@ func (rl *RateLimiter) Janitor(ctx context.Context) {
 // Middleware rejects requests over the limit with 429.
 func (rl *RateLimiter) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rl.mu.Lock()
+		skip := rl.skip[r.URL.Path]
+		rl.mu.Unlock()
+		if skip {
+			next.ServeHTTP(w, r)
+			return
+		}
 		ip, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err != nil {
 			ip = r.RemoteAddr

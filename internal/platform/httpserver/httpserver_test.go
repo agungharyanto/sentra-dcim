@@ -76,3 +76,23 @@ func TestRecovererReturnsJSON500(t *testing.T) {
 		t.Fatalf("got %d", rec.Code)
 	}
 }
+
+func TestRateLimiterSkipPaths(t *testing.T) {
+	rl := NewRateLimiter(0.001, 1).Skip("/api/v1/allowlist/check")
+	h := rl.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
+	do := func(path string) int {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.RemoteAddr = "203.0.113.9:5555"
+		h.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	if do("/api/v1/version") != http.StatusNoContent || do("/api/v1/version") != http.StatusTooManyRequests {
+		t.Fatal("limit not applied")
+	}
+	for i := 0; i < 20; i++ {
+		if c := do("/api/v1/allowlist/check"); c != http.StatusNoContent {
+			t.Fatalf("skipped path limited: %d", c)
+		}
+	}
+}
