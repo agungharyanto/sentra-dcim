@@ -161,7 +161,7 @@ type PruneRequest struct {
 	RetentionDays int
 }
 
-// ErrArchiveMismatch: the stored archive is not exactly the segment that would be deleted.
+// ErrArchiveMismatch means the stored archive is not exactly the segment that would be deleted.
 var ErrArchiveMismatch = errors.New("archive checksum does not match the segment to prune")
 
 // Prune removes the segment (checkpoint, ThroughSeq] inside tx, which must run as the table owner (migration role).
@@ -254,8 +254,11 @@ func VerifyArchive(r io.Reader) (ArchiveCheck, error) {
 		FromSeq    int64 `json:"from_seq"`
 		ThroughSeq int64 `json:"through_seq"`
 	}
-	if err := dec.Decode(&head); err != nil || head.Version != 1 {
-		return c, fmt.Errorf("archive header invalid (%v)", err)
+	if err := dec.Decode(&head); err != nil {
+		return c, fmt.Errorf("archive header: %w", err)
+	}
+	if head.Version != 1 {
+		return c, fmt.Errorf("archive header: unsupported version %d", head.Version)
 	}
 	c.FromSeq, c.ThroughSeq = head.FromSeq, head.ThroughSeq
 	var prev []byte
