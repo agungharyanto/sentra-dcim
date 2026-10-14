@@ -158,7 +158,8 @@ func newAuthEnv(t *testing.T, mod func(*config.Auth)) *authEnv {
 	}
 	usr := usersservice.New(appPool, rec, log, cfg)
 	mods.Users = usershandler.New(usr, log)
-	reg, err := settingsservice.NewRegistry(settingsservice.Defaults{Language: "id", Timezone: "Asia/Jakarta"})
+	reg, err := settingsservice.NewRegistry(settingsservice.Defaults{Language: "id", Timezone: "Asia/Jakarta",
+		SessionIdle: cfg.SessionIdle, SessionAbsolute: cfg.SessionAbsolute})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,6 +177,18 @@ func newAuthEnv(t *testing.T, mod func(*config.Auth)) *authEnv {
 		t.Fatal(err)
 	}
 	mods.Allowlist = allowlisthandler.New(allow, log)
+	// Same wiring as cmd/sentra (v0.3.7): policy from Settings, kiosk gate from Allowed IP, kiosk precondition.
+	svc.WithPolicy(set).WithKioskGate(func(ip netip.Addr) bool { return allow.Current().Covers(ip) })
+	usr.WithKioskReady(func(ctx context.Context) error {
+		st, err := allow.State(ctx)
+		if err != nil {
+			return err
+		}
+		if st.Mode == allowlistservice.ModeOff || len(st.Entries) == 0 {
+			return usersservice.ErrKioskNeedsAllowlist
+		}
+		return nil
+	})
 	srv.Config.Handler = httpserver.NewRouter(log, nil, nil, api.Mount(mods, false))
 	internal := httptest.NewServer(httpserver.NewRouter(log, nil, []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32")}, api.Mount(mods, true)))
 	t.Cleanup(internal.Close)
@@ -502,12 +515,13 @@ func TestAuthRateLimit(t *testing.T) {
 
 func TestAuthIdleAndAbsoluteTimeout(t *testing.T) {
 	t.Run("idle", func(t *testing.T) {
-		e := newAuthEnv(t, func(c *config.Auth) { c.SessionIdle = time.Second })
+		e := newAuthEnv(t, nil)
 		e.createUser("operator.idle", true)
 		c := e.client()
 		want(t, "login", c.login("operator.idle", pwInitial), 200, "")
 		want(t, "me", c.get("/api/v1/auth/me"), 200, "")
-		time.Sleep(1300 * time.Millisecond)
+		// The idle deadline passes (simulated in the database).
+		e.exec(`UPDATE sessions SET idle_expires_at = now() - interval '1 second' WHERE user_id = (SELECT id FROM users WHERE username = 'operator.idle')`)
 		want(t, "me after idle timeout", c.get("/api/v1/auth/me"), 401, "unauthenticated")
 	})
 	t.Run("absolute", func(t *testing.T) {

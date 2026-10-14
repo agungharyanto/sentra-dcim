@@ -73,6 +73,14 @@ type OpsRun struct {
 	CreatedAt  pgtype.Timestamptz
 }
 
+// Previous password hashes per user (newest first), trimmed to password.history entries (v0.3.7).
+type PasswordHistory struct {
+	ID           int64
+	UserID       uuid.UUID
+	PasswordHash string
+	CreatedAt    pgtype.Timestamptz
+}
+
 // Roles (v0.3.2). Permissions of system roles are defined in code (internal/platform/rbac).
 type Role struct {
 	ID        uuid.UUID
@@ -99,6 +107,8 @@ type Session struct {
 	UserAgent     string
 	RevokedAt     pgtype.Timestamptz
 	MfaVerifiedAt pgtype.Timestamptz
+	// Session of a kiosk account: never idles out, revoked when used from outside the Allowed IP list.
+	Kiosk bool
 }
 
 // System settings that differ from their default (schema in internal/settings, v0.3.5).
@@ -131,6 +141,8 @@ type User struct {
 	LastLoginAt        pgtype.Timestamptz
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
+	// Monitoring/kiosk account (Viewer only, set by an Admin): no idle/absolute limit, valid only from Allowed IP networks.
+	Kiosk bool
 }
 
 // TOTP MFA per account (v0.3.3). Secrets only encrypted (MFA_ENC_KEY).

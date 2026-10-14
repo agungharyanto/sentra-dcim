@@ -35,6 +35,10 @@ var (
 	ErrUsernameTaken = errors.New("username already exists")
 	ErrLastAdmin     = errors.New("the last active Admin cannot lose the Admin role or be disabled")
 	ErrSelf          = errors.New("this action is not allowed on your own account")
+	// ErrKioskViewerOnly: kiosk accounts must have exactly the Viewer role (D-068).
+	ErrKioskViewerOnly = errors.New("kiosk mode is only for accounts whose only role is Viewer")
+	// ErrKioskNeedsAllowlist: kiosk mode needs Allowed IP in monitor or enforce with at least one network.
+	ErrKioskNeedsAllowlist = errors.New("kiosk mode needs Allowed IP (monitor or enforce) with at least one network")
 )
 
 // ValidationError names the invalid input field.
@@ -61,6 +65,7 @@ const (
 	ActionPasswordReset = "user.password.reset"
 	ActionMFAReset      = "user.mfa.reset"
 	ActionUnlock        = "user.unlock"
+	ActionKiosk         = "user.kiosk"
 )
 
 // Limits.
@@ -90,6 +95,70 @@ type Service struct {
 	audit  *audit.Recorder
 	log    *slog.Logger
 	params password.Params
+	// kioskReady reports whether kiosk mode may be switched on (Allowed IP state, v0.3.7).
+	kioskReady func(ctx context.Context) error
+}
+
+// WithKioskReady sets the precondition for enabling kiosk mode (nil = always refused).
+func (s *Service) WithKioskReady(f func(ctx context.Context) error) *Service {
+	s.kioskReady = f
+	return s
+}
+
+// SetKiosk turns kiosk/monitoring mode of an account on or off (D-068). On: the account must have only the Viewer
+// role and Allowed IP must be in use (monitor/enforce with at least one network). Off: its sessions end.
+func (s *Service) SetKiosk(ctx context.Context, id uuid.UUID, on bool, meta audit.Meta) (User, error) {
+	var u User
+	var changed bool
+	var revoked int64
+	err := s.tx(ctx, func(q *repo.Queries) error {
+		cur, err := s.get(ctx, q, id)
+		if err != nil {
+			return err
+		}
+		if cur.Kiosk == on {
+			u = cur
+			return nil
+		}
+		if on {
+			if len(cur.Roles) != 1 || cur.Roles[0] != rbac.RoleViewer {
+				return ErrKioskViewerOnly
+			}
+			if s.kioskReady == nil {
+				return ErrKioskNeedsAllowlist
+			}
+			if err := s.kioskReady(ctx); err != nil {
+				return err
+			}
+		}
+		if _, err := q.SetKiosk(ctx, repo.SetKioskParams{ID: id, Kiosk: on}); err != nil {
+			return fmt.Errorf("set kiosk: %w", err)
+		}
+		// Every session ends: the next sign-in creates the right kind of session.
+		if revoked, err = q.RevokeUserSessions(ctx, id); err != nil {
+			return err
+		}
+		changed = true
+		u, err = s.get(ctx, q, id)
+		return err
+	})
+	if err != nil {
+		reason := ""
+		switch {
+		case errors.Is(err, ErrKioskViewerOnly):
+			reason = "not_viewer_only"
+		case errors.Is(err, ErrKioskNeedsAllowlist):
+			reason = "allowlist_not_ready"
+		}
+		if reason != "" {
+			s.record(ctx, ActionKiosk, audit.ResultDenied, id.String(), meta, map[string]any{"new": on, "reason": reason})
+		}
+		return User{}, err
+	}
+	if changed {
+		s.record(ctx, ActionKiosk, audit.ResultSuccess, id.String(), meta, map[string]any{"old": !on, "new": on, "sessions_revoked": revoked})
+	}
+	return u, nil
 }
 
 // New creates the service; argon2 parameters come from the auth configuration.
@@ -100,18 +169,20 @@ func New(db DB, rec *audit.Recorder, log *slog.Logger, cfg config.Auth) *Service
 
 // User is the administrative view of an account (never the password hash).
 type User struct {
-	ID                 uuid.UUID  `json:"id"`
-	Username           string     `json:"username"`
-	DisplayName        string     `json:"display_name"`
-	Email              *string    `json:"email"`
-	Status             string     `json:"status"`
-	Roles              []string   `json:"roles"`
-	MustChangePassword bool       `json:"must_change_password"`
-	Locked             bool       `json:"locked"`
-	MFAEnabled         bool       `json:"mfa_enabled"`
-	LastLoginAt        *time.Time `json:"last_login_at"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
+	ID                 uuid.UUID `json:"id"`
+	Username           string    `json:"username"`
+	DisplayName        string    `json:"display_name"`
+	Email              *string   `json:"email"`
+	Status             string    `json:"status"`
+	Roles              []string  `json:"roles"`
+	MustChangePassword bool      `json:"must_change_password"`
+	Locked             bool      `json:"locked"`
+	MFAEnabled         bool      `json:"mfa_enabled"`
+	// Kiosk/monitoring account (v0.3.7, D-068): Viewer only, valid only from Allowed IP networks.
+	Kiosk       bool       `json:"kiosk"`
+	LastLoginAt *time.Time `json:"last_login_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 // Role is a role with the permissions it grants.
@@ -154,7 +225,7 @@ func (s *Service) List(ctx context.Context, f Filter) ([]User, int64, error) {
 	for _, r := range rows {
 		out = append(out, view(repo.GetUserRow{ID: r.ID, Username: r.Username, DisplayName: r.DisplayName, Email: r.Email,
 			Status: r.Status, MustChangePassword: r.MustChangePassword, Locked: r.Locked, LastLoginAt: r.LastLoginAt,
-			CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, Roles: r.Roles, MfaEnabled: r.MfaEnabled}))
+			CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, Roles: r.Roles, MfaEnabled: r.MfaEnabled, Kiosk: r.Kiosk}))
 		total = r.Total
 	}
 	return out, total, nil
@@ -315,6 +386,9 @@ func (s *Service) SetRoles(ctx context.Context, id uuid.UUID, roles []string, me
 			u = cur
 			return nil
 		}
+		if cur.Kiosk && (len(roles) != 1 || roles[0] != rbac.RoleViewer) {
+			return ErrKioskViewerOnly // turn kiosk mode off first
+		}
 		if slices.Contains(removed, rbac.RoleAdmin) {
 			if err := s.guardAdminLoss(ctx, q, cur); err != nil {
 				return err
@@ -410,6 +484,15 @@ func (s *Service) ResetPassword(ctx context.Context, id uuid.UUID, meta audit.Me
 	}
 	var revoked int64
 	err = s.tx(ctx, func(q *repo.Queries) error {
+		// The replaced password joins the history (no re-use, D-070); the auth service trims it to the policy.
+		if old, err := q.GetPasswordHash(ctx, id); err == nil {
+			if err := q.RememberPasswordHash(ctx, repo.RememberPasswordHashParams{UserID: id, PasswordHash: old}); err != nil {
+				return fmt.Errorf("password history: %w", err)
+			}
+			if err := q.TrimPasswordHistoryTo(ctx, repo.TrimPasswordHistoryToParams{UserID: id, Keep: 24}); err != nil {
+				return fmt.Errorf("trim password history: %w", err)
+			}
+		}
 		n, err := q.ResetPassword(ctx, repo.ResetPasswordParams{ID: id, PasswordHash: hash})
 		if err != nil {
 			return fmt.Errorf("reset password: %w", err)
@@ -623,8 +706,8 @@ func checkEmail(v string) (pgtype.Text, error) {
 
 func view(r repo.GetUserRow) User {
 	u := User{ID: r.ID, Username: r.Username, DisplayName: r.DisplayName, Status: r.Status, Roles: r.Roles,
-		MustChangePassword: r.MustChangePassword, Locked: r.Locked, MFAEnabled: r.MfaEnabled, CreatedAt: r.CreatedAt.Time,
-		UpdatedAt: r.UpdatedAt.Time}
+		MustChangePassword: r.MustChangePassword, Locked: r.Locked, MFAEnabled: r.MfaEnabled, Kiosk: r.Kiosk,
+		CreatedAt: r.CreatedAt.Time, UpdatedAt: r.UpdatedAt.Time}
 	if u.Roles == nil {
 		u.Roles = []string{}
 	}

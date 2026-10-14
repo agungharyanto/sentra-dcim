@@ -24,6 +24,7 @@ var appGrants = map[string][]string{
 	"audit_events":       {"INSERT", "SELECT"},
 	"mfa_recovery_codes": {"DELETE", "INSERT", "SELECT", "UPDATE"},
 	"ops_runs":           {"SELECT"},
+	"password_history":   {"DELETE", "INSERT", "SELECT"},
 	"roles":              {"SELECT"},
 	"schema_migrations":  {"SELECT"},
 	"sessions":           {"DELETE", "INSERT", "SELECT", "UPDATE"},

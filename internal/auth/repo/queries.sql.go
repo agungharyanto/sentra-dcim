@@ -39,13 +39,13 @@ const createAdminUser = `-- name: CreateAdminUser :one
 WITH u AS (
     INSERT INTO users (username, display_name, email, password_hash, must_change_password)
     VALUES ($1, $2, $3, $4, true)
-    RETURNING id, username, display_name, email, password_hash, status, must_change_password, failed_attempts, locked_until, password_changed_at, last_login_at, created_at, updated_at
+    RETURNING id, username, display_name, email, password_hash, status, must_change_password, failed_attempts, locked_until, password_changed_at, last_login_at, created_at, updated_at, kiosk
 ), granted AS (
     INSERT INTO user_roles (user_id, role_id)
     SELECT u.id, r.id FROM u CROSS JOIN roles r WHERE r.key = 'admin'
     RETURNING role_id
 )
-SELECT u.id, u.username, u.display_name, u.email, u.password_hash, u.status, u.must_change_password, u.failed_attempts, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, (SELECT count(*) FROM granted)::int AS roles_granted FROM u
+SELECT u.id, u.username, u.display_name, u.email, u.password_hash, u.status, u.must_change_password, u.failed_attempts, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, u.kiosk, (SELECT count(*) FROM granted)::int AS roles_granted FROM u
 `
 
 type CreateAdminUserParams struct {
@@ -69,6 +69,7 @@ type CreateAdminUserRow struct {
 	LastLoginAt        pgtype.Timestamptz
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
+	Kiosk              bool
 	RolesGranted       int32
 }
 
@@ -95,15 +96,16 @@ func (q *Queries) CreateAdminUser(ctx context.Context, arg CreateAdminUserParams
 		&i.LastLoginAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Kiosk,
 		&i.RolesGranted,
 	)
 	return i, err
 }
 
 const createSession = `-- name: CreateSession :one
-INSERT INTO sessions (token_hash, user_id, expires_at, idle_expires_at, ip, user_agent)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, token_hash, user_id, created_at, last_seen_at, expires_at, idle_expires_at, ip, user_agent, revoked_at, mfa_verified_at
+INSERT INTO sessions (token_hash, user_id, expires_at, idle_expires_at, ip, user_agent, kiosk)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, token_hash, user_id, created_at, last_seen_at, expires_at, idle_expires_at, ip, user_agent, revoked_at, mfa_verified_at, kiosk
 `
 
 type CreateSessionParams struct {
@@ -113,6 +115,7 @@ type CreateSessionParams struct {
 	IdleExpiresAt pgtype.Timestamptz
 	Ip            *netip.Addr
 	UserAgent     string
+	Kiosk         bool
 }
 
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {
@@ -123,6 +126,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		arg.IdleExpiresAt,
 		arg.Ip,
 		arg.UserAgent,
+		arg.Kiosk,
 	)
 	var i Session
 	err := row.Scan(
@@ -137,6 +141,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		&i.UserAgent,
 		&i.RevokedAt,
 		&i.MfaVerifiedAt,
+		&i.Kiosk,
 	)
 	return i, err
 }
@@ -181,13 +186,29 @@ func (q *Queries) EnableMFA(ctx context.Context, arg EnableMFAParams) (int64, er
 	return result.RowsAffected(), nil
 }
 
+const extendIdle = `-- name: ExtendIdle :exec
+UPDATE sessions SET last_seen_at = now(), idle_expires_at = LEAST($1, expires_at) WHERE id = $2 AND revoked_at IS NULL
+`
+
+type ExtendIdleParams struct {
+	IdleExpiresAt pgtype.Timestamptz
+	ID            uuid.UUID
+}
+
+// ExtendIdle records user activity (UI activity signal or a write request): the idle deadline moves (D-069).
+func (q *Queries) ExtendIdle(ctx context.Context, arg ExtendIdleParams) error {
+	_, err := q.db.Exec(ctx, extendIdle, arg.IdleExpiresAt, arg.ID)
+	return err
+}
+
 const getActiveSession = `-- name: GetActiveSession :one
 SELECT s.id AS session_id, s.user_id, s.created_at AS session_created_at, s.last_seen_at, s.expires_at, s.idle_expires_at,
        u.username, u.display_name, u.status, u.must_change_password,
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
              WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
        (s.mfa_verified_at IS NOT NULL)::boolean AS mfa_verified,
-       EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled
+       EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled,
+       s.kiosk AS session_kiosk, u.kiosk AS user_kiosk, u.password_changed_at
 FROM sessions s
 JOIN users u ON u.id = s.user_id
 WHERE s.token_hash = $1
@@ -211,6 +232,9 @@ type GetActiveSessionRow struct {
 	Roles              []string
 	MfaVerified        bool
 	MfaEnabled         bool
+	SessionKiosk       bool
+	UserKiosk          bool
+	PasswordChangedAt  pgtype.Timestamptz
 }
 
 func (q *Queries) GetActiveSession(ctx context.Context, tokenHash []byte) (GetActiveSessionRow, error) {
@@ -230,12 +254,15 @@ func (q *Queries) GetActiveSession(ctx context.Context, tokenHash []byte) (GetAc
 		&i.Roles,
 		&i.MfaVerified,
 		&i.MfaEnabled,
+		&i.SessionKiosk,
+		&i.UserKiosk,
+		&i.PasswordChangedAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, username, display_name, email, password_hash, status, must_change_password, failed_attempts, locked_until, password_changed_at, last_login_at, created_at, updated_at FROM users WHERE id = $1
+SELECT id, username, display_name, email, password_hash, status, must_change_password, failed_attempts, locked_until, password_changed_at, last_login_at, created_at, updated_at, kiosk FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -255,12 +282,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.LastLoginAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Kiosk,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, display_name, email, password_hash, status, must_change_password, failed_attempts, locked_until, password_changed_at, last_login_at, created_at, updated_at FROM users WHERE username = $1
+SELECT id, username, display_name, email, password_hash, status, must_change_password, failed_attempts, locked_until, password_changed_at, last_login_at, created_at, updated_at, kiosk FROM users WHERE username = $1
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -280,6 +308,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.LastLoginAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Kiosk,
 	)
 	return i, err
 }
@@ -324,6 +353,20 @@ func (q *Queries) GetUserRoleKeys(ctx context.Context, userID uuid.UUID) ([]stri
 		return nil, err
 	}
 	return items, nil
+}
+
+const insertPasswordHistory = `-- name: InsertPasswordHistory :exec
+INSERT INTO password_history (user_id, password_hash) VALUES ($1, $2)
+`
+
+type InsertPasswordHistoryParams struct {
+	UserID       uuid.UUID
+	PasswordHash string
+}
+
+func (q *Queries) InsertPasswordHistory(ctx context.Context, arg InsertPasswordHistoryParams) error {
+	_, err := q.db.Exec(ctx, insertPasswordHistory, arg.UserID, arg.PasswordHash)
+	return err
 }
 
 const insertRecoveryCode = `-- name: InsertRecoveryCode :exec
@@ -378,6 +421,35 @@ func (q *Queries) ListActiveSessions(ctx context.Context, userID uuid.UUID) ([]L
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPasswordHistory = `-- name: ListPasswordHistory :many
+SELECT password_hash FROM password_history WHERE user_id = $1 ORDER BY id DESC LIMIT $2
+`
+
+type ListPasswordHistoryParams struct {
+	UserID uuid.UUID
+	Lim    int32
+}
+
+func (q *Queries) ListPasswordHistory(ctx context.Context, arg ListPasswordHistoryParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, listPasswordHistory, arg.UserID, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var password_hash string
+		if err := rows.Scan(&password_hash); err != nil {
+			return nil, err
+		}
+		items = append(items, password_hash)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -451,6 +523,18 @@ func (q *Queries) RehashPassword(ctx context.Context, arg RehashPasswordParams) 
 	return err
 }
 
+const revokeAllSessions = `-- name: RevokeAllSessions :execrows
+UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL
+`
+
+func (q *Queries) RevokeAllSessions(ctx context.Context, userID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeAllSessions, userID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const revokeOtherSessions = `-- name: RevokeOtherSessions :execrows
 UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND id <> $2 AND revoked_at IS NULL
 `
@@ -485,6 +569,18 @@ func (q *Queries) RevokeSession(ctx context.Context, arg RevokeSessionParams) (i
 	return result.RowsAffected(), nil
 }
 
+const revokeSessionByID = `-- name: RevokeSessionByID :execrows
+UPDATE sessions SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL
+`
+
+func (q *Queries) RevokeSessionByID(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeSessionByID, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const revokeUserSessions = `-- name: RevokeUserSessions :execrows
 UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL
 `
@@ -497,17 +593,29 @@ func (q *Queries) RevokeUserSessions(ctx context.Context, userID uuid.UUID) (int
 	return result.RowsAffected(), nil
 }
 
-const touchSession = `-- name: TouchSession :exec
-UPDATE sessions SET last_seen_at = now(), idle_expires_at = LEAST($1, expires_at) WHERE id = $2 AND revoked_at IS NULL
+const touchSeen = `-- name: TouchSeen :exec
+UPDATE sessions SET last_seen_at = now() WHERE id = $1 AND revoked_at IS NULL
 `
 
-type TouchSessionParams struct {
-	IdleExpiresAt pgtype.Timestamptz
-	ID            uuid.UUID
+// TouchSeen records that the session was used (any request, e.g. background polling) WITHOUT extending idle.
+func (q *Queries) TouchSeen(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, touchSeen, id)
+	return err
 }
 
-func (q *Queries) TouchSession(ctx context.Context, arg TouchSessionParams) error {
-	_, err := q.db.Exec(ctx, touchSession, arg.IdleExpiresAt, arg.ID)
+const trimPasswordHistory = `-- name: TrimPasswordHistory :exec
+DELETE FROM password_history p
+WHERE p.user_id = $1::uuid AND p.id NOT IN (SELECT h.id FROM password_history h WHERE h.user_id = $1::uuid ORDER BY h.id DESC LIMIT $2)
+`
+
+type TrimPasswordHistoryParams struct {
+	UserID uuid.UUID
+	Keep   int32
+}
+
+// Keeps the newest @keep entries of a user.
+func (q *Queries) TrimPasswordHistory(ctx context.Context, arg TrimPasswordHistoryParams) error {
+	_, err := q.db.Exec(ctx, trimPasswordHistory, arg.UserID, arg.Keep)
 	return err
 }
 

@@ -96,6 +96,17 @@ func (q *Queries) DeleteUserRoles(ctx context.Context, userID uuid.UUID) error {
 	return err
 }
 
+const getPasswordHash = `-- name: GetPasswordHash :one
+SELECT password_hash FROM users WHERE id = $1
+`
+
+func (q *Queries) GetPasswordHash(ctx context.Context, id uuid.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getPasswordHash, id)
+	var password_hash string
+	err := row.Scan(&password_hash)
+	return password_hash, err
+}
+
 const getRolesByKeys = `-- name: GetRolesByKeys :many
 SELECT id, key FROM roles WHERE key = ANY($1::text[])
 `
@@ -131,7 +142,8 @@ SELECT u.id, u.username::text AS username, u.display_name, COALESCE(u.email::tex
        u.last_login_at, u.created_at, u.updated_at,
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
              WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
-       EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled
+       EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled,
+       u.kiosk
 FROM users u
 WHERE u.id = $1
 `
@@ -149,6 +161,7 @@ type GetUserRow struct {
 	UpdatedAt          pgtype.Timestamptz
 	Roles              []string
 	MfaEnabled         bool
+	Kiosk              bool
 }
 
 func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (GetUserRow, error) {
@@ -167,6 +180,7 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (GetUserRow, error)
 		&i.UpdatedAt,
 		&i.Roles,
 		&i.MfaEnabled,
+		&i.Kiosk,
 	)
 	return i, err
 }
@@ -221,6 +235,7 @@ SELECT u.id, u.username::text AS username, u.display_name, COALESCE(u.email::tex
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
              WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
        EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled,
+       u.kiosk,
        count(*) OVER () AS total
 FROM users u
 WHERE ($1::text = '' OR u.username::text ILIKE '%' || $1 || '%' ESCAPE '\'
@@ -253,6 +268,7 @@ type ListUsersRow struct {
 	UpdatedAt          pgtype.Timestamptz
 	Roles              []string
 	MfaEnabled         bool
+	Kiosk              bool
 	Total              int64
 }
 
@@ -284,6 +300,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUse
 			&i.UpdatedAt,
 			&i.Roles,
 			&i.MfaEnabled,
+			&i.Kiosk,
 			&i.Total,
 		); err != nil {
 			return nil, err
@@ -304,6 +321,20 @@ SELECT pg_advisory_xact_lock(hashtext('sentra.admin_guard'))
 // advisory transaction lock: the application role has no UPDATE on roles, which SELECT … FOR UPDATE would need.
 func (q *Queries) LockAdminRole(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, lockAdminRole)
+	return err
+}
+
+const rememberPasswordHash = `-- name: RememberPasswordHash :exec
+INSERT INTO password_history (user_id, password_hash) VALUES ($1, $2)
+`
+
+type RememberPasswordHashParams struct {
+	UserID       uuid.UUID
+	PasswordHash string
+}
+
+func (q *Queries) RememberPasswordHash(ctx context.Context, arg RememberPasswordHashParams) error {
+	_, err := q.db.Exec(ctx, rememberPasswordHash, arg.UserID, arg.PasswordHash)
 	return err
 }
 
@@ -340,6 +371,23 @@ func (q *Queries) RevokeUserSessions(ctx context.Context, userID uuid.UUID) (int
 	return result.RowsAffected(), nil
 }
 
+const setKiosk = `-- name: SetKiosk :execrows
+UPDATE users SET kiosk = $1, updated_at = now() WHERE id = $2
+`
+
+type SetKioskParams struct {
+	Kiosk bool
+	ID    uuid.UUID
+}
+
+func (q *Queries) SetKiosk(ctx context.Context, arg SetKioskParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setKiosk, arg.Kiosk, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const setUserStatus = `-- name: SetUserStatus :execrows
 UPDATE users SET status = $1, updated_at = now() WHERE id = $2
 `
@@ -355,6 +403,21 @@ func (q *Queries) SetUserStatus(ctx context.Context, arg SetUserStatusParams) (i
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const trimPasswordHistoryTo = `-- name: TrimPasswordHistoryTo :exec
+DELETE FROM password_history p
+WHERE p.user_id = $1::uuid AND p.id NOT IN (SELECT h.id FROM password_history h WHERE h.user_id = $1::uuid ORDER BY h.id DESC LIMIT $2)
+`
+
+type TrimPasswordHistoryToParams struct {
+	UserID uuid.UUID
+	Keep   int32
+}
+
+func (q *Queries) TrimPasswordHistoryTo(ctx context.Context, arg TrimPasswordHistoryToParams) error {
+	_, err := q.db.Exec(ctx, trimPasswordHistoryTo, arg.UserID, arg.Keep)
+	return err
 }
 
 const unlockUser = `-- name: UnlockUser :execrows

@@ -28,6 +28,7 @@ import (
 	"github.com/agungharyanto/sentra-dcim/internal/platform/config"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/principal"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/rbac"
+	settings "github.com/agungharyanto/sentra-dcim/internal/settings/service"
 )
 
 // Errors returned to handlers. Login failures are deliberately indistinguishable (ErrInvalidCredentials).
@@ -37,13 +38,15 @@ var (
 	ErrUnavailable        = errors.New("authentication temporarily unavailable")
 	ErrUnauthenticated    = errors.New("unauthenticated")
 	ErrPolicy             = password.ErrPolicy
-	ErrNotFound           = errors.New("not found")
-	ErrInvalidUsername    = errors.New("username must be 3–64 characters: letters, digits, . _ -")
-	ErrUsernameTaken      = errors.New("username already exists")
-	ErrRolesMissing       = errors.New("roles are not seeded (run the migrations)")
-	ErrInvalidMFACode     = errors.New("invalid authentication code")
-	ErrMFAEnabled         = errors.New("MFA is already active")
-	ErrMFANotEnrolled     = errors.New("MFA is not set up")
+	// ErrPasswordReused: the new password equals one of the last password.history passwords (D-070).
+	ErrPasswordReused  = errors.New("password used before")
+	ErrNotFound        = errors.New("not found")
+	ErrInvalidUsername = errors.New("username must be 3–64 characters: letters, digits, . _ -")
+	ErrUsernameTaken   = errors.New("username already exists")
+	ErrRolesMissing    = errors.New("roles are not seeded (run the migrations)")
+	ErrInvalidMFACode  = errors.New("invalid authentication code")
+	ErrMFAEnabled      = errors.New("MFA is already active")
+	ErrMFANotEnrolled  = errors.New("MFA is not set up")
 )
 
 // Audit actions.
@@ -62,6 +65,7 @@ const (
 	ActionCreateAdmin    = "user.create_admin"
 	ActionAuthzDenied    = "authz.denied"
 	ActionCSRFDenied     = "security.csrf_denied"
+	ActionKioskRevoked   = "auth.session.kiosk_revoked" // kiosk session used from outside Allowed IP, or kiosk turned off
 )
 
 // Limiter is a fixed-window counter (Redis in production).
@@ -90,6 +94,56 @@ type Service struct {
 	dummyHash string
 	now       func() time.Time
 	mfa       *mfa.Keys
+	policy    PolicyProvider
+	kioskGate func(ip netip.Addr) bool
+}
+
+// PolicyProvider returns the session/password policy (internal/settings, v0.3.7).
+type PolicyProvider interface {
+	Policy(ctx context.Context) (settings.Policy, error)
+}
+
+// WithPolicy makes timeouts, password expiry and history follow Settings (default: .env timeouts, no expiry).
+func (s *Service) WithPolicy(p PolicyProvider) *Service { s.policy = p; return s }
+
+// WithKioskGate sets the check that a kiosk session's client IP is in the Allowed IP list (D-068). Without it kiosk
+// sessions are never valid.
+func (s *Service) WithKioskGate(f func(ip netip.Addr) bool) *Service { s.kioskGate = f; return s }
+
+func (s *Service) currentPolicy(ctx context.Context) settings.Policy {
+	def := settings.Policy{Idle: s.cfg.SessionIdle, Absolute: s.cfg.SessionAbsolute}
+	if s.policy == nil {
+		return def
+	}
+	p, err := s.policy.Policy(ctx)
+	if err != nil || p.Idle <= 0 || p.Absolute <= 0 {
+		s.log.WarnContext(ctx, "session policy unavailable, using .env timeouts", "error", err)
+		return def
+	}
+	return p
+}
+
+// kioskLifetime stands for "no idle and no absolute limit" (D-068): the session ends when revoked.
+const kioskLifetime = 100 * 365 * 24 * time.Hour
+
+// viewerOnly: accounts whose only role is Viewer (kiosk-eligible, exempt from password expiry, D-068/D-070).
+func viewerOnly(roles []string) bool { return len(roles) == 1 && roles[0] == rbac.RoleViewer }
+
+// PasswordState is the expiry view of an account's password.
+type PasswordState struct {
+	ExpiresAt   *time.Time
+	Expired     bool
+	ExpiresSoon bool
+}
+
+// passwordState applies D-070: no expiry for Viewer-only accounts or when the policy disables it.
+func passwordState(p settings.Policy, roles []string, changed, now time.Time) PasswordState {
+	if p.ExpiryDays <= 0 || viewerOnly(roles) {
+		return PasswordState{}
+	}
+	exp := changed.Add(time.Duration(p.ExpiryDays) * 24 * time.Hour).UTC()
+	return PasswordState{ExpiresAt: &exp, Expired: !now.Before(exp),
+		ExpiresSoon: now.Before(exp) && exp.Sub(now) <= time.Duration(p.WarnDays)*24*time.Hour}
 }
 
 // New creates the service. limiter may be nil only for CLI use (no logins).
@@ -116,6 +170,12 @@ type User struct {
 	Roles              []string  `json:"roles"`
 	Permissions        []string  `json:"permissions"`
 	MFAEnabled         bool      `json:"mfa_enabled"`
+	// Kiosk/monitoring account (v0.3.7, D-068).
+	Kiosk bool `json:"kiosk"`
+	// Password expiry (v0.3.7, D-070): null when the password does not expire (policy off or Viewer-only account).
+	PasswordExpiresAt   *time.Time `json:"password_expires_at"`
+	PasswordExpired     bool       `json:"password_expired"`
+	PasswordExpiresSoon bool       `json:"password_expires_soon"`
 }
 
 // SessionInfo is the public view of a session.
@@ -129,8 +189,10 @@ type SessionInfo struct {
 	UserAgent     string    `json:"user_agent"`
 	Current       bool      `json:"current"`
 	// MFAVerified is false while the session is mfa_pending (only me, logout and auth/mfa/* are usable).
-	MFAVerified bool       `json:"mfa_verified"`
-	RevokedAt   *time.Time `json:"-"`
+	MFAVerified bool `json:"mfa_verified"`
+	// Kiosk sessions have no idle or absolute limit (v0.3.7).
+	Kiosk     bool       `json:"kiosk"`
+	RevokedAt *time.Time `json:"-"`
 }
 
 // Session is the authenticated state of a request.
@@ -291,36 +353,48 @@ func (s *Service) burn(pw string) { _, _, _ = password.Verify(pw, s.dummyHash, s
 func (s *Service) newSession(ctx context.Context, u repo.User, meta audit.Meta) (LoginResult, error) {
 	token, sum := newToken()
 	now := s.now().UTC()
-	sess, err := s.q.CreateSession(ctx, repo.CreateSessionParams{
-		TokenHash:     sum,
-		UserID:        u.ID,
-		ExpiresAt:     ts(now.Add(s.cfg.SessionAbsolute)),
-		IdleExpiresAt: ts(now.Add(s.cfg.SessionIdle)),
-		Ip:            meta.IP,
-		UserAgent:     meta.UserAgent,
-	})
-	if err != nil {
-		return LoginResult{}, fmt.Errorf("create session: %w", err)
-	}
 	roles, err := s.q.GetUserRoleKeys(ctx, u.ID)
 	if err != nil {
 		return LoginResult{}, fmt.Errorf("get roles: %w", err)
+	}
+	pol := s.currentPolicy(ctx)
+	kiosk := u.Kiosk && viewerOnly(roles)
+	idle, abs := pol.Idle, pol.Absolute
+	if kiosk {
+		idle, abs = kioskLifetime, kioskLifetime
+	}
+	sess, err := s.q.CreateSession(ctx, repo.CreateSessionParams{
+		TokenHash:     sum,
+		UserID:        u.ID,
+		ExpiresAt:     ts(now.Add(abs)),
+		IdleExpiresAt: ts(now.Add(idle)),
+		Ip:            meta.IP,
+		UserAgent:     meta.UserAgent,
+		Kiosk:         kiosk,
+	})
+	if err != nil {
+		return LoginResult{}, fmt.Errorf("create session: %w", err)
 	}
 	enabled, err := s.mfaEnabled(ctx, u.ID)
 	if err != nil {
 		return LoginResult{}, err
 	}
 	p := newPrincipal(u.ID, u.Username, sess.ID, roles)
-	user := newUser(u.ID, u.Username, u.DisplayName, u.MustChangePassword, p)
-	user.MFAEnabled = enabled
+	pw := passwordState(pol, roles, u.PasswordChangedAt.Time, now)
+	must := u.MustChangePassword || pw.Expired
+	user := newUser(u.ID, u.Username, u.DisplayName, must, p)
+	user.MFAEnabled, user.Kiosk = enabled, kiosk
+	user.PasswordExpiresAt, user.PasswordExpired, user.PasswordExpiresSoon = pw.ExpiresAt, pw.Expired, pw.ExpiresSoon
+	info := toInfo(sess.ID, sess.CreatedAt, sess.LastSeenAt, sess.ExpiresAt, sess.IdleExpiresAt, sess.Ip, sess.UserAgent, true)
+	info.Kiosk = kiosk
 	return LoginResult{
 		Token: token,
 		CSRF:  randomString(32),
 		Session: Session{
 			Principal:          p,
 			User:               user,
-			Info:               toInfo(sess.ID, sess.CreatedAt, sess.LastSeenAt, sess.ExpiresAt, sess.IdleExpiresAt, sess.Ip, sess.UserAgent, true),
-			MustChangePassword: u.MustChangePassword,
+			Info:               info,
+			MustChangePassword: must,
 			MFAEnabled:         enabled,
 		},
 	}, nil
@@ -329,8 +403,11 @@ func (s *Service) newSession(ctx context.Context, u repo.User, meta audit.Meta) 
 // touchInterval throttles last_seen/idle updates to one write per minute per session.
 const touchInterval = time.Minute
 
-// Authenticate resolves a session token. Expired, idle, revoked or disabled → ErrUnauthenticated.
-func (s *Service) Authenticate(ctx context.Context, token string) (Session, error) {
+// Authenticate resolves a session token. Expired, idle, revoked or disabled → ErrUnauthenticated. ip is the client
+// address (kiosk sessions are valid only from Allowed IP networks); active marks a user action (a write request):
+// only that, or the explicit activity signal (Activity), extends the idle deadline — reads and background polling
+// never do (D-069).
+func (s *Service) Authenticate(ctx context.Context, token string, ip netip.Addr, active bool) (Session, error) {
 	if token == "" || len(token) > 128 {
 		return Session{}, ErrUnauthenticated
 	}
@@ -342,28 +419,82 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 		return Session{}, fmt.Errorf("get session: %w", err)
 	}
 	now := s.now().UTC()
+	if row.SessionKiosk {
+		reason := ""
+		switch {
+		case !row.UserKiosk || !viewerOnly(row.Roles):
+			reason = "kiosk_disabled"
+		case s.kioskGate == nil || !ip.IsValid() || !s.kioskGate(ip):
+			reason = "ip_not_allowed"
+		}
+		if reason != "" {
+			if _, err := s.q.RevokeSessionByID(ctx, row.SessionID); err != nil {
+				return Session{}, fmt.Errorf("revoke kiosk session: %w", err)
+			}
+			md := map[string]any{"reason": reason}
+			ev := audit.Event{Action: ActionKioskRevoked, Result: audit.ResultDenied, ActorType: audit.ActorUser,
+				ActorID: &row.UserID, ActorUsername: row.Username, TargetType: "session", TargetID: row.SessionID.String(), Metadata: md}
+			if ip.IsValid() {
+				a := ip
+				ev.Meta.IP = &a
+			}
+			_ = s.audit.Record(ctx, ev)
+			return Session{}, ErrUnauthenticated
+		}
+	}
 	idle := row.IdleExpiresAt.Time
 	if now.Sub(row.LastSeenAt.Time) >= touchInterval {
-		idle = now.Add(s.cfg.SessionIdle)
-		if idle.After(row.ExpiresAt.Time) {
-			idle = row.ExpiresAt.Time
+		var err error
+		if active && !row.SessionKiosk {
+			idle = s.idleDeadline(ctx, now, row.ExpiresAt.Time)
+			err = s.q.ExtendIdle(ctx, repo.ExtendIdleParams{ID: row.SessionID, IdleExpiresAt: ts(idle)})
+		} else {
+			err = s.q.TouchSeen(ctx, row.SessionID)
 		}
-		if err := s.q.TouchSession(ctx, repo.TouchSessionParams{ID: row.SessionID, IdleExpiresAt: ts(idle)}); err != nil {
+		if err != nil {
 			s.log.WarnContext(ctx, "touch session failed", "error", err)
 		}
 	}
+	pol := s.currentPolicy(ctx)
+	pw := passwordState(pol, row.Roles, row.PasswordChangedAt.Time, now)
+	must := row.MustChangePassword || pw.Expired
 	p := newPrincipal(row.UserID, row.Username, row.SessionID, row.Roles)
-	user := newUser(row.UserID, row.Username, row.DisplayName, row.MustChangePassword, p)
-	user.MFAEnabled = row.MfaEnabled
+	user := newUser(row.UserID, row.Username, row.DisplayName, must, p)
+	user.MFAEnabled, user.Kiosk = row.MfaEnabled, row.SessionKiosk
+	user.PasswordExpiresAt, user.PasswordExpired, user.PasswordExpiresSoon = pw.ExpiresAt, pw.Expired, pw.ExpiresSoon
 	return Session{
 		Principal: p,
 		User:      user,
 		Info: SessionInfo{ID: row.SessionID, CreatedAt: row.SessionCreatedAt.Time, LastSeenAt: now, ExpiresAt: row.ExpiresAt.Time,
-			IdleExpiresAt: idle, Current: true, MFAVerified: row.MfaVerified},
-		MustChangePassword: row.MustChangePassword,
+			IdleExpiresAt: idle, Current: true, MFAVerified: row.MfaVerified, Kiosk: row.SessionKiosk},
+		MustChangePassword: must,
 		MFAVerified:        row.MfaVerified,
 		MFAEnabled:         row.MfaEnabled,
 	}, nil
+}
+
+func (s *Service) idleDeadline(ctx context.Context, now, absolute time.Time) time.Time {
+	idle := now.Add(s.currentPolicy(ctx).Idle)
+	if idle.After(absolute) {
+		idle = absolute
+	}
+	return idle
+}
+
+// Activity is the UI's "the user is here" signal (keyboard, pointer, touch; at most about once a minute): it moves
+// the idle deadline (D-069). Kiosk sessions have none.
+func (s *Service) Activity(ctx context.Context, sess Session) (SessionInfo, error) {
+	info := sess.Info
+	if info.Kiosk {
+		return info, nil
+	}
+	now := s.now().UTC()
+	info.IdleExpiresAt = s.idleDeadline(ctx, now, info.ExpiresAt)
+	info.LastSeenAt = now
+	if err := s.q.ExtendIdle(ctx, repo.ExtendIdleParams{ID: info.ID, IdleExpiresAt: ts(info.IdleExpiresAt)}); err != nil {
+		return info, fmt.Errorf("extend idle: %w", err)
+	}
+	return info, nil
 }
 
 // Logout revokes the current session.
@@ -398,6 +529,19 @@ func (s *Service) ChangePassword(ctx context.Context, sess Session, current, nex
 	if next == current {
 		return failed("unchanged", ErrPolicy)
 	}
+	pol := s.currentPolicy(ctx)
+	if pol.History > 0 {
+		old, err := s.q.ListPasswordHistory(ctx, repo.ListPasswordHistoryParams{UserID: u.ID, Lim: int32(min(pol.History, 24))}) //nolint:gosec // bounded
+		if err != nil {
+			return fmt.Errorf("password history: %w", err)
+		}
+		// The current password counts as one of the last N.
+		for _, h := range old[:max(0, min(len(old), pol.History-1))] {
+			if ok, _, err := password.Verify(next, h, s.params); err == nil && ok {
+				return failed("reused", ErrPasswordReused)
+			}
+		}
+	}
 	h, err := password.Hash(next, s.params)
 	if err != nil {
 		return err
@@ -405,12 +549,36 @@ func (s *Service) ChangePassword(ctx context.Context, sess Session, current, nex
 	if err := s.q.UpdatePasswordHash(ctx, repo.UpdatePasswordHashParams{ID: u.ID, PasswordHash: h, MustChangePassword: false}); err != nil {
 		return fmt.Errorf("update password: %w", err)
 	}
-	n, err := s.q.RevokeOtherSessions(ctx, repo.RevokeOtherSessionsParams{UserID: u.ID, KeepID: sess.Info.ID})
+	if err := s.RememberPassword(ctx, u.ID, u.PasswordHash); err != nil {
+		return err
+	}
+	var n int64
+	if sess.Info.Kiosk {
+		// A kiosk account's sessions all end, this one included (D-068).
+		n, err = s.q.RevokeAllSessions(ctx, u.ID)
+	} else {
+		n, err = s.q.RevokeOtherSessions(ctx, repo.RevokeOtherSessionsParams{UserID: u.ID, KeepID: sess.Info.ID})
+	}
 	if err != nil {
 		return fmt.Errorf("revoke other sessions: %w", err)
 	}
 	_ = s.audit.Record(ctx, audit.Event{Action: ActionPasswordChange, Result: audit.ResultSuccess, TargetType: "user",
 		TargetID: u.ID.String(), Meta: meta, Metadata: map[string]any{"other_sessions_revoked": n}})
+	return nil
+}
+
+// RememberPassword stores a replaced password hash in the history and keeps the newest password.history entries.
+func (s *Service) RememberPassword(ctx context.Context, userID uuid.UUID, oldHash string) error {
+	keep := s.currentPolicy(ctx).History
+	if keep <= 0 {
+		keep = 5
+	}
+	if err := s.q.InsertPasswordHistory(ctx, repo.InsertPasswordHistoryParams{UserID: userID, PasswordHash: oldHash}); err != nil {
+		return fmt.Errorf("password history: %w", err)
+	}
+	if err := s.q.TrimPasswordHistory(ctx, repo.TrimPasswordHistoryParams{UserID: userID, Keep: int32(min(keep, 24))}); err != nil { //nolint:gosec // bounded
+		return fmt.Errorf("trim password history: %w", err)
+	}
 	return nil
 }
 
@@ -487,7 +655,7 @@ func (s *Service) CleanupStale(ctx context.Context) (int64, error) {
 }
 
 func (s *Service) revokeToken(ctx context.Context, token string) {
-	if sess, err := s.Authenticate(ctx, token); err == nil {
+	if sess, err := s.Authenticate(ctx, token, netip.Addr{}, false); err == nil {
 		_, _ = s.q.RevokeSession(ctx, repo.RevokeSessionParams{ID: sess.Info.ID, UserID: sess.User.ID})
 	}
 }

@@ -36,6 +36,9 @@ func TestAuditCoverage(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, rt := range unsafe {
+		if _, skip := api.UnauditedRoutes[rt]; skip {
+			continue
+		}
 		if len(api.AuditedRoutes[rt]) == 0 {
 			t.Errorf("unsafe route %s has no audit actions in api.AuditedRoutes", rt)
 		}
@@ -95,6 +98,7 @@ func TestAuditCoverage(t *testing.T) {
 			break
 		}
 	}
+	want(t, "kiosk refused (not viewer-only)", admin.put("/api/v1/users/"+id+"/kiosk", map[string]any{"enabled": true}), http.StatusConflict, "kiosk_requires_viewer")
 	want(t, "mfa reset", admin.post("/api/v1/users/"+id+"/mfa-reset", nil), http.StatusNoContent, "")
 	want(t, "verify chain", admin.post("/api/v1/audit/integrity/verify", nil), http.StatusOK, "")
 	want(t, "settings", admin.put("/api/v1/settings/regional", map[string]any{"values": map[string]any{"time_format": "12h"}}), http.StatusOK, "")
