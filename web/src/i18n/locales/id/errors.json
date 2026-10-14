@@ -29,6 +29,11 @@
     "invalid_mfa_code": "Kode verifikasi salah, kedaluwarsa, atau sudah dipakai.",
     "mfa_already_enabled": "Verifikasi dua langkah sudah aktif.",
     "mfa_not_enrolled": "Verifikasi dua langkah belum dipasang.",
-    "verification_running": "Verifikasi lain sedang berjalan."
+    "verification_running": "Verifikasi lain sedang berjalan.",
+    "duplicate_network": "Jaringan itu sudah ada di daftar.",
+    "lockout_risk": "Ditolak: IP Anda sendiri tidak akan diizinkan lagi.",
+    "no_pending_change": "Tidak ada perubahan Tegakkan yang menunggu konfirmasi (mungkin sudah kembali ke Pantau).",
+    "too_many_entries": "Daftar sudah penuh.",
+    "ip_not_allowed": "Akses dari alamat IP ini tidak diizinkan."
   }
 }

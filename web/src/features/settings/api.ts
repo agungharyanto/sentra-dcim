@@ -1,4 +1,4 @@
-import { getJson, putJson } from "@/lib/api";
+import { deleteJson, getJson, patchJson, postJson, putJson } from "@/lib/api";
 
 import type { Regional } from "@/features/auth/api";
 
@@ -64,4 +64,55 @@ export function timeZones(): string[] {
   const list = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
   const out = new Set(["UTC", "Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura", ...list]);
   return [...out];
+}
+
+/** Mirrors api/openapi.yaml#/components/schemas/AllowlistEntry. */
+export interface AllowlistEntry {
+  id: string;
+  cidr: string;
+  label: string;
+  created_at: string;
+  created_by: string | null;
+  updated_at: string;
+}
+
+export type AllowlistMode = "off" | "monitor" | "enforce";
+export const ALLOWLIST_MODES: readonly AllowlistMode[] = ["off", "monitor", "enforce"];
+
+/** Mirrors api/openapi.yaml#/components/schemas/AllowlistState. */
+export interface AllowlistState {
+  mode: AllowlistMode;
+  pending_until: string | null;
+  entries: AllowlistEntry[];
+  your_ip: string;
+  your_ip_in_list: boolean;
+  always_public: string[];
+  confirm_window_seconds: number;
+  server_time: string;
+}
+
+export const allowlistKey = ["settings", "allowed-ips"] as const;
+
+export function fetchAllowlist(signal?: AbortSignal) {
+  return getJson<AllowlistState>("/api/v1/settings/allowed-ips", signal);
+}
+
+export function addAllowed(cidr: string, label: string) {
+  return postJson<AllowlistState>("/api/v1/settings/allowed-ips", { cidr, label });
+}
+
+export function relabelAllowed(id: string, label: string) {
+  return patchJson<AllowlistState>(`/api/v1/settings/allowed-ips/${encodeURIComponent(id)}`, { label });
+}
+
+export function removeAllowed(id: string) {
+  return deleteJson<AllowlistState>(`/api/v1/settings/allowed-ips/${encodeURIComponent(id)}`);
+}
+
+export function setAllowlistMode(mode: AllowlistMode) {
+  return putJson<AllowlistState>("/api/v1/settings/allowed-ips/mode", { mode });
+}
+
+export function confirmEnforce() {
+  return postJson<AllowlistState>("/api/v1/settings/allowed-ips/confirm");
 }

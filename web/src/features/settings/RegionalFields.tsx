@@ -26,7 +26,7 @@ export function useRegionalText() {
       case "time_format":
         return t(`value.time_format.${value as TimeFormat}`, { defaultValue: value });
       case "date_format":
-        return `${formatDate(sample, { ...fmt.regional, dateFormat: value as DateFormat })} (${value})`;
+        return `${formatDate(sample, { ...fmt.regional, dateFormat: value as DateFormat })} · ${value}`;
       default:
         return value;
     }

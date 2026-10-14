@@ -1048,6 +1048,192 @@ paths:
         "400": { $ref: "#/components/responses/InvalidRequest" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "422": { $ref: "#/components/responses/ValidationFailed" }
+  /api/v1/settings/allowed-ips:
+    get:
+      tags: [settings]
+      operationId: getAllowedIps
+      x-sentra-access: login
+      x-sentra-permission: settings.manage
+      summary: Allowed IP — mode, daftar jaringan, dan IP Anda saat ini
+      description: |
+        Hanya panel web (v0.3.6, D-078). Mode `off` (tidak menyaring), `monitor` (IP di luar daftar dicatat di audit
+        sebagai `security.allowlist_outside`, tidak diblok), `enforce` (di luar daftar → `403 ip_not_allowed`,
+        `security.allowlist_blocked`). `always_public` selalu terbuka (pemantauan & perpanjangan TLS). IP klien
+        adalah alamat koneksi langsung yang dilihat proxy; header `X-Forwarded-For` dari klien tidak dipercaya.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Status Allowed IP
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AllowlistState" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [settings]
+      operationId: addAllowedIp
+      x-sentra-access: login
+      x-sentra-permission: settings.manage
+      summary: Tambah IP atau jaringan (CIDR)
+      description: |
+        IPv4/IPv6; satu alamat disimpan sebagai /32 atau /128; bit host harus nol (`10.0.0.0/24`, bukan
+        `10.0.0.5/24`); tidak lebih luas dari /8 (IPv4) atau /16 (IPv6); tanpa zona (`%eth0`). Duplikat → `409
+        duplicate_network`. Dicatat `allowlist.add`.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cidr]
+              additionalProperties: false
+              properties:
+                cidr: { type: string, example: 192.0.2.0/24 }
+                label: { type: string, maxLength: 100, example: Ruang NOC }
+      responses:
+        "201":
+          description: Status setelah penambahan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AllowlistState" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/AllowlistConflict" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+  /api/v1/settings/allowed-ips/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [settings]
+      operationId: updateAllowedIp
+      x-sentra-access: login
+      x-sentra-permission: settings.manage
+      summary: Ubah keterangan entri
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label]
+              additionalProperties: false
+              properties:
+                label: { type: string, maxLength: 100 }
+      responses:
+        "200":
+          description: Status setelah perubahan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AllowlistState" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+    delete:
+      tags: [settings]
+      operationId: deleteAllowedIp
+      x-sentra-access: login
+      x-sentra-permission: settings.manage
+      summary: Hapus entri
+      description: Saat `enforce`, menghapus jaringan terakhir yang mencakup IP Anda ditolak (`409 lockout_risk`).
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      responses:
+        "200":
+          description: Status setelah penghapusan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AllowlistState" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/AllowlistConflict" }
+  /api/v1/settings/allowed-ips/mode:
+    put:
+      tags: [settings]
+      operationId: setAllowlistMode
+      x-sentra-access: login
+      x-sentra-permission: settings.manage
+      summary: Ubah mode (off / monitor / enforce)
+      description: |
+        `enforce` hanya bila IP Anda saat ini tercakup daftar (`409 lockout_risk`). Beralih ke `enforce` memulai
+        jendela konfirmasi 2 menit (`pending_until`): tanpa `POST …/confirm` dari koneksi yang masih tersambung,
+        mode otomatis kembali ke `monitor` (`allowlist.rollback`). Setiap perubahan dicatat `allowlist.mode`.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              additionalProperties: false
+              properties:
+                mode: { type: string, enum: [off, monitor, enforce] }
+      responses:
+        "200":
+          description: Status setelah perubahan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AllowlistState" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/AllowlistConflict" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+  /api/v1/settings/allowed-ips/confirm:
+    post:
+      tags: [settings]
+      operationId: confirmAllowlistEnforce
+      x-sentra-access: login
+      x-sentra-permission: settings.manage
+      summary: Pertahankan enforce (batalkan auto-rollback)
+      description: Hanya selama jendela konfirmasi; dicatat `allowlist.confirm`.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      responses:
+        "200":
+          description: Status setelah konfirmasi
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AllowlistState" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/AllowlistConflict" }
+  /api/v1/allowlist/check:
+    get:
+      tags: [settings]
+      operationId: checkAllowlist
+      x-sentra-access: internal
+      summary: Keputusan Allowed IP untuk forward_auth Caddy (listener internal saja)
+      description: |
+        Dipanggil Caddy untuk setiap request publik kecuali `/api/v1/health` dan `/.well-known/acme-challenge/*`.
+        IP klien dari `X-Real-IP` yang diisi Caddy dari koneksi langsung; request asli di `X-Forwarded-Method` /
+        `X-Forwarded-Uri`. Tidak tersedia di domain publik.
+      security: []
+      responses:
+        "204": { description: Boleh lanjut }
+        "403":
+          description: IP di luar daftar saat `enforce` (`ip_not_allowed`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorBody" }
 components:
   parameters:
     AuditSince:
@@ -1147,6 +1333,13 @@ components:
           schema: { $ref: "#/components/schemas/ErrorBody" }
     AuthUnavailable:
       description: Layanan login sementara tidak tersedia, mis. Redis rate limiter mati — gagal tertutup (`auth_unavailable`)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+    AllowlistConflict:
+      description: |
+        `duplicate_network` (jaringan sudah ada), `lockout_risk` (IP Anda tidak akan diizinkan lagi), atau
+        `no_pending_change` (tidak ada perubahan enforce yang menunggu konfirmasi)
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorBody" }
@@ -1297,11 +1490,34 @@ components:
         max: { type: integer }
         max_length: { type: integer }
         user_overridable: { type: boolean, description: Boleh di-override per pengguna lewat /api/v1/me/preferences }
+        managed: { type: boolean, description: Hanya bisa diubah lewat endpoint khususnya (mis. mode Allowed IP) }
         default: { description: Nilai bawaan (untuk regional language/timezone berasal dari konfigurasi server) }
         value: { description: Nilai efektif (sama dengan default bila belum pernah diubah) }
         is_default: { type: boolean }
         updated_at: { type: [string, "null"], format: date-time }
         updated_by: { type: [string, "null"], format: uuid }
+    AllowlistEntry:
+      type: object
+      required: [id, cidr, label, created_at, created_by, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        cidr: { type: string, example: 192.0.2.0/24 }
+        label: { type: string }
+        created_at: { type: string, format: date-time }
+        created_by: { type: [string, "null"], format: uuid }
+        updated_at: { type: string, format: date-time }
+    AllowlistState:
+      type: object
+      required: [mode, pending_until, entries, your_ip, your_ip_in_list, always_public, confirm_window_seconds, server_time]
+      properties:
+        mode: { type: string, enum: [off, monitor, enforce] }
+        pending_until: { type: [string, "null"], format: date-time, description: Batas konfirmasi enforce (auto-rollback) }
+        entries: { type: array, items: { $ref: "#/components/schemas/AllowlistEntry" } }
+        your_ip: { type: string, description: IP klien seperti dilihat server }
+        your_ip_in_list: { type: boolean }
+        always_public: { type: array, items: { type: string } }
+        confirm_window_seconds: { type: integer, example: 120 }
+        server_time: { type: string, format: date-time }
     SettingsGroup:
       type: object
       required: [group, items]

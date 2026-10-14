@@ -6,7 +6,8 @@
 # Application account for the session checks (an active account with MFA set up), never stored in the repo — first
 # match wins: SENTRA_APP_USER + SENTRA_APP_PASS, file $SENTRA_APP_AUTH_FILE (default ~/.config/sentra/app-auth, mode
 # 600, one line "user:password"), prompt. The MFA code is asked for (or SENTRA_APP_TOTP).
-# Without it the session checks are skipped (reported as SKIP, the run is then not a complete regression).
+# The session checks are required (v0.3.6): without an account, or when sign-in/MFA fails, the run FAILS (exit 2/3)
+# and says why — it is never silently skipped.
 set -uo pipefail
 
 # Whole body in main(): bash parses the entire file before running, so editing the script mid-run cannot make it
@@ -22,7 +23,7 @@ if [[ -z "${BASE_URL:-}" ]]; then
   BASE_URL="https://${domain:-localhost}"
 fi
 BASE="${BASE_URL%/}"
-pass=0 fail=0 skipped=
+pass=0 fail=0
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 
 curl_ca=()
@@ -34,15 +35,40 @@ elif [[ "$BASE" == https://localhost* ]]; then
   curl_ca=(--cacert "$tmp/ca.crt")
 fi
 
-app_user="${SENTRA_APP_USER:-}" app_pw="${SENTRA_APP_PASS:-}"
+app_user="${SENTRA_APP_USER:-}" app_pw="${SENTRA_APP_PASS:-}" app_src=env
 app_file="${SENTRA_APP_AUTH_FILE:-$HOME/.config/sentra/app-auth}"
-if [[ -z "$app_user" || -z "$app_pw" ]] && [[ -r "$app_file" ]]; then
-  IFS= read -r line <"$app_file"; app_user="${line%%:*}" app_pw="${line#*:}"
+# Why no account was found, per source (printed only on failure; never the values).
+why=()
+[[ -n "$app_user" && -n "$app_pw" ]] || why+=("env: SENTRA_APP_USER ${SENTRA_APP_USER:+set}${SENTRA_APP_USER:-not set}, SENTRA_APP_PASS ${SENTRA_APP_PASS:+set}${SENTRA_APP_PASS:-not set}")
+if [[ -z "$app_user" || -z "$app_pw" ]]; then
+  if [[ ! -e "$app_file" ]]; then
+    why+=("file: $app_file does not exist")
+  elif [[ ! -r "$app_file" ]]; then
+    why+=("file: $app_file not readable by $(id -un)")
+  else
+    IFS= read -r line <"$app_file" || true
+    app_user="${line%%:*}" app_pw="${line#*:}" app_src="file $app_file"
+    [[ "$line" == *:* && -n "$app_user" && -n "$app_pw" ]] || { why+=("file: $app_file is not one line \"user:password\""); app_user="" app_pw=""; }
+    [[ "$(stat -c %a "$app_file")" == 600 ]] || echo "  WARN  $app_file should be mode 600" >&2
+  fi
 fi
-if [[ -z "$app_user" || -z "$app_pw" ]] && [[ -t 0 ]]; then
-  read -rp "app user (Enter = skip session checks): " app_user
-  [[ -n "$app_user" ]] && { read -rsp "app password: " app_pw; echo; }
+if [[ -z "$app_user" || -z "$app_pw" ]]; then
+  if [[ -t 0 ]]; then
+    read -rp "app user: " app_user
+    [[ -n "$app_user" ]] && { read -rsp "app password: " app_pw; echo; }
+    app_src=prompt
+    [[ -n "$app_user" && -n "$app_pw" ]] || why+=("prompt: empty user or password entered")
+  else
+    why+=("prompt: stdin is not a terminal")
+  fi
 fi
+if [[ -z "$app_user" || -z "$app_pw" ]]; then
+  echo "  FAIL  session checks: no application account — the run is NOT a complete regression" >&2
+  for w in "${why[@]}"; do echo "        - $w" >&2; done
+  echo "UI edge: FAILED before the checks (no app account; see header of $0)" >&2
+  exit 2
+fi
+echo "  info  app account: $app_user (source: $app_src)"
 
 check() { if [[ "$2" == "0" ]]; then printf '  PASS  %s\n' "$1"; pass=$((pass+1)); else printf '  FAIL  %s\n' "$1"; fail=$((fail+1)); fi; }
 req() { code="$(curl -sS "${curl_ca[@]}" -o "$tmp/b" -D "$tmp/h" -w '%{http_code}' "$@")"; }
@@ -123,10 +149,7 @@ areq -X POST -H 'Content-Type: application/json' -H 'Origin: https://evil.exampl
   -d '{"username":"x","password":"y"}' "$BASE/api/v1/auth/login"
 check "POST /auth/login from foreign Origin = 403" "$([[ $code == 403 ]] && jq -e '.error.code=="csrf_failed"' "$tmp/b" >/dev/null; echo $?)"
 
-if [[ -z "$app_user" || -z "$app_pw" ]]; then
-  echo "  SKIP  session checks (no app account given; see header of $0)"
-  skipped=1
-else
+{
   sreq() { areq -b "$tmp/jar" -c "$tmp/jar" -H "Origin: $BASE" "$@"; }
   # Body via a 600 file built from the environment: the password never appears in the process list.
   U="$app_user" P="$app_pw" jq -n '{username: env.U, password: env.P}' >"$tmp/login.json"
@@ -168,7 +191,8 @@ else
   rm -f "$tmp/code.json"
   case "$code" in
     204) ;;
-    401) echo "STOP: kode MFA ditolak (salah/kedaluwarsa/sudah dipakai) — tidak ada percobaan lain (lockout 5x)." >&2; exit 3 ;;
+    401) echo "STOP: kode MFA ditolak (salah, kedaluwarsa, atau sudah dipakai — satu kode hanya sah sekali: bila baru" \
+           "dipakai test-e2e/login lain, tunggu kode berikutnya). Tidak ada percobaan lain (lockout 5x)." >&2; exit 3 ;;
     *)   echo "STOP: verifikasi MFA mendapat HTTP $code ($(jq -r .error.code "$tmp/b" 2>/dev/null))." >&2; exit 3 ;;
   esac
   check "POST /auth/mfa/verify = 204 (session passed MFA)" 0
@@ -254,6 +278,13 @@ else
   sreq -X PUT -H "X-Sentra-CSRF: $csrf" -H 'Content-Type: application/json' -d '{"values":{"timezone":"Mars/Base"}}' "$BASE/api/v1/settings/regional"
   check "PUT /api/v1/settings/regional unknown zone = $exp (nothing written)" "$([[ $code == "$exp" ]]; echo $?)"
 
+  # Allowed IP (v0.3.6): state with the client IP as the server sees it; the decision endpoint is internal only.
+  if has settings.manage; then exp=200; else exp=403; fi
+  sreq "$BASE/api/v1/settings/allowed-ips"
+  check "GET /api/v1/settings/allowed-ips = $exp (settings.manage)" "$([[ $code == "$exp" ]] && { [[ $exp == 403 ]] || jq -e '(.mode|test("^(off|monitor|enforce)$")) and (.your_ip|length > 0) and (.always_public|index("/api/v1/health") != null)' "$tmp/b" >/dev/null; }; echo $?)"
+  sreq "$BASE/api/v1/allowlist/check"
+  check "GET /api/v1/allowlist/check not reachable on the public site (403 at proxy)" "$([[ $code == 403 ]] && jq -e '.error.message=="not publicly available"' "$tmp/b" >/dev/null; echo $?)"
+
   sreq "$BASE/api/v1/version"
   if has system.version.read; then
     check "GET /version with Admin session = build details" "$(jq -e '.commit and .server_time_display' "$tmp/b" >/dev/null; echo $?)"
@@ -268,9 +299,9 @@ else
   check "POST /auth/logout with CSRF token = 204" "$([[ $code == 204 ]]; echo $?)"
   sreq "$BASE/api/v1/auth/me"
   check "GET /auth/me after logout = 401" "$([[ $code == 401 ]]; echo $?)"
-fi
+}
 
-echo "UI edge: $pass passed, $fail failed${skipped:+, session checks SKIPPED}"
+echo "UI edge: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]
 }
 

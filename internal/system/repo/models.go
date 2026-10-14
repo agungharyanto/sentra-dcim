@@ -10,6 +10,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// Networks allowed to use the web panel when allowlist.mode = enforce (v0.3.6).
+type AllowedIp struct {
+	ID        pgtype.UUID        `json:"id"`
+	Cidr      netip.Prefix       `json:"cidr"`
+	Label     string             `json:"label"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	CreatedBy pgtype.UUID        `json:"created_by"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 // Hash of the last pruned audit row per pruning run (v0.3.4); append-only.
 type AuditCheckpoint struct {
 	ThroughSeq    int64              `json:"through_seq"`

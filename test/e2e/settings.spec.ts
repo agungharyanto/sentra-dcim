@@ -119,4 +119,55 @@ test.describe("settings & preferences", () => {
     await expect(page.getByTestId("reset-date_format")).toHaveCount(0);
     expect(problems).toEqual([]);
   });
+
+  // Read-only: the page and "your IP", desktop + mobile (production-safe; nothing is saved).
+  test("Allowed IP page: your IP, mode, list, always-public paths, desktop + mobile, axe", async ({ page }) => {
+    const problems = await watchProblems(page);
+    await page.goto("/dashboard");
+    test.skip(!(await me(page)).user.permissions.includes("settings.manage"), "test account has no settings.manage");
+    await page.goto("/settings/allowed-ip");
+    await expect(page.getByTestId("allowlist-your-ip")).toContainText(/\d|:/);
+    await expect(page.getByTestId("allowlist-always-public")).toContainText("/.well-known/acme-challenge/*");
+    await expectAccessible(page, "allowed ip");
+    await page.screenshot({ path: `${artifactsDir}/settings-allowlist.png`, fullPage: true });
+    await page.setViewportSize(mobile);
+    expect(await noHorizontalScroll(page)).toBe(true);
+    await page.screenshot({ path: `${artifactsDir}/settings-allowlist-mobile.png`, fullPage: true });
+    expect(problems).toEqual([]);
+  });
+
+  // Changes the allowlist and switches to enforce: CI throwaway stack only. Always ends in mode off.
+  test("Allowed IP: add own IP, enforce with confirmation, keep, back to off (CI only)", async ({ page }) => {
+    test.skip(process.env.E2E_MUTATIONS !== "1", "changes the allowlist: runs only on the CI throwaway stack");
+    const problems = await watchProblems(page);
+    const al = catalog("id", "settings").allowlist;
+    await page.goto("/settings/allowed-ip");
+    try {
+      await page.getByTestId("allowlist-mode-enforce").check();
+      await expect(page.getByTestId("allowlist-guard")).toBeVisible();
+      await expect(page.getByTestId("allowlist-mode-save")).toBeDisabled();
+      await page.getByTestId("allowlist-add-mine").click();
+      await expect(page.getByTestId("allowlist-your-ip")).toHaveAttribute("data-covered", "true");
+      await page.getByTestId("allowlist-cidr").fill("192.0.2.0/24");
+      await page.getByTestId("allowlist-add-submit").click();
+      await expect(page.getByTestId("allowlist-row")).toHaveCount(2);
+      await page.getByTestId("allowlist-mode-enforce").check();
+      await page.getByTestId("allowlist-mode-save").click();
+      await page.getByTestId("confirm-dialog").getByTestId("confirm").click();
+      await expect(page.getByTestId("allowlist-pending")).toBeVisible();
+      await page.screenshot({ path: `${artifactsDir}/settings-allowlist-pending.png`, fullPage: true });
+      await page.getByTestId("allowlist-keep").click();
+      await expect(page.getByTestId("allowlist-pending")).toHaveCount(0);
+      await expect(page.getByText(al.kept)).toBeVisible();
+      // Still inside: the panel keeps working under enforce.
+      await page.goto("/dashboard");
+      await expect(page.getByTestId("dashboard-empty")).toBeVisible();
+    } finally {
+      await page.goto("/settings/allowed-ip");
+      await page.getByTestId("allowlist-mode-off").check();
+      await page.getByTestId("allowlist-mode-save").click();
+      await expect(page.locator('[data-testid="allowlist-mode-off"]')).toBeChecked();
+    }
+    expect(problems).toEqual([]);
+  });
 });

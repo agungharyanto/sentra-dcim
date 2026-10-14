@@ -29,6 +29,8 @@ import (
 
 	apispec "github.com/agungharyanto/sentra-dcim/api"
 	helpdocs "github.com/agungharyanto/sentra-dcim/docs/help"
+	allowlisthandler "github.com/agungharyanto/sentra-dcim/internal/allowlist/handler"
+	allowlistservice "github.com/agungharyanto/sentra-dcim/internal/allowlist/service"
 	"github.com/agungharyanto/sentra-dcim/internal/api"
 	"github.com/agungharyanto/sentra-dcim/internal/audit/chain"
 	audithandler "github.com/agungharyanto/sentra-dcim/internal/audit/handler"
@@ -78,10 +80,12 @@ func main() {
 		err = runDB(args)
 	case "audit":
 		err = runAudit(args)
+	case "allowlist":
+		err = runAllowlist(args)
 	case "version":
 		err = json.NewEncoder(os.Stdout).Encode(buildinfo.Get())
 	default:
-		err = fmt.Errorf("unknown command %q (want serve|migrate|healthcheck|user|db|audit|version)", cmd)
+		err = fmt.Errorf("unknown command %q (want serve|migrate|healthcheck|user|db|audit|allowlist|version)", cmd)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -140,6 +144,12 @@ func serve() error {
 		return fmt.Errorf("settings: %w", err)
 	}
 	settings := settingsservice.New(pool, reg, rec, log)
+	// Allowed IP (v0.3.6): loaded before serving, then reloaded every few seconds (CLI changes, auto-rollback).
+	allow := allowlistservice.New(pool, settings, rec, log)
+	if err := allow.Reload(ctx); err != nil {
+		return fmt.Errorf("allowlist: %w", err)
+	}
+	go allow.Run(ctx)
 	ui.SetSystem(func(ctx context.Context) (string, string, bool) {
 		r, err := settings.SystemRegional(ctx)
 		return r.Language, r.Timezone, err == nil
@@ -160,7 +170,7 @@ func serve() error {
 	go cleanupSessions(ctx, auth, log)
 	go rec.RunThrottle(ctx) // summaries of repeated denials (authz.denied.repeated, security.csrf_denied.repeated)
 
-	rl := httpserver.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
+	rl := httpserver.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst).Skip("/api/v1/allowlist/check")
 	go rl.Janitor(ctx)
 
 	// Public listener (behind Caddy's public site) and internal listener (Caddy 127.0.0.1 only) share all
@@ -169,7 +179,7 @@ func serve() error {
 	users := usershandler.New(usersservice.New(pool, rec, log, cfg.Auth), log)
 	mods := api.Modules{System: systemhandler.New(sys), UI: uihandler.New(ui), Help: help, Auth: authH, Users: users,
 		Audit:    audithandler.New(auditrepo.New(pool), rec, integrity, settings.LocationFor, log),
-		Settings: settingshandler.New(settings, log)}
+		Settings: settingshandler.New(settings, log), Allowlist: allowlisthandler.New(allow, log)}
 	servers := []*http.Server{
 		httpserver.NewServer(cfg.HTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, api.Mount(mods, false)), log),
 		httpserver.NewServer(cfg.InternalHTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, api.Mount(mods, true)), log),

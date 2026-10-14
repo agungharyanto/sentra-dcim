@@ -19,6 +19,7 @@ import (
 // appGrants is the reviewed privilege set of the application role per table (ISS-039). A new table without an entry
 // fails TestAppRoleGrants: decide its grants in its migration and record them here.
 var appGrants = map[string][]string{
+	"allowed_ips":        {"DELETE", "INSERT", "SELECT", "UPDATE"},
 	"audit_checkpoints":  {"SELECT"},
 	"audit_events":       {"INSERT", "SELECT"},
 	"mfa_recovery_codes": {"DELETE", "INSERT", "SELECT", "UPDATE"},

@@ -152,6 +152,37 @@ berada setelah ACCEPT Docker, sehingga tidak memblokir port Caddy.
 Bila firewall host mengunci SSH: dari serial console jalankan `sudo ufw allow 22/tcp` (atau `sudo ufw disable`
 sementara), perbaiki, lalu `sudo ops/harden/ufw.sh`.
 
+## Allowed IP: terkunci dari panel web (v0.3.6+, D-078)
+
+Gejala: panel web/API menjawab `403` "Akses dari alamat IP ini tidak diizinkan" (`ip_not_allowed`) karena mode
+**enforce** aktif dan IP Anda (mis. IP kantor berubah) tidak ada di daftar. `/api/v1/health` tetap 200.
+
+Allowed IP **tidak** menyentuh SSH maupun ufw — server tetap bisa diakses lewat SSH (jalur #1) atau, bila SSH pun
+gagal, **OCI Serial Console** (jalur #2 di atas: login `ubuntu` + password konsol dari brankas). Setelah masuk:
+
+```bash
+cd /opt/sentra-dcim
+# Lihat mode & daftar
+docker compose exec -T app /sentra allowlist list
+# Pintu darurat: berhenti memblokir (berlaku ≤ 5 detik, tanpa restart; tercatat di audit sebagai "cli")
+docker compose exec -T app /sentra allowlist mode off        # atau: mode monitor (tetap mencatat, tidak memblokir)
+# Opsional: tambahkan IP yang benar, lalu aktifkan lagi enforce dari UI (dengan pengaman + konfirmasi 2 menit)
+docker compose exec -T app /sentra allowlist add 203.0.113.10 "Kantor (IP baru)"
+docker compose exec -T app /sentra allowlist remove 198.51.100.7/32
+```
+
+`sentra allowlist mode enforce` dari CLI ditolak tanpa `--force` (tanpa pengaman lockout dan tanpa auto-rollback —
+hanya untuk uji); aktifkan enforce dari **Pengaturan › Allowed IP**.
+
+Bila container app tidak berjalan sama sekali, Caddy menjawab `502` untuk panel (bukan 403); Allowed IP tidak
+berperan — pulihkan app dulu (`make up`, log: `make logs SERVICE=app`). Sebagai jalan terakhir tanpa app, mode bisa
+diubah langsung di database (owner, container `ops`/`db`):
+`DELETE FROM settings WHERE key IN ('allowlist.mode','allowlist.pending_until');` (= mode off), lalu restart app.
+
+Pengaman yang mencegah keadaan ini lebih dulu: enforce hanya bisa disimpan bila IP penyimpan tercakup; menghapus
+jaringan yang mencakup IP sendiri ditolak saat enforce; setiap peralihan ke enforce dari UI **kembali otomatis ke
+monitor setelah 2 menit** kecuali Admin menekan *Pertahankan* dari koneksi yang masih tersambung.
+
 ## Isi backup
 
 Setiap backup adalah satu direktori `/var/backups/sentra/<UTC-stamp>_<label>/`:

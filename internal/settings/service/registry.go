@@ -32,6 +32,9 @@ type Def struct {
 	Max             *int64   `json:"max,omitempty"`
 	MaxLen          int      `json:"max_length,omitempty"`
 	UserOverridable bool     `json:"user_overridable"`
+	// Managed keys are shown by GET /settings/{group} but changed only through their own endpoint (with its own
+	// guards, e.g. the Allowed IP lockout protection); the generic PUT refuses them.
+	Managed bool `json:"managed"`
 	// Default is filled when the registry is built (some defaults come from .env).
 	Default any `json:"default"`
 	// Validate adds a check beyond type/enum/range (e.g. a known IANA time zone).
@@ -51,6 +54,15 @@ const (
 	KeyTimeFormat = "regional.time_format"
 	KeyDateFormat = "regional.date_format"
 )
+
+// Allowed IP keys (v0.3.6, D-078), managed by internal/allowlist.
+const (
+	KeyAllowlistMode    = "allowlist.mode"
+	KeyAllowlistPending = "allowlist.pending_until" // RFC 3339 deadline of the auto-rollback to monitor, "" = none
+)
+
+// AllowlistModes are the values of allowlist.mode.
+var AllowlistModes = []string{"off", "monitor", "enforce"}
 
 // Allowed regional values.
 var (
@@ -90,6 +102,16 @@ func NewRegistry(d Defaults) (*Registry, error) {
 			Validate: func(v any) error { return ValidTimezone(v.(string)) }},
 		{Key: KeyTimeFormat, Type: TypeEnum, Enum: TimeFormats, Default: "24h", UserOverridable: true},
 		{Key: KeyDateFormat, Type: TypeEnum, Enum: DateFormats, Default: "DD/MM/YYYY", UserOverridable: true},
+		{Key: KeyAllowlistMode, Type: TypeEnum, Enum: AllowlistModes, Default: "off", Managed: true},
+		{Key: KeyAllowlistPending, Type: TypeString, MaxLen: 40, Default: "", Managed: true,
+			Validate: func(v any) error {
+				if s := v.(string); s != "" {
+					if _, err := time.Parse(time.RFC3339, s); err != nil {
+						return errors.New("must be an RFC 3339 time or empty")
+					}
+				}
+				return nil
+			}},
 	}
 	r := &Registry{byKey: map[string]Def{}}
 	for _, def := range defs {

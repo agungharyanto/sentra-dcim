@@ -145,7 +145,7 @@ describe("account › preferences", () => {
     const page = await screen.findByTestId("preferences-page");
     const tz = within(page).getByTestId("regional-timezone");
     expect(tz).toHaveValue("");
-    expect(within(tz).getByRole("option", { name: "Ikuti sistem (Asia/Jakarta)" })).toBeInTheDocument();
+    expect(within(tz).getByRole("option", { name: "Ikuti sistem — Asia/Jakarta" })).toBeInTheDocument();
     await userEvent.selectOptions(tz, "UTC");
     await userEvent.selectOptions(within(page).getByTestId("regional-date_format"), "YYYY-MM-DD");
     await userEvent.selectOptions(within(page).getByTestId("regional-language"), "en");
