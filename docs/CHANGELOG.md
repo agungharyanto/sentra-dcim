@@ -3,9 +3,37 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
-## [Unreleased] — v0.3.2
+## [v0.3.2] - 2026-10-14 — RBAC & Pengguna
+
+Sprint v0.3 "Auth, RBAC & Audit Log", sub-versi 2. Keputusan: D-053..D-060.
+
+### Ditambahkan
+- **RBAC**: izin di kode (`users.read`, `users.manage`, `roles.read`, `system.version.read`), role di DB (migrasi
+  `000004_rbac`: tabel `roles` dengan 6 role sistem dan `user_roles`). Admin = semua izin; Auditor = lihat pengguna
+  & role; NOC/Security/Teknisi/Viewer belum punya izin modul (bertambah bersama modulnya). Semua akun v0.3.1 (hanya
+  dari `create-admin`) otomatis menjadi Admin; `create-admin` memberi role Admin dalam satu statement.
+- Role dibaca ulang setiap request: perubahan role/nonaktif berlaku seketika tanpa login ulang. `GET /auth/me`
+  menyertakan `roles` dan `permissions`.
+- Middleware izin per route (`403 forbidden`, audit `authz.denied`); route tanpa izin hanya yang ada di
+  `api.SelfServiceRoutes` (akun sendiri, bootstrap, Pusat Bantuan).
+- **API Pengguna & Role**: `GET/POST /api/v1/users` (cari literal, filter status/role, paging), `GET/PATCH
+  /api/v1/users/{id}`, `PUT /users/{id}/roles`, `POST /users/{id}/disable|enable|password-reset`, `GET
+  /api/v1/roles`. Kata sandi sementara dibuat server (`xxxx-xxxx-xxxx-xxxx`, ≈92 bit), tampil sekali
+  (`Cache-Control: no-store`), wajib diganti; reset & nonaktif mencabut semua sesi pengguna; reset membuka lockout.
+  Pengaman: tidak bisa menonaktifkan/mencabut Admin/me-reset akun sendiri, Admin aktif terakhir tidak bisa
+  kehilangan akses (baris role admin dikunci `FOR UPDATE`). Akun tidak pernah dihapus. Semua perubahan diaudit
+  (`user.create|update|roles.update|disable|enable|password.reset`) tanpa kata sandi.
+- **UI Pengguna & Role** (`/users`, menu Sistem): daftar (tabel desktop, kartu mobile, cari, filter, paging), tab
+  Role (izin + jumlah pengguna), dialog tambah pengguna dengan kata sandi sementara sekali tampil + tombol salin,
+  halaman detail (profil, role, nonaktifkan/aktifkan, reset kata sandi dengan konfirmasi). Menu tanpa izin
+  disembunyikan; alamatnya menampilkan *Akses ditolak*. `403 forbidden` memicu baca ulang `/auth/me`.
+- Pusat Bantuan `users` dan `users/roles` (ID/EN, audience admin); viewer API menampilkan izin per endpoint.
 
 ### Diubah
+- **`/api/v1/version`**: detail build hanya untuk sesi dengan `system.version.read` (Admin), di domain publik maupun
+  listener internal; tanpa sesi `{version}` saja (D-059). Ops yang memakai `.version` tidak terdampak.
+- Registry menu punya field `permission`; Caddy meneruskan `/api/v1/users*` dan `/api/v1/roles` (GET HEAD POST PUT
+  PATCH) di belakang basic_auth; `DELETE` tetap ditolak proxy.
 - **`make release` mengikuti alur worktree** (CLAUDE.md aturan 13): dijalankan di working tree server yang ada di
   `main`, mencari branch `feat/vX.Y.Z-*` berdasarkan nama, lalu menghapus worktree fitur (bila bersih) dan branch
   setelah merge. Sebelumnya mengharuskan branch fitur di-checkout di tree yang sama, sehingga rilis sejak v0.2.9
@@ -20,6 +48,14 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
   CLI, locale halaman login) dan D-057 (gerbang fail2ban).
 
 ### Test
+- Integrasi: enumerasi semua route dengan akun tanpa role → `403` kecuali self-service, dan izin yang dipaksakan
+  router == `x-sentra-permission` OpenAPI (terbukti gagal bila `Require` dihapus atau dokumentasi salah); alur
+  admin (buat → login sementara → role seketika → nonaktif mencabut sesi → aktif → reset), validasi & pengaman
+  (akun sendiri, Admin terakhir), detail `/version` per izin, migrasi 000004 (akun lama → Admin, down/up).
+- Web: 13 tes baru (menu per izin, Akses ditolak, daftar, read-only Auditor, buat + kata sandi sementara, error
+  field, akun sendiri, nonaktif & reset, simpan role, tab role, viewer API). e2e `users.spec.ts` (bagian yang
+  mengubah akun hanya di stack CI, `E2E_MUTATIONS=1`). `smoke.sh` tanpa akun kini memeriksa `/version` =
+  `{version}`; `ui.sh` + cek RBAC sesuai izin akun; drill memeriksa role Admin hasil `create-admin`.
 - `scripts/fail2ban-web-check-test.sh` (CI + `make fail2ban-web-check-test`): 14 kasus — pengecek terhadap pohon
   instalasi sementara (tidak terpasang, sinkron, filter diubah di host/repo, log path beda, drop-in hilang, DOMAIN
   kosong), installer menolak override tes, dan `release.sh` di repo git sementara (drift sebelum merge → tanpa

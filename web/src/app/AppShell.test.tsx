@@ -65,6 +65,24 @@ describe("app shell", () => {
     expect(crumbs).toHaveTextContent(`Sentra DCIM${shell.groups.infrastructure}${shell.sidebar.facility}`);
   });
 
+  it("scrolls the active menu into view (short screens, deep links)", async () => {
+    const scrolled: string[] = [];
+    // jsdom has no layout: record which link asked to be scrolled into view.
+    Element.prototype.scrollIntoView = vi.fn(function (this: Element) {
+      scrolled.push(this.getAttribute("data-menu") ?? "");
+    });
+    mockApi({
+      "/api/v1/ui/bootstrap": testBootstrap(),
+      "/api/v1/users": { users: [], total: 0, limit: 50, offset: 0 },
+      "/api/v1/roles": { roles: [], permissions: [] },
+    });
+    window.history.pushState({}, "", "/users");
+    render(<App queryClient={createQueryClient()} />);
+    await screen.findByTestId("users-empty");
+    await waitFor(() => expect(scrolled).toContain("users"));
+    expect(new Set(scrolled.filter((k) => k !== ""))).toEqual(new Set(["users"]));
+  });
+
   it("hides menus without permission and shows Access denied on their address", async () => {
     mockApi({ "/api/v1/ui/bootstrap": testBootstrap(), "/api/v1/auth/me": testMe({ roles: ["viewer"], permissions: [] }) });
     window.history.pushState({}, "", "/users");

@@ -1,4 +1,4 @@
-import { createElement } from "react";
+import { createElement, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, useMatch } from "react-router";
 
@@ -69,9 +69,15 @@ function MenuLink({
   const { menuLabel } = useMenuText();
   const active = useMatch({ path: m.path, end: false }) !== null;
   const label = menuLabel(m.key);
+  const ref = useRef<HTMLAnchorElement>(null);
+  // The sidebar scrolls on short screens (e.g. 1280×720): keep the active menu visible, also after a deep link.
+  useEffect(() => {
+    if (active) ref.current?.scrollIntoView?.({ block: "nearest" });
+  }, [active]);
 
   const link = (
     <NavLink
+      ref={ref}
       to={m.path}
       onClick={onNavigate}
       data-menu={m.key}
