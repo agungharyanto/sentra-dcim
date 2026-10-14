@@ -3,7 +3,7 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
-## [Unreleased] — v0.3.5 Settings – Regional
+## [v0.3.5] - 2026-10-14 — Settings – Regional
 
 ### Ditambahkan
 - **Fondasi pengaturan generik** (D-076, migrasi 000008): skema per key di kode (tipe, default, pilihan, batas
