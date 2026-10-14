@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 
-import { appPass, appUser, artifactsDir, catalog, pass, user, watchProblems } from "./helpers";
+import { appPass, appTotpSecret, appUser, artifactsDir, catalog, pass, totp, user, watchProblems } from "./helpers";
 
 const id = catalog("id", "auth");
 const mobile = { width: 390, height: 844 };
@@ -51,13 +51,18 @@ test.describe("auth (signed out)", () => {
     expect(unexpected(problems)).toEqual([]);
   });
 
-  test("real login through the form, user name in the shell, logout", async ({ page }) => {
-    test.skip(!appUser || !appPass, "SENTRA_APP_USER / SENTRA_APP_PASS not set");
+  test("real login through the form with MFA, user name in the shell, logout", async ({ page }) => {
+    // A second real sign-in needs a second code: only with the CI throwaway secret (never a production phone).
+    test.skip(!appUser || !appPass || !appTotpSecret, "needs SENTRA_APP_TOTP_SECRET (CI throwaway account)");
     const problems = await watchProblems(page);
     await page.goto("/login");
     await page.getByLabel(id.login.username).fill(appUser);
     await page.getByLabel(id.login.password).fill(appPass);
     await page.getByRole("button", { name: id.login.submit }).click();
+    await expect(page).toHaveURL(/\/mfa\?next=%2Fdashboard$/);
+    // global-setup.ts used the current step: the next one is still inside the ±1 window (anti-replay).
+    await page.getByLabel(id.mfa.codeLabel).fill(totp(appTotpSecret, 1));
+    await page.getByRole("button", { name: id.mfa.verify }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByTestId("user-name")).not.toBeEmpty();
 

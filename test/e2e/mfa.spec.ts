@@ -1,0 +1,162 @@
+import AxeBuilder from "@axe-core/playwright";
+import { expect, type Page, test } from "@playwright/test";
+
+import { artifactsDir, catalog, pass, totp, user, watchProblems } from "./helpers";
+
+const tx = catalog("id", "auth");
+const ux = catalog("id", "users");
+const mobile = { width: 390, height: 844 };
+
+async function expectAccessible(page: Page, label: string) {
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  const bad = results.violations
+    .filter((v) => v.impact === "serious" || v.impact === "critical")
+    .map((v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
+  expect(bad, `axe violations (${label})`).toEqual([]);
+}
+
+const noHorizontalScroll = (page: Page) =>
+  page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
+
+/** A real 29×29 QR matrix shape (finder patterns only) for the mocked enrolment; never a real secret. */
+function fakeQr(): string[] {
+  const n = 29;
+  const rows: string[] = [];
+  for (let y = 0; y < n; y++) {
+    let r = "";
+    for (let x = 0; x < n; x++) {
+      const finder = (fx: number, fy: number) => {
+        const dx = x - fx, dy = y - fy;
+        if (dx < 0 || dy < 0 || dx > 6 || dy > 6) return false;
+        return dx === 0 || dy === 0 || dx === 6 || dy === 6 || (dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4);
+      };
+      r += finder(0, 0) || finder(n - 7, 0) || finder(0, n - 7) || (x * 7 + y * 13) % 5 === 0 ? "1" : "0";
+    }
+    rows.push(r);
+  }
+  return rows;
+}
+const FAKE_CODES = ["abcde-fghjk", "bcdef-ghjkm", "cdefg-hjkmn", "defgh-jkmnp", "efghj-kmnpq", "fghjk-mnpqr", "ghjkm-npqrs", "hjkmn-pqrst", "jkmnp-qrstu", "kmnpq-rstuv"];
+
+test.describe("MFA", () => {
+  test.skip(!user || !pass, "SENTRA_WEB_USER / SENTRA_WEB_PASS not set");
+  test.use({ httpCredentials: { username: user, password: pass } });
+
+  test("enrolment and verification pages (mocked; nothing changes on the server), desktop + mobile, axe", async ({ page }) => {
+    const problems = await watchProblems(page);
+    let mode: "enrol" | "verify" = "enrol";
+    // Pretend the session is mfa_pending; the real account and its MFA stay untouched.
+    await page.route("**/api/v1/auth/me", async (route) => {
+      const res = await route.fetch();
+      const body = await res.json();
+      body.session.mfa_verified = false;
+      body.user.mfa_enabled = mode === "verify";
+      await route.fulfill({ response: res, json: body });
+    });
+    await page.route("**/api/v1/auth/mfa/enrol", (route) =>
+      route.fulfill({ json: { issuer: "Sentra DCIM", account: "contoh.pengguna", secret: "JBSW Y3DP EHPK 3PXP JBSW Y3DP EHPK 3PXP", otpauth_uri: "otpauth://totp/x", qr: fakeQr() } }),
+    );
+    await page.route("**/api/v1/auth/mfa/enrol/confirm", (route) => route.fulfill({ json: { recovery_codes: FAKE_CODES } }));
+    await page.route("**/api/v1/auth/mfa/verify", (route) =>
+      route.fulfill({ status: 401, json: { error: { code: "invalid_mfa_code", message: "x" } } }),
+    );
+
+    // Light theme: these card shots double as Help Center illustrations (docs/help/assets/help-mfa-*.png).
+    await page.addInitScript(() => window.localStorage.setItem("sentra.theme", "light"));
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL(/\/mfa\?next=%2Fdashboard$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(tx.mfa.enrolTitle);
+    await expectAccessible(page, "mfa intro");
+    await page.screenshot({ path: `${artifactsDir}/mfa-enrol-intro.png`, fullPage: true });
+    await page.getByTestId("mfa-enrol-page").screenshot({ path: `${artifactsDir}/help-mfa-intro.png` });
+    await page.getByTestId("mfa-start").click();
+    await expect(page.getByTestId("mfa-qr")).toBeVisible();
+    await expectAccessible(page, "mfa qr");
+    await page.screenshot({ path: `${artifactsDir}/mfa-enrol-qr.png`, fullPage: true });
+    await page.getByTestId("mfa-enrol-page").screenshot({ path: `${artifactsDir}/help-mfa-qr.png` });
+    await page.setViewportSize(mobile);
+    expect(await noHorizontalScroll(page)).toBe(true);
+    await page.screenshot({ path: `${artifactsDir}/mfa-enrol-qr-mobile.png`, fullPage: true });
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.getByLabel(tx.mfa.codeLabel).fill("123456");
+    await page.getByTestId("mfa-confirm").click();
+    await expect(page.getByTestId("recovery-code")).toHaveCount(10);
+    await expectAccessible(page, "recovery codes");
+    await page.screenshot({ path: `${artifactsDir}/mfa-recovery-codes.png`, fullPage: true });
+    await page.getByTestId("mfa-enrol-page").screenshot({ path: `${artifactsDir}/help-mfa-recovery.png` });
+
+    mode = "verify";
+    await page.goto("/dashboard");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(tx.mfa.verifyTitle);
+    await page.getByLabel(tx.mfa.codeLabel).fill("123456");
+    await page.getByTestId("mfa-verify-page").screenshot({ path: `${artifactsDir}/help-mfa-verify.png` });
+    await page.getByLabel(tx.mfa.codeLabel).fill("000000");
+    await page.getByRole("button", { name: tx.mfa.verify }).click();
+    await expect(page.getByTestId("mfa-error")).toHaveText(tx.mfa.invalid);
+    await expectAccessible(page, "mfa verify");
+    await page.screenshot({ path: `${artifactsDir}/mfa-verify-error.png`, fullPage: true });
+    await page.setViewportSize(mobile);
+    expect(await noHorizontalScroll(page)).toBe(true);
+    await page.screenshot({ path: `${artifactsDir}/mfa-verify-mobile.png`, fullPage: true });
+    expect(problems.filter((p) => !/status of 401/.test(p))).toEqual([]);
+  });
+
+  test("account security page (read-only), desktop + mobile, axe", async ({ page }) => {
+    const problems = await watchProblems(page);
+    await page.goto("/account/security");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(tx.security.title);
+    await expect(page.getByTestId("mfa-status")).toHaveText(tx.security.enabled);
+    await expectAccessible(page, "security");
+    await page.screenshot({ path: `${artifactsDir}/mfa-security.png`, fullPage: true });
+    await page.getByTestId("regenerate-recovery").click();
+    await expect(page.getByTestId("regenerate-dialog")).toBeVisible();
+    await expectAccessible(page, "regenerate dialog");
+    await page.screenshot({ path: `${artifactsDir}/mfa-security-regenerate.png` });
+    await page.keyboard.press("Escape");
+    await page.setViewportSize(mobile);
+    expect(await noHorizontalScroll(page)).toBe(true);
+    await page.screenshot({ path: `${artifactsDir}/mfa-security-mobile.png`, fullPage: true });
+    expect(problems).toEqual([]);
+  });
+
+  // Creates an account and enrols it for real: only on the CI throwaway stack (E2E_MUTATIONS=1).
+  test("new user: temporary password → MFA enrolment in the browser → forced password change (CI only)", async ({ page, browser }) => {
+    test.skip(process.env.E2E_MUTATIONS !== "1", "mutating test runs only on the CI throwaway stack");
+    const problems = await watchProblems(page);
+    await page.goto("/dashboard");
+    const origin = new URL(page.url()).origin;
+    const csrf = (await page.context().cookies()).find((c) => c.name === "__Host-sentra_csrf")?.value ?? "";
+    const username = `mfa.${Date.now().toString(36)}`;
+    const created = await page.request.post("/api/v1/users", {
+      headers: { Origin: origin, "X-Sentra-CSRF": csrf },
+      data: { username, display_name: "Pengguna MFA", email: "", roles: ["viewer"] },
+    });
+    expect(created.status()).toBe(201);
+    const temp = (await created.json()).temporary_password as string;
+
+    const ctx = await browser.newContext({ httpCredentials: { username: user, password: pass }, storageState: { cookies: [], origins: [] } });
+    const p = await ctx.newPage();
+    await p.goto("/login");
+    await p.getByLabel(tx.login.username).fill(username);
+    await p.getByLabel(tx.login.password).fill(temp);
+    await p.getByRole("button", { name: tx.login.submit }).click();
+    await expect(p.getByRole("heading", { level: 1 })).toHaveText(tx.mfa.enrolTitle);
+    await p.getByTestId("mfa-start").click();
+    const secret = (await p.getByTestId("mfa-secret").textContent()) ?? "";
+    await p.getByLabel(tx.mfa.codeLabel).fill(totp(secret));
+    await p.getByTestId("mfa-confirm").click();
+    await expect(p.getByTestId("recovery-code")).toHaveCount(10);
+    await p.getByTestId("recovery-saved").check();
+    await p.getByTestId("recovery-done").click();
+    await expect(p.getByTestId("forced-password-page")).toBeVisible();
+
+    // The admin sees the user with MFA active.
+    await page.goto("/users");
+    await page.getByTestId("users-search").fill(username);
+    await expect(page.locator(`[data-testid="user-row"][data-username="${username}"] [data-mfa="off"]`)).toHaveCount(0);
+    await page.locator(`[data-testid="user-row"][data-username="${username}"]`).getByRole("link").click();
+    await expect(page.getByTestId("user-mfa")).toHaveText(ux.detail.mfaOn);
+    await ctx.close();
+    expect(problems).toEqual([]);
+  });
+});

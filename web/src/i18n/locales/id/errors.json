@@ -24,6 +24,10 @@
     "validation_failed": "Isian tidak valid. Periksa kembali kolom yang ditandai.",
     "username_taken": "Nama pengguna sudah dipakai.",
     "self_action": "Tindakan ini tidak boleh dilakukan pada akun Anda sendiri.",
-    "last_admin": "Admin aktif terakhir tidak boleh kehilangan akses Admin."
+    "last_admin": "Admin aktif terakhir tidak boleh kehilangan akses Admin.",
+    "mfa_required": "Selesaikan verifikasi dua langkah terlebih dahulu.",
+    "invalid_mfa_code": "Kode verifikasi salah, kedaluwarsa, atau sudah dipakai.",
+    "mfa_already_enabled": "Verifikasi dua langkah sudah aktif.",
+    "mfa_not_enrolled": "Verifikasi dua langkah belum dipasang."
   }
 }

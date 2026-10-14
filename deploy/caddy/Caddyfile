@@ -41,15 +41,17 @@
 }
 
 # Static SPA from the web image (web/Dockerfile → /srv/web). script-src stays 'self' (no inline/eval scripts).
-# style-src allows 'unsafe-inline' for UI responses ONLY: Radix (react-remove-scroll) and sonner inject <style>
-# elements at runtime (proven by test/e2e, ADR-002, D-044); a per-request nonce is the planned follow-up.
-# Hashed assets are immutable, everything else — index.html above all — is revalidated.
+# style-src: a per-request nonce instead of 'unsafe-inline' (ISS-030, D-065). The same {http.request.uuid} goes into
+# the CSP header and, via templates, into <meta name="csp-nonce"> of index.html; the UI hands it to
+# react-style-singleton (Radix scroll lock), the only runtime <style> injector left. index.html is therefore
+# dynamic: no-store and no ETag/Last-Modified, or a revalidated copy would carry an old nonce. Hashed assets are
+# immutable.
 (web_static) {
 	# route keeps the written order (plain directives are re-sorted by Caddy).
 	route {
 		root * /srv/web
 		header {
-			Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+			Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'nonce-{http.request.uuid}'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 			Cache-Control "no-cache"
 		}
 		@assets {
@@ -63,6 +65,13 @@
 			not file
 		}
 		rewrite @spa /index.html
+		@html path / /index.html
+		header @html {
+			Cache-Control "no-store"
+			-ETag
+			-Last-Modified
+		}
+		templates @html
 		file_server
 	}
 }

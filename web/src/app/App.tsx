@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/features/auth/AuthProvider";
 import { ForcedPasswordPage } from "@/features/auth/ForcedPasswordPage";
 import { LoginPage } from "@/features/auth/LoginPage";
+import { MfaPage } from "@/features/auth/mfa/MfaPage";
 import { RequireAuth } from "@/features/auth/RequireAuth";
 import { BootstrapGate } from "@/features/bootstrap/BootstrapGate";
 import { ApiError } from "@/lib/api";
@@ -36,12 +37,20 @@ export function App({ queryClient }: { queryClient?: QueryClient }) {
           <BrowserRouter>
             <AuthProvider>
               <Routes>
-                {/* Login and the forced password change render without the bootstrap (it needs a session). */}
+                {/* Login, MFA and the forced password change render without the bootstrap (it needs a passed session). */}
                 <Route path="/login" element={<LoginPage />} />
+                <Route
+                  path="/mfa"
+                  element={
+                    <RequireAuth step="mfa">
+                      <MfaPage />
+                    </RequireAuth>
+                  }
+                />
                 <Route
                   path="/change-password"
                   element={
-                    <RequireAuth passwordChange>
+                    <RequireAuth step="password">
                       <ForcedPasswordPage />
                     </RequireAuth>
                   }

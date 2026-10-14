@@ -12,6 +12,7 @@ export interface User {
   roles: string[];
   must_change_password: boolean;
   locked: boolean;
+  mfa_enabled: boolean;
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
@@ -92,6 +93,11 @@ export function setRoles(id: string, roles: string[]) {
 export function setStatus(id: string, status: UserStatus) {
   const action = status === "disabled" ? "disable" : "enable";
   return postJson<User>(`/api/v1/users/${encodeURIComponent(id)}/${action}`);
+}
+
+/** Removes the user's MFA (they enrol again at the next sign-in) and ends all their sessions. */
+export function resetMfa(id: string) {
+  return postJson(`/api/v1/users/${encodeURIComponent(id)}/mfa-reset`);
 }
 
 export function resetPassword(id: string) {

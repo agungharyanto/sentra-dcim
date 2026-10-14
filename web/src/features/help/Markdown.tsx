@@ -71,10 +71,30 @@ const Table = ({ node, className, ...rest }: ComponentProps<"table"> & { node?: 
 };
 
 // Markdown h1 is the page title inside the article; the shell header owns the document's only <h1>.
+/** Help images (v0.3.3): only the embedded help assets, always with alt text (validated by the backend too). */
+export const HELP_ASSET_PREFIX = "/api/v1/help/assets/";
+
+function MarkdownImage({ src, alt }: ComponentProps<"img">) {
+  if (typeof src !== "string" || !src.startsWith(HELP_ASSET_PREFIX) || !alt) return null;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      className="my-2 inline-block max-h-[28rem] max-w-full rounded-md border bg-muted align-top"
+    />
+  );
+}
+
 const components: Components = {
   a: ({ node, ...props }) => {
     void node;
     return <MarkdownLink {...props} />;
+  },
+  img: ({ node, ...props }) => {
+    void node;
+    return <MarkdownImage {...props} />;
   },
   h1: styled("h2", "mt-2 text-2xl font-semibold tracking-tight"),
   h2: styled("h3", "mt-8 border-b pb-1 text-xl font-semibold"),
@@ -96,7 +116,7 @@ const compactComponents: Components = {
   p: styled("p", "leading-6 [&+p]:mt-2"),
 };
 
-/** Help Markdown (GFM) renderer: no raw HTML, no images, safe links. */
+/** Help Markdown (GFM) renderer: no raw HTML, only help-asset images, safe links. */
 export function Markdown({ children, compact = false }: { children: string; compact?: boolean }) {
   return (
     <div
@@ -107,7 +127,7 @@ export function Markdown({ children, compact = false }: { children: string; comp
         remarkPlugins={[remarkGfm]}
         components={compact ? compactComponents : components}
         urlTransform={safeUrl}
-        disallowedElements={compact ? ["img", "h1", "h2", "h3", "h4", "h5", "h6"] : ["img"]}
+        disallowedElements={compact ? ["img", "h1", "h2", "h3", "h4", "h5", "h6"] : []}
         unwrapDisallowed={compact}
       >
         {children}

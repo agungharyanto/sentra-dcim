@@ -74,9 +74,28 @@ func load(fs fstest.MapFS) error {
 	return err
 }
 
+const okSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>`
+
 func TestSyntheticValid(t *testing.T) {
 	if err := load(validFS()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestImagesServed(t *testing.T) {
+	f := validFS()
+	f["assets/step-one.svg"] = &fstest.MapFile{Data: []byte(okSVG)}
+	f["id/dashboard/index.md"] = &fstest.MapFile{Data: []byte(page("Dasbor", "dashboard") + "\n![Langkah pertama di HP](/api/v1/help/assets/step-one.svg)\n")}
+	cat, err := service.Load(f, locales, testMenus, spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, ok := cat.Asset("step-one.svg")
+	if !ok || a.ContentType != "image/svg+xml" || string(a.Data) != okSVG {
+		t.Fatalf("asset %+v %v", a, ok)
+	}
+	if _, ok := cat.Asset("../id/dashboard/index.md"); ok {
+		t.Fatal("path traversal served")
 	}
 }
 
@@ -127,6 +146,27 @@ func TestValidationRejects(t *testing.T) {
 		{"raw HTML img", "raw HTML", func(f fstest.MapFS) {
 			f["id/dashboard/index.md"] = &fstest.MapFile{Data: body(`<img src=x onerror="alert(1)">`)}
 		}},
+		{"image outside the help assets", "must be /api/v1/help/assets/", func(f fstest.MapFS) {
+			f["id/dashboard/index.md"] = &fstest.MapFile{Data: body("![Diagram langkah satu](https://evil.example/x.png)")}
+		}},
+		{"unknown image asset", "not in docs/help/assets", func(f fstest.MapFS) {
+			f["id/dashboard/index.md"] = &fstest.MapFile{Data: body("![Diagram langkah satu](/api/v1/help/assets/nope.png)")}
+		}},
+		{"image without alt text", "alt text", func(f fstest.MapFS) {
+			f["assets/step.svg"] = &fstest.MapFile{Data: []byte(okSVG)}
+			f["id/dashboard/index.md"] = &fstest.MapFile{Data: body("![](/api/v1/help/assets/step.svg)")}
+		}},
+		{"SVG with script", "SVG with scripts", func(f fstest.MapFS) {
+			f["assets/bad.svg"] = &fstest.MapFile{Data: []byte(`<svg><script>alert(1)</script></svg>`)}
+		}},
+		{"SVG with event handler", "SVG with scripts", func(f fstest.MapFS) {
+			f["assets/bad.svg"] = &fstest.MapFile{Data: []byte(`<svg onload="x()"></svg>`)}
+		}},
+		{"SVG with external reference", "SVG with scripts", func(f fstest.MapFS) {
+			f["assets/bad.svg"] = &fstest.MapFile{Data: []byte(`<svg><image href="https://evil.example/t.png"/></svg>`)}
+		}},
+		{"badly named asset", "kebab-case", func(f fstest.MapFS) { f["assets/Step 1.PNG"] = &fstest.MapFile{Data: []byte("x")} }},
+		{"fake PNG", "not a PNG", func(f fstest.MapFS) { f["assets/step.png"] = &fstest.MapFile{Data: []byte("<html>")} }},
 		{"IPv4", "IPv4", func(f fstest.MapFS) {
 			f["id/dashboard/index.md"] = &fstest.MapFile{Data: body("Server 10.0.0.12 down")}
 		}},

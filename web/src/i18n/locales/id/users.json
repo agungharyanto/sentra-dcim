@@ -34,7 +34,8 @@
     "active": "Aktif",
     "disabled": "Nonaktif",
     "locked": "Terkunci",
-    "mustChange": "Wajib ganti kata sandi"
+    "mustChange": "Wajib ganti kata sandi",
+    "mfaOff": "MFA belum aktif"
   },
   "roles": {
     "admin": "Admin",
@@ -121,7 +122,13 @@
     "resetBody": "Kata sandi sementara baru dibuat dan ditampilkan sekali. Semua sesi pengguna ini ditutup dan kunci akun dibuka.",
     "confirm": "Ya, lanjutkan",
     "cancel": "Batal",
-    "saving": "Menyimpan…"
+    "saving": "Menyimpan…",
+    "mfa": "Verifikasi dua langkah",
+    "mfaOn": "Aktif",
+    "mfaReset": "Reset MFA",
+    "mfaResetTitle": "Reset MFA {{name}}?",
+    "mfaResetBody": "Verifikasi dua langkah pengguna ini dihapus dan semua sesinya ditutup. Ia harus memasang aplikasi authenticator lagi saat masuk berikutnya. Pastikan permintaan ini benar dari pemilik akun.",
+    "mfaResetDone": "MFA direset. Pengguna memasang ulang saat masuk berikutnya."
   },
   "field": {
     "username": "Nama pengguna tidak valid.",

@@ -6,8 +6,8 @@ import { Logo } from "@/components/domain/Logo";
 import { ThemeSwitcher } from "@/components/domain/ThemeSwitcher";
 import { supportedLocales } from "@/i18n";
 
-/** Centred card layout for the pages outside the shell (login, forced password change). */
-export function AuthLayout({ title, children }: { title: string; children: ReactNode }) {
+/** Centred card layout for the pages outside the shell (login, MFA, forced password change). */
+export function AuthLayout({ title, wide = false, children }: { title: string; wide?: boolean; children: ReactNode }) {
   const { t } = useTranslation();
   useEffect(() => {
     document.title = `${title} · ${t("app.name")}`;
@@ -22,7 +22,7 @@ export function AuthLayout({ title, children }: { title: string; children: React
         </div>
       </header>
       <main id="main-content" className="flex flex-1 items-start justify-center px-4 pt-[8vh] pb-12 sm:items-center sm:pt-0">
-        <div className="w-full max-w-sm">{children}</div>
+        <div className={wide ? "w-full max-w-xl" : "w-full max-w-sm"}>{children}</div>
       </main>
       <footer className="px-4 pb-4 text-center text-xs text-muted-foreground">{t("app.tagline")}</footer>
     </div>

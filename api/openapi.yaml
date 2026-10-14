@@ -271,6 +271,30 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         "503": { $ref: "#/components/responses/HelpUnavailable" }
+  /api/v1/help/assets/{name}:
+    get:
+      tags: [help]
+      operationId: getHelpAsset
+      x-sentra-access: login
+      summary: Gambar Pusat Bantuan (PNG/SVG yang di-embed, v0.3.3)
+      description: Hanya file dari `docs/help/assets/` (daftar putih; nama tidak pernah menyentuh filesystem).
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*\\.(png|svg)$", example: mfa-phone-scan.svg }
+      responses:
+        "200":
+          description: Gambar
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/svg+xml: { schema: { type: string } }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/HelpUnavailable" }
   /api/v1/auth/login:
     post:
       tags: [auth]

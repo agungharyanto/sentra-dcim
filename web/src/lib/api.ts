@@ -71,7 +71,7 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
     }
     const retry = Number(res.headers.get("Retry-After"));
     // "forbidden" may mean the user's roles changed since /auth/me was read: re-read it so menus follow.
-    if (code === "unauthenticated" || code === "password_change_required" || code === "forbidden") {
+    if (code === "unauthenticated" || code === "password_change_required" || code === "mfa_required" || code === "forbidden") {
       for (const l of authListeners) l(code);
     }
     throw new ApiError(code, res.status, Number.isFinite(retry) && retry > 0 ? retry : undefined, field);

@@ -4,6 +4,7 @@ import { Navigate, Route, Routes } from "react-router";
 
 import { AccountPasswordPage } from "@/features/auth/AccountPasswordPage";
 import { usePermissions } from "@/features/auth/permissions";
+import { SecurityPage } from "@/features/auth/SecurityPage";
 import { SessionsPage } from "@/features/auth/SessionsPage";
 import { useBootstrap } from "@/features/bootstrap/regional";
 
@@ -46,6 +47,7 @@ export function AppRoutes() {
         {/* Own account pages (not registry menus; reached from the user menu). */}
         <Route path="/account/sessions" element={<SessionsPage />} />
         <Route path="/account/password" element={<AccountPasswordPage />} />
+        <Route path="/account/security" element={<SecurityPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

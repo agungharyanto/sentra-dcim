@@ -38,6 +38,11 @@ export function UserStatusBadges({ user }: { user: User }) {
         </Badge>
       )}
       {user.must_change_password && <Badge variant="outline">{t("status.mustChange")}</Badge>}
+      {!user.mfa_enabled && (
+        <Badge variant="outline" className="border-status-warning-border bg-status-warning-bg text-status-warning-fg" data-mfa="off">
+          {t("status.mfaOff")}
+        </Badge>
+      )}
     </span>
   );
 }

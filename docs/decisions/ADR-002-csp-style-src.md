@@ -1,6 +1,7 @@
 # ADR-002 — CSP `style-src 'unsafe-inline'` untuk Respons UI
 
-- **Status:** Accepted (2026-10-13, v0.2.2)
+- **Status:** Superseded (2026-10-14, v0.3.3) oleh D-065: nonce per request, `sonner` diganti toast sendiri,
+  `'unsafe-inline'` dihapus (ISS-030). Isi di bawah dipertahankan sebagai catatan sejarah.
 - **Keputusan terkait:** D-044, ADR-001 (stack frontend), ISS-027 (watch item, kini selesai), ISS-030 (nonce)
 - **Pemutus:** pemilik proyek (arahan v0.2.2: buktikan dulu, longgarkan hanya `style-src` bila terblokir)
 

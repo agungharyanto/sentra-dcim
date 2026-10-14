@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 400" width="240" height="400" role="img">
+  <rect width="240" height="400" fill="#f4f6f8"/>
+  <rect x="40" y="16" width="160" height="368" rx="22" fill="#1f2937"/>
+  <rect x="50" y="40" width="140" height="320" rx="8" fill="#374151"/>
+  <rect x="98" y="24" width="44" height="6" rx="3" fill="#4b5563"/>
+  <rect x="78" y="128" width="84" height="84" fill="#ffffff"/>
+  <g fill="#000000">
+    <path d="M84 134h22v22h-22zM134 134h22v22h-22zM84 184h22v22h-22z"/>
+    <path d="M88 138h14v14h-14zM138 138h14v14h-14zM88 188h14v14h-14z" fill="#ffffff"/>
+    <path d="M91 141h8v8h-8zM141 141h8v8h-8zM91 191h8v8h-8z"/>
+    <path d="M112 134h6v6h-6zM118 146h6v6h-6zM112 160h6v6h-6zM124 166h6v6h-6zM136 162h6v6h-6zM148 170h6v6h-6zM112 178h6v6h-6zM124 190h6v6h-6zM136 184h6v6h-6zM148 196h6v6h-6zM130 200h6v6h-6zM88 166h6v6h-6zM100 160h6v6h-6z"/>
+  </g>
+  <g fill="none" stroke="#22c55e" stroke-width="4" stroke-linecap="round">
+    <path d="M66 136v-20h20M174 136v-20h-20M66 204v20h20M174 204v20h-20"/>
+  </g>
+  <path d="M68 170h104" stroke="#22c55e" stroke-width="2" opacity="0.8"/>
+  <circle cx="120" cy="324" r="16" fill="#ffffff" opacity="0.9"/>
+</svg>

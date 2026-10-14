@@ -251,6 +251,25 @@ sudo -u sentra docker compose exec app /sentra user create-admin --username <nam
 - Rate limit login ada di Redis; bila Redis mati, login ditolak (`503 auth_unavailable`, gagal tertutup) — pulihkan
   Redis dulu (`docker compose ps`, `make logs SERVICE=redis`).
 
+## MFA: HP hilang, Admin terkunci, atau `MFA_ENC_KEY` hilang (v0.3.3+)
+
+Semua akun wajib MFA (D-062). Pemulihan, dari yang paling ringan:
+
+1. **Pengguna masih punya recovery code** → masuk dengan recovery code, lalu *Keamanan akun* → buat ulang.
+2. **Pengguna kehilangan HP & recovery code** → Admin: menu Pengguna & Role → pengguna → **Reset MFA**.
+3. **Admin terakhir kehilangan HP & recovery code** (atau tidak ada Admin lain) → dari server, CLI darurat:
+   ```bash
+   cd /opt/sentra-dcim
+   sudo -u sentra docker compose exec app /sentra user reset-mfa --username <nama-atau-NIP>
+   ```
+   MFA & recovery code akun dihapus, semua sesinya dicabut; saat masuk berikutnya akun memasang MFA lagi. Tercatat di
+   `audit_events` (`user.mfa.reset`, aktor `system/cli`). Lakukan hanya setelah identitas pemilik akun dipastikan.
+4. **`MFA_ENC_KEY` hilang/rusak** (mis. `.env` hilang tanpa backup): secret TOTP tidak bisa dibuka lagi → semua
+   login gagal di langkah MFA. Pulihkan `.env` dari backup bila ada (`MFA_ENC_KEY` ikut di `.env`, ditambah ke cadangan
+   offline bersama kata sandi DB). Bila tidak ada: buat key baru (`openssl rand -base64 32` → `MFA_ENC_KEY` di `.env`,
+   diisi pemilik), `make up`, lalu reset MFA **semua** akun via CLI (`reset-mfa` per pengguna); semua pengguna
+   memasang ulang. **Jangan** mengganti key yang masih berfungsi: tidak ada rotasi otomatis.
+
 ## Server baru (Ubuntu 24.04 kosong) — maksimal 5 perintah
 
 Prasyarat: deploy key SSH server baru sudah ditambahkan ke repo GitHub (read-only cukup untuk clone; *Allow write access* bila server ini juga push — lihat D-041; bila langsung `Permission denied`, tunggu sebentar lalu ulangi `ssh -T git@github.com`), dan file `.env`

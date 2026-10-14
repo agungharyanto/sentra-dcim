@@ -20,6 +20,7 @@ const user = (o: Partial<User>): User => ({
   roles: ["technician"],
   must_change_password: false,
   locked: false,
+  mfa_enabled: true,
   last_login_at: null,
   created_at: "2026-10-14T01:00:00Z",
   updated_at: "2026-10-14T01:00:00Z",
@@ -65,6 +66,7 @@ function api(opts: { perms?: string[]; users?: User[]; fail?: Record<string, { s
       const u = users.find((x) => x.id === m[1]);
       if (!u) return json({ error: { code: "not_found", message: "x" } }, 404);
       if (m[2] === "/password-reset") return json({ temporary_password: TEMP });
+      if (m[2] === "/mfa-reset") return new Response(null, { status: 204 });
       if (m[2] === "/disable") return json({ ...u, status: "disabled" });
       if (m[2] === "/roles") return json({ ...u, roles: body.roles });
       if (method === "PATCH") return json({ ...u, ...body });
@@ -193,6 +195,26 @@ describe("users & roles", () => {
     const table = await screen.findByTestId("roles-table");
     expect(table).toHaveTextContent(tx.permission.users_manage);
     expect(table).toHaveTextContent(tx.rolesTab.noPermissions);
+  });
+
+  it("resets another user's MFA after confirmation, never the own one", async () => {
+    const calls = api();
+    renderAt("/users/u-2");
+    expect(await screen.findByTestId("user-mfa")).toHaveTextContent(tx.detail.mfaOn);
+    await userEvent.click(screen.getByTestId("reset-mfa"));
+    const confirm = await screen.findByTestId("confirm-dialog");
+    expect(confirm).toHaveTextContent(tx.detail.mfaResetBody);
+    await userEvent.click(within(confirm).getByTestId("confirm"));
+    await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url === "/api/v1/users/u-2/mfa-reset")).toBe(true));
+    expect(await screen.findByText(tx.detail.mfaResetDone)).toBeInTheDocument();
+  });
+
+  it("marks users without MFA in the list", async () => {
+    api({ users: [me, user({ mfa_enabled: false })] });
+    renderAt("/users");
+    const rows = await screen.findAllByTestId("user-row");
+    expect(rows[1]?.querySelector('[data-mfa="off"]')).toHaveTextContent(tx.status.mfaOff);
+    expect(rows[0]?.querySelector('[data-mfa="off"]')).toBeNull();
   });
 
   it("shows not found for an unknown user id", async () => {

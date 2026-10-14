@@ -27,9 +27,14 @@ describe("help Markdown renderer", () => {
     expect(screen.getByTestId("help-markdown")).toHaveTextContent('<img src=x onerror="alert(2)">');
   });
 
-  it("drops Markdown images (no image hosting in help yet)", () => {
-    const { container } = renderMd("![logo](https://example.org/x.png)");
-    expect(container.querySelector("img")).toBeNull();
+  it("renders only help-asset images with alt text; drops external images and empty alt", () => {
+    const { container } = renderMd(
+      "![Langkah pertama di HP](/api/v1/help/assets/mfa-phone-add.svg)\n\n![logo](https://example.org/x.png)\n\n![](/api/v1/help/assets/a.svg)",
+    );
+    const imgs = container.querySelectorAll("img");
+    expect(imgs).toHaveLength(1);
+    expect(imgs[0]).toHaveAttribute("src", "/api/v1/help/assets/mfa-phone-add.svg");
+    expect(imgs[0]).toHaveAttribute("alt", "Langkah pertama di HP");
   });
 
   it("routes internal links through the router", () => {

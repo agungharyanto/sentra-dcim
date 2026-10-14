@@ -22,6 +22,7 @@ import {
   fetchUser,
   PERM_ROLES_READ,
   PERM_USERS_MANAGE,
+  resetMfa,
   resetPassword,
   rolesKey,
   setRoles,
@@ -216,7 +217,7 @@ function AccountCard({ user, canManage, self }: { user: User; canManage: boolean
   const fmt = useFormatters();
   const apply = useApply(user);
   const qc = useQueryClient();
-  const [confirm, setConfirm] = useState<null | "status" | "reset">(null);
+  const [confirm, setConfirm] = useState<null | "status" | "reset" | "mfa">(null);
   const [temp, setTemp] = useState<string | null>(null);
   const name = user.display_name || user.username;
   const disabling = user.status === "active";
@@ -245,6 +246,18 @@ function AccountCard({ user, canManage, self }: { user: User; canManage: boolean
       toast.error(t(`errors:code.${toErrorCode(errText(err).code)}`));
     },
   });
+  const mfa = useMutation({
+    mutationFn: () => resetMfa(user.id),
+    onSuccess: () => {
+      setConfirm(null);
+      toast.success(t("detail.mfaResetDone"));
+      void qc.invalidateQueries({ queryKey: usersKey });
+    },
+    onError: (err) => {
+      setConfirm(null);
+      toast.error(t(`errors:code.${toErrorCode(errText(err).code)}`));
+    },
+  });
   const when = (v: string | null) => (v ? fmt.dateTime(v, { dateStyle: "medium", timeStyle: "short" }) : t("list.never"));
 
   return (
@@ -258,6 +271,8 @@ function AccountCard({ user, canManage, self }: { user: User; canManage: boolean
           <dd>
             <UserStatusBadges user={user} />
           </dd>
+          <dt className="text-muted-foreground">{t("detail.mfa")}</dt>
+          <dd data-testid="user-mfa">{user.mfa_enabled ? t("detail.mfaOn") : t("status.mfaOff")}</dd>
           <dt className="text-muted-foreground">{t("detail.lastLogin")}</dt>
           <dd>{when(user.last_login_at)}</dd>
           <dt className="text-muted-foreground">{t("detail.created")}</dt>
@@ -273,6 +288,11 @@ function AccountCard({ user, canManage, self }: { user: User; canManage: boolean
             <Button variant="outline" onClick={() => setConfirm("reset")} data-testid="reset-password">
               {t("detail.reset")}
             </Button>
+            {user.mfa_enabled && (
+              <Button variant="outline" onClick={() => setConfirm("mfa")} data-testid="reset-mfa">
+                {t("detail.mfaReset")}
+              </Button>
+            )}
           </div>
         )}
       </CardContent>
@@ -292,6 +312,15 @@ function AccountCard({ user, canManage, self }: { user: User; canManage: boolean
         body={t("detail.resetBody")}
         busy={reset.isPending}
         onConfirm={() => reset.mutate()}
+      />
+      <ConfirmDialog
+        open={confirm === "mfa"}
+        onOpenChange={(o) => !o && setConfirm(null)}
+        title={t("detail.mfaResetTitle", { name })}
+        body={t("detail.mfaResetBody")}
+        busy={mfa.isPending}
+        destructive
+        onConfirm={() => mfa.mutate()}
       />
       <Dialog open={temp !== null} onOpenChange={(o) => !o && setTemp(null)}>
         <DialogContent>

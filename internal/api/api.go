@@ -49,6 +49,7 @@ var SelfServiceRoutes = []string{
 	"GET /api/v1/help/index",
 	"GET /api/v1/help/pages/*",
 	"GET /api/v1/help/openapi",
+	"GET /api/v1/help/assets/{name}",
 	"GET /api/v1/ready", // public listener only: a signed-in check of dependency status
 }
 

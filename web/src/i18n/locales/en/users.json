@@ -34,7 +34,8 @@
     "active": "Active",
     "disabled": "Disabled",
     "locked": "Locked",
-    "mustChange": "Must change password"
+    "mustChange": "Must change password",
+    "mfaOff": "MFA not set up"
   },
   "roles": {
     "admin": "Admin",
@@ -121,7 +122,13 @@
     "resetBody": "A new temporary password is generated and shown once. All of this user's sessions end and an account lockout is cleared.",
     "confirm": "Yes, continue",
     "cancel": "Cancel",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "mfa": "Two-step verification",
+    "mfaOn": "Active",
+    "mfaReset": "Reset MFA",
+    "mfaResetTitle": "Reset the MFA of {{name}}?",
+    "mfaResetBody": "This user's two-step verification is removed and all their sessions end. They must set up the authenticator app again at their next sign-in. Make sure the request really comes from the account owner.",
+    "mfaResetDone": "MFA reset. The user sets it up again at the next sign-in."
   },
   "field": {
     "username": "Invalid username.",
