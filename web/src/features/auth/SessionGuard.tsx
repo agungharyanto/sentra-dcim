@@ -66,12 +66,6 @@ function Guard({ session, serverTime }: { session: SessionInfo; serverTime?: str
     }
   };
 
-  // Opening the app is activity too: it also syncs the deadlines and the server clock.
-  useEffect(() => {
-    const id = window.setTimeout(() => void signal(), 0);
-    return () => window.clearTimeout(id);
-  }, []);
-
   useEffect(() => {
     const onActivity = () => {
       if (Date.now() - lastSent.current >= SEND_EVERY_MS) void signal();

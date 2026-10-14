@@ -187,14 +187,14 @@ test.describe("settings & preferences", () => {
     expect(problems).toEqual([]);
   });
 
-  // The idle warning, with the activity response mocked to a near deadline (nothing changes on the server).
+  // The idle warning, with /auth/me mocked to a near idle deadline (nothing changes on the server).
   test("idle warning 2 minutes before sign-out (mocked deadline), axe", async ({ page }) => {
     const problems = await watchProblems(page);
     let near = true;
-    await page.route("**/api/v1/auth/activity", async (route) => {
+    await page.route("**/api/v1/auth/me", async (route) => {
       const res = await route.fetch();
       const body = await res.json();
-      if (near) body.session.idle_expires_at = new Date(Date.now() + 90_000).toISOString();
+      if (near) body.session.idle_expires_at = new Date(Date.parse(body.server_time) + 90_000).toISOString();
       await route.fulfill({ response: res, json: body });
     });
     await page.goto("/dashboard");

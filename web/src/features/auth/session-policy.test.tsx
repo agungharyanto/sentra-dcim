@@ -59,7 +59,7 @@ describe("session guard (D-069)", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("warns 2 minutes before the idle limit and 'Stay signed in' sends the activity signal", async () => {
-    // The opening activity signal returns a near deadline (the user has been idle for 28 minutes in another tab).
+    // /auth/me (loaded with the page) reports a near deadline: idle for 28 minutes.
     const me = { ...testMe(), session: { ...testMe().session, idle_expires_at: iso(90_000), expires_at: iso(6 * 3600_000) }, server_time: new Date().toISOString() };
     let next = 90_000;
     const calls = api(me, { activityIdle: () => next });
