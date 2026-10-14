@@ -15,6 +15,8 @@ import (
 	"github.com/agungharyanto/sentra-dcim/internal/platform/buildinfo"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/httpserver"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/logging"
+	"github.com/agungharyanto/sentra-dcim/internal/platform/principal"
+	"github.com/agungharyanto/sentra-dcim/internal/platform/rbac"
 	"github.com/agungharyanto/sentra-dcim/internal/system/handler"
 	"github.com/agungharyanto/sentra-dcim/internal/system/service"
 )
@@ -24,9 +26,21 @@ func newServer(t *testing.T, checkers ...service.Checker) *httptest.Server {
 	return serve(t, handler.New, checkers...)
 }
 
-func newInternalServer(t *testing.T, checkers ...service.Checker) *httptest.Server {
+// newServerAs serves /version behind an identify middleware that signs the caller in with perms.
+func newServerAs(t *testing.T, perms ...rbac.Permission) *httptest.Server {
 	t.Helper()
-	return serve(t, handler.NewInternal, checkers...)
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	svc := service.New(logging.Discard(), loc)
+	identify := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			p := principal.Principal{Type: principal.TypeUser, Username: "t", Permissions: perms}
+			next.ServeHTTP(w, r.WithContext(principal.With(r.Context(), p)))
+		})
+	}
+	r := httpserver.NewRouter(logging.Discard(), nil, nil, func(r chi.Router) { handler.New(svc).PublicRoutes(r, identify) })
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+	return srv
 }
 
 func serve(t *testing.T, mk func(*service.Service) *handler.Handler, checkers ...service.Checker) *httptest.Server {
@@ -124,9 +138,18 @@ func TestVersionPublicOnlyVersion(t *testing.T) {
 	}
 }
 
-func TestVersionInternalDetails(t *testing.T) {
+func TestVersionSignedInWithoutPermissionOnlyVersion(t *testing.T) {
 	buildinfo.Version = "v0.1.8-test"
-	srv := newInternalServer(t)
+	var v map[string]any
+	get(t, newServerAs(t, rbac.UsersRead).URL+"/api/v1/version", &v)
+	if len(v) != 1 || v["version"] != "v0.1.8-test" {
+		t.Fatalf("without system.version.read: got %v, want only {version}", v)
+	}
+}
+
+func TestVersionDetailsWithPermission(t *testing.T) {
+	buildinfo.Version = "v0.1.8-test"
+	srv := newServerAs(t, rbac.SystemVersionRead)
 	var v map[string]any
 	resp := get(t, srv.URL+"/api/v1/version", &v)
 	if resp.StatusCode != http.StatusOK || v["version"] != "v0.1.8-test" || v["display_timezone"] != "Asia/Jakarta" {

@@ -20,6 +20,7 @@ import (
 	systemservice "github.com/agungharyanto/sentra-dcim/internal/system/service"
 	uihandler "github.com/agungharyanto/sentra-dcim/internal/ui/handler"
 	uiservice "github.com/agungharyanto/sentra-dcim/internal/ui/service"
+	usershandler "github.com/agungharyanto/sentra-dcim/internal/users/handler"
 )
 
 func router(t *testing.T, internal bool) http.Handler {
@@ -30,10 +31,8 @@ func router(t *testing.T, internal bool) http.Handler {
 		UI:     uihandler.New(uiservice.New("id", []string{"id", "en"}, time.UTC)),
 		Help:   helphandler.New(nil, "id", []string{"id", "en"}),
 		// No service: requests without a cookie are rejected before it is used; login is never called here.
-		Auth: authhandler.New(nil, logging.Discard(), []string{"https://localhost"}),
-	}
-	if internal {
-		m.System = systemhandler.NewInternal(sys)
+		Auth:  authhandler.New(nil, logging.Discard(), []string{"https://localhost"}),
+		Users: usershandler.New(nil, logging.Discard()),
 	}
 	return httpserver.NewRouter(logging.Discard(), nil, nil, api.Mount(m, internal))
 }

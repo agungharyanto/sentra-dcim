@@ -7,33 +7,31 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/agungharyanto/sentra-dcim/internal/platform/httpserver"
+	"github.com/agungharyanto/sentra-dcim/internal/platform/principal"
+	"github.com/agungharyanto/sentra-dcim/internal/platform/rbac"
 	"github.com/agungharyanto/sentra-dcim/internal/system/service"
 )
 
 // Handler serves /api/v1/health, /api/v1/ready and /api/v1/version.
 type Handler struct {
-	svc      *service.Service
-	internal bool
+	svc *service.Service
 }
 
-// New creates a Handler for the public listener: /version returns only {"version"}.
+// New creates a Handler. /version returns only {"version"} unless the caller is signed in with the permission
+// system.version.read (Admin, D-054/D-059) — on both listeners; mount it behind an Identify middleware.
 func New(svc *service.Service) *Handler { return &Handler{svc: svc} }
 
-// NewInternal creates a Handler for the internal (loopback-only) listener: /version includes commit, build date,
-// Go version and server clock. Until Auth (v0.3) this listener is the access boundary; from v0.3 the details
-// additionally require the Admin role.
-func NewInternal(svc *service.Service) *Handler { return &Handler{svc: svc, internal: true} }
-
-// Routes registers all system endpoints on r (mounted at /api/v1).
+// Routes registers all system endpoints on r (mounted at /api/v1) without caller identification (tests).
 func (h *Handler) Routes(r chi.Router) {
-	h.PublicRoutes(r)
+	h.PublicRoutes(r, func(next http.Handler) http.Handler { return next })
 	h.OpsRoutes(r)
 }
 
-// PublicRoutes registers the endpoints that never require a session: /health and /version.
-func (h *Handler) PublicRoutes(r chi.Router) {
+// PublicRoutes registers the endpoints that never require a session: /health and /version. identify optionally
+// resolves the session so /version can return details to callers allowed to see them.
+func (h *Handler) PublicRoutes(r chi.Router, identify func(http.Handler) http.Handler) {
 	r.Get("/health", h.health)
-	r.Get("/version", h.version)
+	r.With(identify).Get("/version", h.version)
 }
 
 // OpsRoutes registers /ready (dependency status): unauthenticated on the internal listener only.
@@ -55,9 +53,9 @@ func (h *Handler) ready(w http.ResponseWriter, r *http.Request) {
 	httpserver.JSON(w, code, rep)
 }
 
-func (h *Handler) version(w http.ResponseWriter, _ *http.Request) {
+func (h *Handler) version(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	if h.internal {
+	if p, ok := principal.From(r.Context()); ok && p.Can(rbac.SystemVersionRead) {
 		httpserver.JSON(w, http.StatusOK, h.svc.Version())
 		return
 	}

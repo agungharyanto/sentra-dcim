@@ -41,6 +41,14 @@ type OpsRun struct {
 	CreatedAt  pgtype.Timestamptz
 }
 
+// Roles (v0.3.2). Permissions of system roles are defined in code (internal/platform/rbac).
+type Role struct {
+	ID        uuid.UUID
+	Key       string
+	System    bool
+	CreatedAt pgtype.Timestamptz
+}
+
 type SchemaMigration struct {
 	Version int64
 	Dirty   bool
@@ -82,4 +90,12 @@ type User struct {
 	LastLoginAt        pgtype.Timestamptz
 	CreatedAt          pgtype.Timestamptz
 	UpdatedAt          pgtype.Timestamptz
+}
+
+// Role assignments (v0.3.2). A user has the union of the permissions of its roles.
+type UserRole struct {
+	UserID    uuid.UUID
+	RoleID    uuid.UUID
+	GrantedAt pgtype.Timestamptz
+	GrantedBy pgtype.UUID
 }

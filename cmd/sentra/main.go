@@ -49,6 +49,8 @@ import (
 	systemservice "github.com/agungharyanto/sentra-dcim/internal/system/service"
 	uihandler "github.com/agungharyanto/sentra-dcim/internal/ui/handler"
 	uiservice "github.com/agungharyanto/sentra-dcim/internal/ui/service"
+	usershandler "github.com/agungharyanto/sentra-dcim/internal/users/handler"
+	usersservice "github.com/agungharyanto/sentra-dcim/internal/users/service"
 )
 
 func main() {
@@ -135,16 +137,13 @@ func serve() error {
 	go rl.Janitor(ctx)
 
 	// Public listener (behind Caddy's public site) and internal listener (Caddy 127.0.0.1 only) share all
-	// dependencies; they differ in how much operational detail they return and in the unauthenticated allowlist
-	// (internal adds /ready for ops scripts). Everything else requires a session (internal/api, default-deny).
-	modules := func(sys *systemhandler.Handler) api.Modules {
-		return api.Modules{System: sys, UI: uihandler.New(ui), Help: help, Auth: authH}
-	}
+	// modules; they differ only in the unauthenticated allowlist (internal adds /ready for ops scripts). Everything
+	// else requires a session and, per route, a permission (internal/api, default-deny; D-053, D-054).
+	users := usershandler.New(usersservice.New(pool, rec, log, cfg.Auth), log)
+	mods := api.Modules{System: systemhandler.New(sys), UI: uihandler.New(ui), Help: help, Auth: authH, Users: users}
 	servers := []*http.Server{
-		httpserver.NewServer(cfg.HTTPAddr,
-			httpserver.NewRouter(log, rl, cfg.TrustedProxies, api.Mount(modules(systemhandler.New(sys)), false)), log),
-		httpserver.NewServer(cfg.InternalHTTPAddr,
-			httpserver.NewRouter(log, rl, cfg.TrustedProxies, api.Mount(modules(systemhandler.NewInternal(sys)), true)), log),
+		httpserver.NewServer(cfg.HTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, api.Mount(mods, false)), log),
+		httpserver.NewServer(cfg.InternalHTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, api.Mount(mods, true)), log),
 	}
 
 	errCh := make(chan error, len(servers))

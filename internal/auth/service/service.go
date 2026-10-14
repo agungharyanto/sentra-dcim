@@ -26,6 +26,7 @@ import (
 	"github.com/agungharyanto/sentra-dcim/internal/auth/repo"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/config"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/principal"
+	"github.com/agungharyanto/sentra-dcim/internal/platform/rbac"
 )
 
 // Errors returned to handlers. Login failures are deliberately indistinguishable (ErrInvalidCredentials).
@@ -38,6 +39,7 @@ var (
 	ErrNotFound           = errors.New("not found")
 	ErrInvalidUsername    = errors.New("username must be 3–64 characters: letters, digits, . _ -")
 	ErrUsernameTaken      = errors.New("username already exists")
+	ErrRolesMissing       = errors.New("roles are not seeded (run the migrations)")
 )
 
 // Audit actions.
@@ -49,6 +51,7 @@ const (
 	ActionPasswordChange = "auth.password.change"
 	ActionSessionRevoke  = "auth.session.revoke"
 	ActionCreateAdmin    = "user.create_admin"
+	ActionAuthzDenied    = "authz.denied"
 )
 
 // Limiter is a fixed-window counter (Redis in production).
@@ -95,6 +98,8 @@ type User struct {
 	Username           string    `json:"username"`
 	DisplayName        string    `json:"display_name"`
 	MustChangePassword bool      `json:"must_change_password"`
+	Roles              []string  `json:"roles"`
+	Permissions        []string  `json:"permissions"`
 }
 
 // SessionInfo is the public view of a session.
@@ -268,12 +273,17 @@ func (s *Service) newSession(ctx context.Context, u repo.User, meta audit.Meta) 
 	if err != nil {
 		return LoginResult{}, fmt.Errorf("create session: %w", err)
 	}
-	user := User{ID: u.ID, Username: u.Username, DisplayName: u.DisplayName, MustChangePassword: u.MustChangePassword}
+	roles, err := s.q.GetUserRoleKeys(ctx, u.ID)
+	if err != nil {
+		return LoginResult{}, fmt.Errorf("get roles: %w", err)
+	}
+	p := newPrincipal(u.ID, u.Username, sess.ID, roles)
+	user := newUser(u.ID, u.Username, u.DisplayName, u.MustChangePassword, p)
 	return LoginResult{
 		Token: token,
 		CSRF:  randomString(32),
 		Session: Session{
-			Principal:          principal.Principal{Type: principal.TypeUser, ID: u.ID, Username: u.Username, SessionID: sess.ID},
+			Principal:          p,
 			User:               user,
 			Info:               toInfo(sess.ID, sess.CreatedAt, sess.LastSeenAt, sess.ExpiresAt, sess.IdleExpiresAt, sess.Ip, sess.UserAgent, true),
 			MustChangePassword: u.MustChangePassword,
@@ -307,9 +317,10 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 			s.log.WarnContext(ctx, "touch session failed", "error", err)
 		}
 	}
+	p := newPrincipal(row.UserID, row.Username, row.SessionID, row.Roles)
 	return Session{
-		Principal: principal.Principal{Type: principal.TypeUser, ID: row.UserID, Username: row.Username, SessionID: row.SessionID},
-		User:      User{ID: row.UserID, Username: row.Username, DisplayName: row.DisplayName, MustChangePassword: row.MustChangePassword},
+		Principal: p,
+		User:      newUser(row.UserID, row.Username, row.DisplayName, row.MustChangePassword, p),
 		Info: SessionInfo{ID: row.SessionID, CreatedAt: row.SessionCreatedAt.Time, LastSeenAt: now, ExpiresAt: row.ExpiresAt.Time,
 			IdleExpiresAt: idle, Current: true},
 		MustChangePassword: row.MustChangePassword,
@@ -393,8 +404,8 @@ func (s *Service) RevokeSession(ctx context.Context, sess Session, id uuid.UUID,
 	return nil
 }
 
-// CreateAdmin creates the first/emergency administrator (CLI only). The password must be changed at first login.
-// Roles arrive in v0.3.2; accounts created here receive the Admin role then.
+// CreateAdmin creates the first/emergency administrator (CLI only) with the Admin role, in one statement. The
+// password must be changed at first login.
 func (s *Service) CreateAdmin(ctx context.Context, username, displayName, pw string) (User, error) {
 	username = strings.TrimSpace(username)
 	if !usernameRE.MatchString(username) {
@@ -410,7 +421,7 @@ func (s *Service) CreateAdmin(ctx context.Context, username, displayName, pw str
 	if err != nil {
 		return User{}, err
 	}
-	u, err := s.q.CreateUser(ctx, repo.CreateUserParams{Username: username, DisplayName: displayName, PasswordHash: h, MustChangePassword: true})
+	u, err := s.q.CreateAdminUser(ctx, repo.CreateAdminUserParams{Username: username, DisplayName: displayName, PasswordHash: h})
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		_ = s.audit.Record(ctx, audit.Event{Action: ActionCreateAdmin, Result: audit.ResultFailure, ActorType: audit.ActorSystem,
@@ -420,9 +431,15 @@ func (s *Service) CreateAdmin(ctx context.Context, username, displayName, pw str
 	if err != nil {
 		return User{}, fmt.Errorf("create user: %w", err)
 	}
+	if u.RolesGranted != 1 {
+		// The INSERT … SELECT found no admin role: the statement is one transaction, but the account exists.
+		return User{}, ErrRolesMissing
+	}
 	_ = s.audit.Record(ctx, audit.Event{Action: ActionCreateAdmin, Result: audit.ResultSuccess, ActorType: audit.ActorSystem,
-		ActorUsername: "cli", TargetType: "user", TargetID: u.ID.String(), Metadata: map[string]any{"username": u.Username}})
-	return User{ID: u.ID, Username: u.Username, DisplayName: u.DisplayName, MustChangePassword: u.MustChangePassword}, nil
+		ActorUsername: "cli", TargetType: "user", TargetID: u.ID.String(),
+		Metadata: map[string]any{"username": u.Username, "roles": []string{rbac.RoleAdmin}}})
+	p := newPrincipal(u.ID, u.Username, uuid.Nil, []string{rbac.RoleAdmin})
+	return newUser(u.ID, u.Username, u.DisplayName, u.MustChangePassword, p), nil
 }
 
 // CleanupStale deletes sessions that expired, went idle or were revoked more than a day ago.
@@ -434,6 +451,25 @@ func (s *Service) revokeToken(ctx context.Context, token string) {
 	if sess, err := s.Authenticate(ctx, token); err == nil {
 		_, _ = s.q.RevokeSession(ctx, repo.RevokeSessionParams{ID: sess.Info.ID, UserID: sess.User.ID})
 	}
+}
+
+// RecordDenied audits a request refused for a missing permission.
+func (s *Service) RecordDenied(ctx context.Context, perm rbac.Permission, route string, meta audit.Meta) {
+	_ = s.audit.Record(ctx, audit.Event{Action: ActionAuthzDenied, Result: audit.ResultDenied, TargetType: "route",
+		TargetID: route, Meta: meta, Metadata: map[string]any{"permission": string(perm)}})
+}
+
+func newPrincipal(id uuid.UUID, username string, sessionID uuid.UUID, roles []string) principal.Principal {
+	if roles == nil {
+		roles = []string{}
+	}
+	return principal.Principal{Type: principal.TypeUser, ID: id, Username: username, SessionID: sessionID,
+		Roles: roles, Permissions: rbac.Resolve(roles)}
+}
+
+func newUser(id uuid.UUID, username, displayName string, mustChange bool, p principal.Principal) User {
+	return User{ID: id, Username: username, DisplayName: displayName, MustChangePassword: mustChange,
+		Roles: p.Roles, Permissions: rbac.Strings(p.Permissions)}
 }
 
 func toInfo(id uuid.UUID, created, seen, exp, idle pgtype.Timestamptz, ip *netip.Addr, ua string, current bool) SessionInfo {

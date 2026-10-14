@@ -24,6 +24,71 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const createAdminUser = `-- name: CreateAdminUser :one
+WITH u AS (
+    INSERT INTO users (username, display_name, email, password_hash, must_change_password)
+    VALUES ($1, $2, $3, $4, true)
+    RETURNING id, username, display_name, email, password_hash, status, must_change_password, failed_attempts, locked_until, password_changed_at, last_login_at, created_at, updated_at
+), granted AS (
+    INSERT INTO user_roles (user_id, role_id)
+    SELECT u.id, r.id FROM u CROSS JOIN roles r WHERE r.key = 'admin'
+    RETURNING role_id
+)
+SELECT u.id, u.username, u.display_name, u.email, u.password_hash, u.status, u.must_change_password, u.failed_attempts, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, (SELECT count(*) FROM granted)::int AS roles_granted FROM u
+`
+
+type CreateAdminUserParams struct {
+	Username     string
+	DisplayName  string
+	Email        pgtype.Text
+	PasswordHash string
+}
+
+type CreateAdminUserRow struct {
+	ID                 uuid.UUID
+	Username           string
+	DisplayName        string
+	Email              pgtype.Text
+	PasswordHash       string
+	Status             string
+	MustChangePassword bool
+	FailedAttempts     int32
+	LockedUntil        pgtype.Timestamptz
+	PasswordChangedAt  pgtype.Timestamptz
+	LastLoginAt        pgtype.Timestamptz
+	CreatedAt          pgtype.Timestamptz
+	UpdatedAt          pgtype.Timestamptz
+	RolesGranted       int32
+}
+
+// CreateAdminUser creates an account with the Admin role in one statement (CLI create-admin; atomic).
+func (q *Queries) CreateAdminUser(ctx context.Context, arg CreateAdminUserParams) (CreateAdminUserRow, error) {
+	row := q.db.QueryRow(ctx, createAdminUser,
+		arg.Username,
+		arg.DisplayName,
+		arg.Email,
+		arg.PasswordHash,
+	)
+	var i CreateAdminUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.DisplayName,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Status,
+		&i.MustChangePassword,
+		&i.FailedAttempts,
+		&i.LockedUntil,
+		&i.PasswordChangedAt,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.RolesGranted,
+	)
+	return i, err
+}
+
 const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (token_hash, user_id, expires_at, idle_expires_at, ip, user_agent)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -64,47 +129,6 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 	return i, err
 }
 
-const createUser = `-- name: CreateUser :one
-INSERT INTO users (username, display_name, email, password_hash, must_change_password)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, username, display_name, email, password_hash, status, must_change_password, failed_attempts, locked_until, password_changed_at, last_login_at, created_at, updated_at
-`
-
-type CreateUserParams struct {
-	Username           string
-	DisplayName        string
-	Email              pgtype.Text
-	PasswordHash       string
-	MustChangePassword bool
-}
-
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, createUser,
-		arg.Username,
-		arg.DisplayName,
-		arg.Email,
-		arg.PasswordHash,
-		arg.MustChangePassword,
-	)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Username,
-		&i.DisplayName,
-		&i.Email,
-		&i.PasswordHash,
-		&i.Status,
-		&i.MustChangePassword,
-		&i.FailedAttempts,
-		&i.LockedUntil,
-		&i.PasswordChangedAt,
-		&i.LastLoginAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const deleteStaleSessions = `-- name: DeleteStaleSessions :execrows
 DELETE FROM sessions
 WHERE expires_at < $1 OR idle_expires_at < $1 OR revoked_at < $1
@@ -120,7 +144,9 @@ func (q *Queries) DeleteStaleSessions(ctx context.Context, cutoff pgtype.Timesta
 
 const getActiveSession = `-- name: GetActiveSession :one
 SELECT s.id AS session_id, s.user_id, s.created_at AS session_created_at, s.last_seen_at, s.expires_at, s.idle_expires_at,
-       u.username, u.display_name, u.status, u.must_change_password
+       u.username, u.display_name, u.status, u.must_change_password,
+       ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+             WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles
 FROM sessions s
 JOIN users u ON u.id = s.user_id
 WHERE s.token_hash = $1
@@ -141,6 +167,7 @@ type GetActiveSessionRow struct {
 	DisplayName        string
 	Status             string
 	MustChangePassword bool
+	Roles              []string
 }
 
 func (q *Queries) GetActiveSession(ctx context.Context, tokenHash []byte) (GetActiveSessionRow, error) {
@@ -157,6 +184,7 @@ func (q *Queries) GetActiveSession(ctx context.Context, tokenHash []byte) (GetAc
 		&i.DisplayName,
 		&i.Status,
 		&i.MustChangePassword,
+		&i.Roles,
 	)
 	return i, err
 }
@@ -209,6 +237,30 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getUserRoleKeys = `-- name: GetUserRoleKeys :many
+SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = $1 ORDER BY r.key
+`
+
+func (q *Queries) GetUserRoleKeys(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, getUserRoleKeys, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+		items = append(items, key)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listActiveSessions = `-- name: ListActiveSessions :many
