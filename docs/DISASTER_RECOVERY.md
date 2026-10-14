@@ -264,7 +264,16 @@ Semua akun wajib MFA (D-062). Pemulihan, dari yang paling ringan:
    ```
    MFA & recovery code akun dihapus, semua sesinya dicabut; saat masuk berikutnya akun memasang MFA lagi. Tercatat di
    `audit_events` (`user.mfa.reset`, aktor `system/cli`). Lakukan hanya setelah identitas pemilik akun dipastikan.
-4. **`MFA_ENC_KEY` hilang/rusak** (mis. `.env` hilang tanpa backup): secret TOTP tidak bisa dibuka lagi → semua
+4. **Akun terkunci** (5× kata sandi/kode MFA salah): terbuka sendiri setelah 15 menit (`AUTH_LOCK_DURATION`), tercatat
+   `auth.lockout` di `audit_events`. Lockout tidak bisa membuat akun terkunci selamanya: tiap lockout selalu berakhir,
+   rate limit per IP/akun membatasi pemicunya, dan (setelah basic_auth dicabut) jail fail2ban login aplikasi mem-ban IP
+   penyerang. Bila Admin harus masuk sebelum 15 menit, buka darurat dari server:
+   ```bash
+   sudo -u sentra docker compose exec app /sentra user unlock --username <nama-atau-NIP>
+   ```
+   Tercatat `user.unlock` (aktor `system/cli`). Bila penguncian berulang, cek `audit_events` (`auth.login.failure`,
+   `auth.mfa.verify` gagal) untuk IP sumber.
+5. **`MFA_ENC_KEY` hilang/rusak** (mis. `.env` hilang tanpa backup): secret TOTP tidak bisa dibuka lagi → semua
    login gagal di langkah MFA. Pulihkan `.env` dari backup bila ada (`MFA_ENC_KEY` ikut di `.env`, ditambah ke cadangan
    offline bersama kata sandi DB). Bila tidak ada: buat key baru (`openssl rand -base64 32` → `MFA_ENC_KEY` di `.env`,
    diisi pemilik), `make up`, lalu reset MFA **semua** akun via CLI (`reset-mfa` per pengguna); semua pengguna

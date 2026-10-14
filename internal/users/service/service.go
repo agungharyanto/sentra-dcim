@@ -60,6 +60,7 @@ const (
 	ActionEnable        = "user.enable"
 	ActionPasswordReset = "user.password.reset"
 	ActionMFAReset      = "user.mfa.reset"
+	ActionUnlock        = "user.unlock"
 )
 
 // Limits.
@@ -452,6 +453,20 @@ func (s *Service) ResetMFA(ctx context.Context, id uuid.UUID, meta audit.Meta) e
 		return err
 	}
 	s.record(ctx, ActionMFAReset, audit.ResultSuccess, id.String(), meta, map[string]any{"sessions_revoked": revoked})
+	return nil
+}
+
+// Unlock clears a lockout (wrong passwords/MFA codes) before it expires by itself (CLI emergency path; a lockout
+// otherwise always ends after AUTH_LOCK_DURATION).
+func (s *Service) Unlock(ctx context.Context, id uuid.UUID, meta audit.Meta) error {
+	n, err := s.q.UnlockUser(ctx, id)
+	if err != nil {
+		return fmt.Errorf("unlock: %w", err)
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	s.record(ctx, ActionUnlock, audit.ResultSuccess, id.String(), meta, nil)
 	return nil
 }
 

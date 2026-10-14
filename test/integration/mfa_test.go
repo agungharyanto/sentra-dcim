@@ -270,3 +270,27 @@ func TestCLIResetMFA(t *testing.T) {
 		t.Fatalf("audit actor = %q", actor)
 	}
 }
+
+// TestCLIUnlock: a lockout ends early with the emergency command (otherwise after AUTH_LOCK_DURATION) and is audited.
+func TestCLIUnlock(t *testing.T) {
+	e := newAuthEnv(t, nil)
+	e.createUser("locked.admin", true)
+	c := e.client()
+	for range 5 {
+		c.loginPassword("locked.admin", "wrong-password-x")
+	}
+	want(t, "locked", c.loginPassword("locked.admin", pwInitial), http.StatusUnauthorized, "invalid_credentials")
+	bin := filepath.Join(t.TempDir(), "sentra")
+	if out, err := exec.Command("go", "build", "-o", bin, "../../cmd/sentra").CombinedOutput(); err != nil {
+		t.Fatalf("build: %v\n%s", err, out)
+	}
+	cmd := exec.Command(bin, "user", "unlock", "--username", "locked.admin")
+	cmd.Env = append(os.Environ(), cliEnv(t, e.dsn)...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("unlock: %v\n%s", err, out)
+	}
+	want(t, "after unlock", e.client().loginPassword("locked.admin", pwInitial), http.StatusOK, "")
+	if countAudit(t, e, "user.unlock") != 1 || countAudit(t, e, "auth.lockout") != 1 {
+		t.Fatal("unlock/lockout audit events")
+	}
+}

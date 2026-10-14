@@ -23,7 +23,7 @@ sempit untuk setiap pengguna (*least privilege*).
 
 | Role | Untuk siapa | Izin saat ini |
 |---|---|---|
-| Admin | Pengelola aplikasi | Semua izin: `users.read`, `users.manage`, `roles.read`, `system.version.read` |
+| Admin | Pengelola aplikasi | Semua izin: `users.read`, `users.manage`, `roles.read`, `system.version.read`, `ui.design_system` |
 | NOC | Operator pemantauan 24/7 | — (bertambah saat modul monitoring & alarm hadir) |
 | Security | Petugas keamanan & akses fisik | — (bertambah saat modul akses & pengunjung hadir) |
 | Teknisi | Teknisi fasilitas & perangkat | — (bertambah saat modul aset & pemeliharaan hadir) |
@@ -40,6 +40,7 @@ Daftar terkini selalu tampil di tab **Role** pada menu Pengguna & Role, beserta 
 | `users.manage` | Membuat, mengubah, menetapkan role, menonaktifkan/mengaktifkan, dan reset kata sandi pengguna |
 | `roles.read` | Melihat daftar role dan izinnya |
 | `system.version.read` | Melihat detail build aplikasi (commit, versi Go, jam server) |
+| `ui.design_system` | Membuka halaman showcase komponen tampilan (untuk pengembang) |
 
 ## Endpoint API terkait
 

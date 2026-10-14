@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/term"
 
 	auditrepo "github.com/agungharyanto/sentra-dcim/internal/audit/repo"
@@ -25,7 +26,8 @@ import (
 )
 
 const userUsage = "usage: sentra user create-admin --username <name> [--display-name <name>]\n" +
-	"       sentra user reset-mfa --username <name>"
+	"       sentra user reset-mfa --username <name>\n" +
+	"       sentra user unlock --username <name>"
 
 // runUser implements `sentra user <subcommand>`.
 func runUser(args []string) error {
@@ -36,15 +38,21 @@ func runUser(args []string) error {
 	case "create-admin":
 		return runCreateAdmin(args)
 	case "reset-mfa":
-		return runResetMFA(args)
+		return runUsersCommand(args, "reset-mfa", func(ctx context.Context, svc *usersservice.Service, id uuid.UUID) (string, error) {
+			return "MFA reset; all sessions revoked. The user sets up MFA again at the next sign-in.", svc.ResetMFA(ctx, id, auditservice.Meta{})
+		})
+	case "unlock":
+		return runUsersCommand(args, "unlock", func(ctx context.Context, svc *usersservice.Service, id uuid.UUID) (string, error) {
+			return "lockout cleared; the user can sign in again.", svc.Unlock(ctx, id, auditservice.Meta{})
+		})
 	}
 	return errors.New(userUsage)
 }
 
-// runResetMFA is the emergency path when a user (also the last Admin) lost the authenticator and the recovery
-// codes: MFA and recovery codes are removed, all sessions revoked; the next sign-in enrols again (D-064).
-func runResetMFA(args []string) error {
-	fs := flag.NewFlagSet("user reset-mfa", flag.ContinueOnError)
+// runUsersCommand runs an emergency account command by username (reset-mfa: lost authenticator and recovery codes,
+// also for the last Admin; unlock: clear a lockout early). Both are audited with actor system/cli (D-064).
+func runUsersCommand(args []string, name string, do func(context.Context, *usersservice.Service, uuid.UUID) (string, error)) error {
+	fs := flag.NewFlagSet("user "+name, flag.ContinueOnError)
 	username := fs.String("username", "", "login name of the account")
 	if err := fs.Parse(args[1:]); err != nil {
 		return err
@@ -69,10 +77,11 @@ func runResetMFA(args []string) error {
 	if err != nil {
 		return fmt.Errorf("user %q: %w", *username, err)
 	}
-	if err := svc.ResetMFA(ctx, id, auditservice.Meta{}); err != nil {
+	msg, err := do(ctx, svc, id)
+	if err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintf(os.Stdout, "MFA of %q reset; all sessions revoked. The user sets up MFA again at the next sign-in.\n", *username)
+	_, _ = fmt.Fprintf(os.Stdout, "%s: %s\n", *username, msg)
 	return nil
 }
 

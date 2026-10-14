@@ -28,6 +28,7 @@ type Querier interface {
 	ResetPassword(ctx context.Context, arg ResetPasswordParams) (int64, error)
 	RevokeUserSessions(ctx context.Context, userID uuid.UUID) (int64, error)
 	SetUserStatus(ctx context.Context, arg SetUserStatusParams) (int64, error)
+	UnlockUser(ctx context.Context, id uuid.UUID) (int64, error)
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (int64, error)
 }
 

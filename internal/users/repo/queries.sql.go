@@ -358,6 +358,18 @@ func (q *Queries) SetUserStatus(ctx context.Context, arg SetUserStatusParams) (i
 	return result.RowsAffected(), nil
 }
 
+const unlockUser = `-- name: UnlockUser :execrows
+UPDATE users SET failed_attempts = 0, locked_until = NULL, updated_at = now() WHERE id = $1
+`
+
+func (q *Queries) UnlockUser(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, unlockUser, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateUserProfile = `-- name: UpdateUserProfile :execrows
 UPDATE users SET display_name = $1, email = $2, updated_at = now() WHERE id = $3
 `

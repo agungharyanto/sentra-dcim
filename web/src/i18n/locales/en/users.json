@@ -57,7 +57,8 @@
     "users_read": "View users",
     "users_manage": "Manage users",
     "roles_read": "View roles",
-    "system_version_read": "View build details"
+    "system_version_read": "View build details",
+    "ui_design_system": "Open the design system showcase"
   },
   "rolesTab": {
     "description": "A role is a set of permissions. Users get the union of the permissions of all their roles. Every signed-in user can use the Dashboard, the Help Center and their own account.",

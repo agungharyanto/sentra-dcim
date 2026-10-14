@@ -78,3 +78,6 @@ DELETE FROM mfa_recovery_codes WHERE user_id = @user_id;
 
 -- name: GetUserIDByUsername :one
 SELECT id FROM users WHERE username = @username;
+
+-- name: UnlockUser :execrows
+UPDATE users SET failed_attempts = 0, locked_until = NULL, updated_at = now() WHERE id = @id;

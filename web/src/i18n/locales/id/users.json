@@ -57,7 +57,8 @@
     "users_read": "Melihat pengguna",
     "users_manage": "Mengelola pengguna",
     "roles_read": "Melihat role",
-    "system_version_read": "Melihat detail build"
+    "system_version_read": "Melihat detail build",
+    "ui_design_system": "Membuka showcase design system"
   },
   "rolesTab": {
     "description": "Role adalah kumpulan izin. Pengguna mendapat gabungan izin semua role-nya. Semua pengguna yang masuk dapat memakai Dasbor, Pusat Bantuan, dan akun sendiri.",

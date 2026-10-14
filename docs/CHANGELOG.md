@@ -22,6 +22,9 @@ Keputusan: D-061..D-067 (urutan v0.3.3/v0.3.4 ditukar; MFA wajib untuk semua rol
 - UI: halaman verifikasi dua langkah (enrolment/verifikasi, recovery code), **Keamanan akun** (status, buat ulang
   recovery code), penanda *MFA belum aktif* dan tombol *Reset MFA* di Pengguna & Role. Pusat Bantuan *Verifikasi dua
   langkah* bergambar (ID/EN); Pusat Bantuan kini mendukung gambar dari `docs/help/assets/` (tervalidasi).
+- `/design-system` hanya untuk Admin (izin `ui.design_system`, ISS-029 dimajukan dari v0.3.4).
+- CLI darurat `sentra user unlock --username X` (membuka lockout sebelum 15 menit, diaudit `user.unlock`).
+- Build web gagal bila ada source map (`*.map` / `sourceMappingURL`) di `dist`.
 - Migrasi `000005_mfa` (`user_mfa`, `mfa_recovery_codes`, `sessions.mfa_verified_at`; sesi lama menjadi pending).
 
 ### Diubah

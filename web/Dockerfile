@@ -16,7 +16,8 @@ RUN pnpm supply:check && pnpm lint && pnpm typecheck && pnpm i18n:check && pnpm 
 
 # Built from `check`, so nothing ships unless lint, types, catalogs and tests pass.
 FROM check AS build
-RUN pnpm build
+# No source maps in production (they would publish the readable source): fail the build if any appear.
+RUN pnpm build && ! find dist -name '*.map' | grep . && ! grep -rl 'sourceMappingURL' dist
 
 FROM scratch AS dist
 COPY --from=build /web/dist /dist

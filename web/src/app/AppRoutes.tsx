@@ -8,7 +8,7 @@ import { SecurityPage } from "@/features/auth/SecurityPage";
 import { SessionsPage } from "@/features/auth/SessionsPage";
 import { useBootstrap } from "@/features/bootstrap/regional";
 
-import { NotFoundPage } from "./pages/StatusPages";
+import { ForbiddenPage, NotFoundPage } from "./pages/StatusPages";
 import { buildRoutes } from "./routes";
 import { AppShell } from "./shell/AppShell";
 
@@ -31,12 +31,19 @@ export function AppRoutes() {
   const perms = usePermissions();
   return (
     <Routes>
+      {/* Developer showcase: Admin only (ISS-029); others get Access denied without loading the chunk. */}
       <Route
         path="/design-system"
         element={
-          <Suspense fallback={<PageFallback />}>
-            <DesignSystemPage />
-          </Suspense>
+          perms.has("ui.design_system") ? (
+            <Suspense fallback={<PageFallback />}>
+              <DesignSystemPage />
+            </Suspense>
+          ) : (
+            <main className="p-8">
+              <ForbiddenPage />
+            </main>
+          )
         }
       />
       <Route element={<AppShell />}>

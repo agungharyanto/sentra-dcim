@@ -95,6 +95,13 @@ describe("app shell", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(shell.sidebar.users);
   });
 
+  it("design system showcase is Admin only (ISS-029)", async () => {
+    mockApi({ "/api/v1/ui/bootstrap": testBootstrap(), "/api/v1/auth/me": testMe({ roles: ["auditor"], permissions: ["roles.read", "users.read"] }) });
+    window.history.pushState({}, "", "/design-system");
+    render(<App queryClient={createQueryClient()} />);
+    expect(await screen.findByTestId("forbidden")).toHaveTextContent(shell.pages.forbidden.title);
+  });
+
   it("shows NotConnected for not_connected menus", async () => {
     const boot = testBootstrap();
     boot.menus = boot.menus.map((m) => (m.key === "power" ? { ...m, status: "not_connected" } : m));
