@@ -6,6 +6,7 @@ Format: ID, judul, prioritas (P1 kritis – P4 rendah), versi ditemukan, versi d
 
 | ID | Judul | Prioritas | Ditemukan | Diperbaiki | Catatan |
 |---|---|---|---|---|---|
+| ISS-043 | Filter waktu Audit Log memakai `<input type="datetime-local">` bawaan browser: format tampilannya mengikuti bahasa browser (mis. `mm/dd/yyyy` di Chromium en-US), bukan bahasa UI/format regional; nilainya tetap ditafsirkan WIB dan dikirim UTC (benar) | P4 | v0.3.4 | — (target v0.3.5) | Ditemukan saat pemeriksaan visual screenshot CI v0.3.4. Kosmetik. Diselesaikan bersama Settings – Regional v0.3.5 (pemilih tanggal/jam sesuai format regional) |
 | ISS-036 | Kernel lama `6.17.0-1020-oracle` sengaja dipertahankan sebagai target rollback setelah naik ke `7.0.0-1013-oracle` (`apt-mark manual` + `APT::NeverAutoRemove`, `/etc/apt/apt.conf.d/99sentra-keep-kernel-6.17`), padahal hardening menyetel `Remove-Unused-Kernel-Packages "true"` | P3 | v0.2.9 | — (putuskan di penutup v0.3) | Keputusan pemilik: pertahankan sampai akhir sprint v0.3. Di penutup v0.3: bila 7.0 stabil, hapus file apt tsb + `apt-mark auto` paket 6.17 lalu biarkan autoremove; bila tidak, pin default (runbook `kernel-rollback.md`) |
 
 ## Solved

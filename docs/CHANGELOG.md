@@ -3,7 +3,7 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
-## [Unreleased] — v0.3.4 Audit Log
+## [v0.3.4] - 2026-10-14 — Audit Log
 
 ### Ditambahkan
 - **Tampilkan/sembunyikan kata sandi** (D-071): tombol ikon mata di kolom kata sandi login dan form ganti kata

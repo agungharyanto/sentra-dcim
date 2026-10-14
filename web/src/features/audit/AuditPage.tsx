@@ -353,7 +353,7 @@ function EventList({ filter, onSelect }: { filter: AuditFilter; onSelect: (e: Au
           </li>
         ))}
       </ul>
-      <div className="flex items-center justify-between gap-2 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <span className="text-muted-foreground" data-testid="audit-shown">
           {t("table.shown", { count: rows.length })}
         </span>
