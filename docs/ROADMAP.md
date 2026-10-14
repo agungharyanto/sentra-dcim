@@ -20,7 +20,7 @@ Sprint = 1 minggu.
 | v0.9 | Visitor & Movement | Visitor pass, goods movement, cross-connect | Rencana |
 | v0.10 | Maintenance & SLA | Maintenance, work order, SLA | Rencana |
 | v0.11 | Analytics | Analitik, deteksi anomali, rekomendasi, ekspor laporan | Rencana |
-| v0.12 | Hardening | Hardening, pentest, load test, optimasi query, uji restore; **WireGuard + allowlist SSH** (dipindah dari v0.3.6, D-078) | Rencana |
+| v0.12 | Hardening | Hardening, pentest, load test, optimasi query, uji restore; **WireGuard + allowlist SSH** (dipindah dari v0.3.6, D-078); tinjau ulang token `gh` untuk GitHub Release (D-081) | Rencana |
 | v1.0 | Produksi | UAT, deployment produksi, training, as-built docs | Rencana |
 | v1.1+ | Integrasi Perangkat Nyata | Integrasi Modbus, SNMP, controller pintu RFID/Fingerprint/Face nyata (menggantikan simulator) | Rencana |
 

@@ -23,6 +23,7 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
 - `scripts/post-reboot-check.sh`: memastikan kernel 6.17 **sudah tidak** terpasang (sebelumnya mengharapkan masih ada).
 - Dokumen: ROADMAP (v0.3 selesai, v0.3.8 dikosongkan, v0.4 berikutnya), DISASTER_RECOVERY (ringkasan prosedur darurat
   auth, rollback kernel pasca-6.17), DEPENDENCIES (diaudit), runbook rollback kernel.
+- GitHub Release dibuat dari server dengan `gh` (D-081, runbook `github-release.md`), bukan lagi dari web.
 
 ### Diperbaiki
 - Ban test fail2ban (ISS-045): menunggu jail `sentra-web` (backend polling) benar-benar menghitung login gagal tester
