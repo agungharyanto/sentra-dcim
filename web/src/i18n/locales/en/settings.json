@@ -1,7 +1,8 @@
 {
   "nav": {
     "label": "Settings sections",
-    "regional": "Regional"
+    "regional": "Regional",
+    "allowedIp": "Allowed IP"
   },
   "regional": {
     "title": "Regional",
@@ -47,5 +48,56 @@
     "followSystem": "Follow system — {{value}}",
     "save": "Save preferences",
     "saved": "Preferences saved."
+  },
+  "allowlist": {
+    "description": "Restrict who may open the web panel by IP address or network. The IP is taken from the direct connection to the server; headers sent by the browser are not trusted. The SSH allowlist follows in v0.12.",
+    "yourIp": "Your current IP",
+    "unknownIp": "unknown",
+    "covered": "In the list",
+    "notCovered": "Not in the list",
+    "addMine": "Add my IP",
+    "myIpLabel": "Added from the Allowed IP page",
+    "modeTitle": "Mode",
+    "current": "(active)",
+    "saveMode": "Save mode",
+    "modeSaved": "Mode changed to {{mode}}.",
+    "mode": {
+      "off": "Off",
+      "monitor": "Monitor",
+      "enforce": "Enforce"
+    },
+    "modeHelp": {
+      "off": "Every IP may open the panel. Nothing is recorded.",
+      "monitor": "Every IP may, but access from IPs outside the list is recorded in the Audit Log. Use this first to check the list.",
+      "enforce": "Only IPs in the list may open the panel; others get \"Access denied\"."
+    },
+    "guard": "Your current IP is not in the list. Add it first so you do not lock yourself out.",
+    "enforceTitle": "Enforce Allowed IP?",
+    "enforceBody": "Only IPs in the list will be able to open the panel. Afterwards, press \"Keep\" within {{seconds}} seconds from a connection that is still working; otherwise the mode returns to Monitor automatically.",
+    "pending": "Enforce is waiting for confirmation: it returns to Monitor automatically in {{time}} unless you press Keep.",
+    "keep": "Keep",
+    "kept": "Enforce kept.",
+    "listTitle": "Allowed IPs ({{count}})",
+    "cidr": "IP or network (CIDR)",
+    "cidrPlaceholder": "e.g. 203.0.113.10 or 203.0.113.0/24",
+    "cidrHint": "IPv4 or IPv6. A single address is stored as /32 or /128. At most /8 (IPv4) or /16 (IPv6) wide.",
+    "label": "Label",
+    "labelPlaceholder": "e.g. NOC room, 2nd floor",
+    "add": "Add",
+    "added": "{{cidr}} added.",
+    "added_at": "Added",
+    "actions": "Actions",
+    "empty": "No IPs yet. Add at least your own IP before using Enforce.",
+    "editLabel": "Edit label of {{cidr}}",
+    "removeLabel": "Remove {{cidr}}",
+    "editTitle": "Edit label of {{cidr}}",
+    "editBody": "A label helps to recognise who owns this network.",
+    "saveLabel": "Save label",
+    "removeTitle": "Remove {{cidr}}?",
+    "removeBody": "This network will no longer be in the list.",
+    "removeBodyEnforce": "Enforce is active: users from this network lose access immediately. Removing the network that covers your own IP is refused.",
+    "removed": "{{cidr}} removed.",
+    "alwaysPublic": "Always open in every mode",
+    "alwaysPublicHelp": "For health monitoring and automatic HTTPS certificate renewal."
   }
 }

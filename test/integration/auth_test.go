@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/netip"
 	"net/url"
 	"os"
 	"os/exec"
@@ -23,6 +24,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	allowlisthandler "github.com/agungharyanto/sentra-dcim/internal/allowlist/handler"
+	allowlistservice "github.com/agungharyanto/sentra-dcim/internal/allowlist/service"
 	"github.com/agungharyanto/sentra-dcim/internal/api"
 	"github.com/agungharyanto/sentra-dcim/internal/audit/chain"
 	audithandler "github.com/agungharyanto/sentra-dcim/internal/audit/handler"
@@ -72,6 +75,10 @@ type authEnv struct {
 	appDSN string
 	// totp holds the MFA secret of each account enrolled through the API in this test (lower-case username).
 	totp map[string][]byte
+	// allow is the Allowed IP service (v0.3.6); internal is the loopback listener (Caddy's forward_auth target),
+	// with 127.0.0.1 as trusted proxy so X-Real-IP is honoured as from Caddy.
+	allow    *allowlistservice.Service
+	internal *httptest.Server
 }
 
 func testAuthConfig() config.Auth {
@@ -164,8 +171,16 @@ func newAuthEnv(t *testing.T, mod func(*config.Auth)) *authEnv {
 	mods.Audit = audithandler.New(auditrepo.New(appPool), rec, chain.NewMonitor(appPool, log, nil, time.Hour), set.LocationFor, log)
 	mods.Settings = settingshandler.New(set, log)
 	mods.Auth.WithRegional(set)
+	allow := allowlistservice.New(appPool, set, rec, log)
+	if err := allow.Reload(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	mods.Allowlist = allowlisthandler.New(allow, log)
 	srv.Config.Handler = httpserver.NewRouter(log, nil, nil, api.Mount(mods, false))
-	return &authEnv{t: t, srv: srv, pool: pool, svc: svc, usr: usr, dsn: dsn, appDSN: appDSN, totp: map[string][]byte{}}
+	internal := httptest.NewServer(httpserver.NewRouter(log, nil, []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32")}, api.Mount(mods, true)))
+	t.Cleanup(internal.Close)
+	return &authEnv{t: t, srv: srv, pool: pool, svc: svc, usr: usr, dsn: dsn, appDSN: appDSN, totp: map[string][]byte{},
+		allow: allow, internal: internal}
 }
 
 // createUser creates an account through the CLI code path; ready=true clears must_change_password.

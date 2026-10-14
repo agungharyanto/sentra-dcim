@@ -3,6 +3,35 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [Unreleased] — v0.3.6 Settings – Allowed IP
+
+### Ditambahkan
+- **Allowed IP untuk panel web** (D-078, migrasi 000009): daftar IP/jaringan (IPv4 + IPv6, keterangan, tanpa
+  duplikat, bit host harus nol, paling luas /8 atau /16) dan mode `off` (default) / `monitor` (akses dari luar daftar
+  dicatat `security.allowlist_outside`, tidak diblok) / `enforce` (diblok `403 ip_not_allowed`,
+  `security.allowlist_blocked`; dicatat teragregasi per IP). Ditegakkan oleh **Caddy** (`forward_auth` ke endpoint
+  internal app untuk setiap request) dan oleh app di API publik — bukan ufw. IP = koneksi langsung ke Caddy;
+  `X-Forwarded-For`/`X-Real-IP` dari klien diabaikan (diuji). `/api/v1/health` dan `/.well-known/acme-challenge/*`
+  selalu terbuka (pemantauan, perpanjangan TLS).
+- **Pengaman lockout**: enforce ditolak bila IP penyimpan tidak tercakup; menghapus jaringan yang mencakup IP sendiri
+  ditolak saat enforce; peralihan ke enforce dari UI kembali otomatis ke monitor setelah 2 menit kecuali Admin menekan
+  **Pertahankan** (`allowlist.confirm` / `allowlist.rollback`). Semua perubahan diaudit.
+- **Pintu darurat CLI**: `sentra allowlist list|add|remove|mode off|monitor` (di container app, lewat SSH atau serial
+  console; berlaku ≤ 5 detik). Prosedur di `docs/DISASTER_RECOVERY.md`.
+- Halaman **Pengaturan › Allowed IP** (izin `settings.manage`) dengan "IP Anda saat ini", mode, daftar, dan jalur yang
+  selalu terbuka. API `/api/v1/settings/allowed-ips` (+ `/mode`, `/confirm`), OpenAPI, Pusat Bantuan ID/EN.
+- Uji edge Caddy khusus CI (`test/api/allowlist.sh`: mode, di dalam/luar daftar, spoofing header, health/ACME); menolak
+  jalan terhadap deployment nyata.
+
+### Diubah
+- Rencana v0.3.6: **panel web saja**; allowlist SSH dipindah ke v0.12 bersama WireGuard, tanpa agent ufw (D-037
+  digantikan D-078). Rilis dengan mode `off`.
+- Preferensi: teks "Ikuti sistem — …" tanpa kurung bersarang.
+
+### Diperbaiki
+- **ISS-044**: `test/api/ui.sh` tidak lagi men-skip pemeriksaan sesi diam-diam: tanpa akun aplikasi skrip gagal
+  (exit 2) dengan alasan per sumber (variabel env, file auth, terminal); prompt tidak menawarkan "Enter = skip".
+
 ## [v0.3.5] - 2026-10-14 — Settings – Regional
 
 ### Ditambahkan

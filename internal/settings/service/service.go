@@ -176,6 +176,9 @@ func (s *Service) parse(group string, changes map[string]json.RawMessage, users 
 		if !ok || (users && !d.UserOverridable) {
 			return nil, &ValidationError{Field: name, Reason: "unknown setting"}
 		}
+		if d.Managed {
+			return nil, &ValidationError{Field: name, Reason: "managed setting: change it through its own endpoint"}
+		}
 		if string(raw) == "null" {
 			out = append(out, change{def: d, reset: true})
 			continue
@@ -218,6 +221,43 @@ func (s *Service) inTx(ctx context.Context, fn func(q *repo.Queries) error) erro
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// Value returns the current value of one key (its default when not stored or no longer valid).
+func (s *Service) Value(ctx context.Context, key string) (any, error) {
+	d, ok := s.reg.Def(key)
+	if !ok {
+		return nil, fmt.Errorf("unknown setting %s", key)
+	}
+	rows, err := repo.New(s.db).ListSettings(ctx, key)
+	if err != nil {
+		return nil, fmt.Errorf("read setting: %w", err)
+	}
+	for _, r := range rows {
+		if r.Key == key {
+			if v, err := d.decode(r.Value); err == nil {
+				return v, nil
+			}
+		}
+	}
+	return d.Default, nil
+}
+
+// SetManaged writes managed keys inside the caller's transaction (no audit: the owning module audits its own
+// action). value nil = back to the default.
+func SetManaged(ctx context.Context, tx repo.DBTX, reg *Registry, key string, value any, by *uuid.UUID) error {
+	d, ok := reg.Def(key)
+	if !ok || !d.Managed {
+		return fmt.Errorf("%s is not a managed setting", key)
+	}
+	q := repo.New(tx)
+	if value == nil {
+		return q.DeleteSetting(ctx, key)
+	}
+	if _, err := d.decode(mustJSON(value)); err != nil {
+		return fmt.Errorf("%s: %w", key, err)
+	}
+	return q.UpsertSetting(ctx, repo.UpsertSettingParams{Key: key, Value: mustJSON(value), UpdatedBy: by})
 }
 
 // Regional is the effective regional configuration of a user (or the system).

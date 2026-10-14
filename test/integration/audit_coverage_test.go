@@ -99,6 +99,22 @@ func TestAuditCoverage(t *testing.T) {
 	want(t, "verify chain", admin.post("/api/v1/audit/integrity/verify", nil), http.StatusOK, "")
 	want(t, "settings", admin.put("/api/v1/settings/regional", map[string]any{"values": map[string]any{"time_format": "12h"}}), http.StatusOK, "")
 	want(t, "preferences", admin.put("/api/v1/me/preferences", map[string]any{"values": map[string]any{"regional.language": "en"}}), http.StatusOK, "")
+	// Allowed IP (v0.3.6): add (self + another), relabel, remove, monitor → enforce → keep, then off.
+	al := admin.post("/api/v1/settings/allowed-ips", map[string]any{"cidr": "127.0.0.1", "label": "self"})
+	want(t, "allow self", al, http.StatusCreated, "")
+	al = admin.post("/api/v1/settings/allowed-ips", map[string]any{"cidr": "192.0.2.0/24"})
+	want(t, "allow other", al, http.StatusCreated, "")
+	var otherID string
+	for _, en := range al.body["entries"].([]any) {
+		if m := en.(map[string]any); m["cidr"] == "192.0.2.0/24" {
+			otherID = m["id"].(string)
+		}
+	}
+	want(t, "relabel", admin.patch("/api/v1/settings/allowed-ips/"+otherID, map[string]any{"label": "x"}), http.StatusOK, "")
+	want(t, "remove", admin.del("/api/v1/settings/allowed-ips/"+otherID), http.StatusOK, "")
+	want(t, "enforce", admin.put("/api/v1/settings/allowed-ips/mode", map[string]any{"mode": "enforce"}), http.StatusOK, "")
+	want(t, "keep", admin.post("/api/v1/settings/allowed-ips/confirm", nil), http.StatusOK, "")
+	want(t, "off", admin.put("/api/v1/settings/allowed-ips/mode", map[string]any{"mode": "off"}), http.StatusOK, "")
 	if r := admin.post("/api/v1/auth/logout", nil); r.code != http.StatusNoContent {
 		t.Fatalf("logout: %d", r.code)
 	}

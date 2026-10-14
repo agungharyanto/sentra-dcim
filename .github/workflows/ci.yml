@@ -171,6 +171,8 @@ jobs:
         run: DOMAIN=localhost ./test/api/public.sh
       - name: UI edge test (SPA, headers, CSP nonce, login + MFA, bootstrap, users)
         run: BASE_URL=https://localhost ./test/api/ui.sh
+      - name: Allowed IP edge test (modes, spoofing, health/ACME open; throwaway stack only)
+        run: BASE_URL=https://localhost ./test/api/allowlist.sh
       - name: Browser tests (Playwright + axe, UI screenshots)
         # E2E_MUTATIONS=1: the throwaway CI stack may create and change accounts (never set against production).
         run: BASE_URL=https://localhost E2E_MUTATIONS=1 ./test/e2e/run.sh

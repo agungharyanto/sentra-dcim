@@ -9,8 +9,8 @@ order: 50
 
 ## Purpose
 
-Configure how Sentra DCIM behaves for **all users**. Since v0.3.5 the **Regional** section is available (language, time
-zone, time format, date format). Further sections follow the roadmap (Allowed IP, session & password policy).
+Configure how Sentra DCIM behaves for **all users**: **Regional** (language, time zone, time and date formats, v0.3.5)
+and **Allowed IP** (who may open the web panel, v0.3.6). Session & password policy follows the roadmap.
 
 ## Who can use it
 
@@ -28,7 +28,7 @@ Other roles do not see this menu; opening its address directly shows *Access den
 - Values are validated before saving (allowed choices, known time zone names). If one field is wrong, nothing is saved.
 - Every change is **recorded in the Audit Log** (action `settings.update`): who, when, old value → new value.
 
-Details: [Regional](regional.md).
+Details: [Regional](regional.md), [Allowed IP](allowed-ip.md).
 
 ## Related API endpoints
 

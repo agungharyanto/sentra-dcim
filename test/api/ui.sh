@@ -278,6 +278,13 @@ check "POST /auth/login from foreign Origin = 403" "$([[ $code == 403 ]] && jq -
   sreq -X PUT -H "X-Sentra-CSRF: $csrf" -H 'Content-Type: application/json' -d '{"values":{"timezone":"Mars/Base"}}' "$BASE/api/v1/settings/regional"
   check "PUT /api/v1/settings/regional unknown zone = $exp (nothing written)" "$([[ $code == "$exp" ]]; echo $?)"
 
+  # Allowed IP (v0.3.6): state with the client IP as the server sees it; the decision endpoint is internal only.
+  if has settings.manage; then exp=200; else exp=403; fi
+  sreq "$BASE/api/v1/settings/allowed-ips"
+  check "GET /api/v1/settings/allowed-ips = $exp (settings.manage)" "$([[ $code == "$exp" ]] && { [[ $exp == 403 ]] || jq -e '(.mode|test("^(off|monitor|enforce)$")) and (.your_ip|length > 0) and (.always_public|index("/api/v1/health") != null)' "$tmp/b" >/dev/null; }; echo $?)"
+  sreq "$BASE/api/v1/allowlist/check"
+  check "GET /api/v1/allowlist/check not reachable on the public site (403 at proxy)" "$([[ $code == 403 ]] && jq -e '.error.message=="not publicly available"' "$tmp/b" >/dev/null; echo $?)"
+
   sreq "$BASE/api/v1/version"
   if has system.version.read; then
     check "GET /version with Admin session = build details" "$(jq -e '.commit and .server_time_display' "$tmp/b" >/dev/null; echo $?)"

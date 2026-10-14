@@ -1,7 +1,8 @@
 {
   "nav": {
     "label": "Bagian pengaturan",
-    "regional": "Regional"
+    "regional": "Regional",
+    "allowedIp": "Allowed IP"
   },
   "regional": {
     "title": "Regional",
@@ -47,5 +48,56 @@
     "followSystem": "Ikuti sistem — {{value}}",
     "save": "Simpan preferensi",
     "saved": "Preferensi disimpan."
+  },
+  "allowlist": {
+    "description": "Batasi siapa yang boleh membuka panel web berdasarkan alamat IP atau jaringan. IP diambil dari koneksi langsung ke server; header dari peramban tidak dipercaya. Allowlist SSH menyusul di v0.12.",
+    "yourIp": "IP Anda saat ini",
+    "unknownIp": "tidak diketahui",
+    "covered": "Tercakup daftar",
+    "notCovered": "Tidak tercakup daftar",
+    "addMine": "Tambahkan IP saya",
+    "myIpLabel": "Ditambahkan dari halaman Allowed IP",
+    "modeTitle": "Mode",
+    "current": "(aktif)",
+    "saveMode": "Simpan mode",
+    "modeSaved": "Mode diubah ke {{mode}}.",
+    "mode": {
+      "off": "Nonaktif",
+      "monitor": "Pantau",
+      "enforce": "Tegakkan"
+    },
+    "modeHelp": {
+      "off": "Semua IP boleh membuka panel. Tidak ada yang dicatat.",
+      "monitor": "Semua IP boleh, tetapi akses dari IP di luar daftar dicatat di Audit Log. Pakai ini dulu untuk memeriksa daftar.",
+      "enforce": "Hanya IP dalam daftar yang boleh membuka panel; yang lain mendapat \"Akses ditolak\"."
+    },
+    "guard": "IP Anda saat ini tidak tercakup daftar. Tambahkan dulu agar Anda tidak terkunci.",
+    "enforceTitle": "Tegakkan Allowed IP?",
+    "enforceBody": "Hanya IP dalam daftar yang bisa membuka panel. Setelah ini, tekan \"Pertahankan\" dalam {{seconds}} detik dari koneksi yang masih tersambung; bila tidak, mode otomatis kembali ke Pantau.",
+    "pending": "Mode Tegakkan menunggu konfirmasi: kembali otomatis ke Pantau dalam {{time}} kecuali Anda menekan Pertahankan.",
+    "keep": "Pertahankan",
+    "kept": "Mode Tegakkan dipertahankan.",
+    "listTitle": "Daftar IP yang diizinkan ({{count}})",
+    "cidr": "IP atau jaringan (CIDR)",
+    "cidrPlaceholder": "mis. 203.0.113.10 atau 203.0.113.0/24",
+    "cidrHint": "IPv4 atau IPv6. Satu alamat tersimpan sebagai /32 atau /128. Paling luas /8 (IPv4) atau /16 (IPv6).",
+    "label": "Keterangan",
+    "labelPlaceholder": "mis. Ruang NOC lantai 2",
+    "add": "Tambah",
+    "added": "{{cidr}} ditambahkan.",
+    "added_at": "Ditambahkan",
+    "actions": "Aksi",
+    "empty": "Belum ada IP. Tambahkan setidaknya IP Anda sebelum memakai mode Tegakkan.",
+    "editLabel": "Ubah keterangan {{cidr}}",
+    "removeLabel": "Hapus {{cidr}}",
+    "editTitle": "Ubah keterangan {{cidr}}",
+    "editBody": "Keterangan membantu mengenali siapa pemilik jaringan ini.",
+    "saveLabel": "Simpan keterangan",
+    "removeTitle": "Hapus {{cidr}}?",
+    "removeBody": "Jaringan ini tidak lagi termasuk daftar.",
+    "removeBodyEnforce": "Mode Tegakkan aktif: pengguna dari jaringan ini langsung kehilangan akses. Menghapus jaringan yang mencakup IP Anda sendiri ditolak.",
+    "removed": "{{cidr}} dihapus.",
+    "alwaysPublic": "Selalu terbuka di semua mode",
+    "alwaysPublicHelp": "Untuk pemantauan kesehatan dan perpanjangan sertifikat HTTPS otomatis."
   }
 }

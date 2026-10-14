@@ -103,6 +103,20 @@
 		max_size 1MB
 	}
 
+	# Allowed IP (v0.3.6, D-078): before anything else, every request asks the app whether its client IP may use the
+	# panel (mode off/monitor: always yes; enforce: only listed networks). The IP is Caddy's view of the TCP peer
+	# ({client_ip}: no trusted_proxies, so X-Forwarded-For/X-Real-IP sent by clients are ignored). Health checks and
+	# ACME HTTP-01 challenges stay public in every mode so monitoring and certificate renewal keep working.
+	@allowlist_guarded not path /api/v1/health /.well-known/acme-challenge/*
+	forward_auth @allowlist_guarded app:8081 {
+		uri /api/v1/allowlist/check
+		header_up X-Real-IP {client_ip}
+		header_up -X-Forwarded-For
+		header_up -True-Client-IP
+		header_up -Cookie
+		header_up -Authorization
+	}
+
 	# Access model since v0.3.3 (basic_auth removed, ISS-026, D-066): the SPA (index.html + hashed assets) is public so
 	# the login page loads; every data endpoint below requires an app session that passed MFA (default-deny in the
 	# app, ADR-003). Only health and the short version are public; other API paths are rejected at the proxy.
@@ -154,7 +168,7 @@
 
 	# Settings (settings.manage) and own preferences (every signed-in user), v0.3.5: checked by the app.
 	@settings {
-		method GET HEAD PUT
+		method GET HEAD POST PUT PATCH DELETE
 		path /api/v1/settings/* /api/v1/me/*
 	}
 	handle @settings {
