@@ -23,6 +23,7 @@ export const allPermissions = [
   "audit.read",
   "help.admin",
   "roles.read",
+  "settings.manage",
   "system.version.read",
   "ui.design_system",
   "users.manage",

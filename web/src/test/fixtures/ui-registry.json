@@ -148,10 +148,10 @@
       "key": "settings",
       "path": "/settings",
       "icon": "settings",
-      "status": "coming_soon",
+      "status": "available",
       "group": "system",
       "order": 20,
-      "permission": ""
+      "permission": "settings.manage"
     }
   ]
 }

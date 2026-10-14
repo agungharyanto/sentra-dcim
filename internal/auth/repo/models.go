@@ -91,6 +91,14 @@ type Session struct {
 	MfaVerifiedAt pgtype.Timestamptz
 }
 
+// System settings that differ from their default (schema in internal/settings, v0.3.5).
+type Setting struct {
+	Key       string
+	Value     []byte
+	UpdatedAt pgtype.Timestamptz
+	UpdatedBy pgtype.UUID
+}
+
 // Key/value metadata about this Sentra DCIM installation. All timestamps are UTC.
 type SystemInfo struct {
 	Key       string
@@ -123,6 +131,14 @@ type UserMfa struct {
 	LastUsedStep int64
 	CreatedAt    pgtype.Timestamptz
 	UpdatedAt    pgtype.Timestamptz
+}
+
+// Per-user overrides of user-overridable settings (v0.3.5).
+type UserPreference struct {
+	UserID    uuid.UUID
+	Key       string
+	Value     []byte
+	UpdatedAt pgtype.Timestamptz
 }
 
 // Role assignments (v0.3.2). A user has the union of the permissions of its roles.

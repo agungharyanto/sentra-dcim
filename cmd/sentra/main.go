@@ -46,6 +46,8 @@ import (
 	"github.com/agungharyanto/sentra-dcim/internal/platform/httpserver"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/logging"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/migrator"
+	settingshandler "github.com/agungharyanto/sentra-dcim/internal/settings/handler"
+	settingsservice "github.com/agungharyanto/sentra-dcim/internal/settings/service"
 	systemhandler "github.com/agungharyanto/sentra-dcim/internal/system/handler"
 	systemrepo "github.com/agungharyanto/sentra-dcim/internal/system/repo"
 	systemservice "github.com/agungharyanto/sentra-dcim/internal/system/service"
@@ -132,6 +134,21 @@ func serve() error {
 	help := helphandler.New(helpCat, cfg.DefaultLocale, config.SupportedLocales)
 
 	rec := auditservice.New(auditrepo.New(pool), log)
+	// Settings – Regional (v0.3.5): DEFAULT_LOCALE and DISPLAY_TIMEZONE are the defaults until an Admin changes them.
+	reg, err := settingsservice.NewRegistry(settingsservice.Defaults{Language: cfg.DefaultLocale, Timezone: cfg.DisplayTZ.String()})
+	if err != nil {
+		return fmt.Errorf("settings: %w", err)
+	}
+	settings := settingsservice.New(pool, reg, rec, log)
+	ui.SetSystem(func(ctx context.Context) (string, string, bool) {
+		r, err := settings.SystemRegional(ctx)
+		return r.Language, r.Timezone, err == nil
+	})
+	sys.SetLocation(func() *time.Location {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		return settings.SystemLocation(ctx)
+	})
 	// Daily hash-chain verification of the audit log (D-073); failures are logged at error level (Alarm Engine v0.5).
 	integrity := chain.NewMonitor(pool, log, nil, 24*time.Hour)
 	go integrity.Run(ctx)
@@ -139,7 +156,7 @@ func serve() error {
 	if err != nil {
 		return fmt.Errorf("auth: %w", err)
 	}
-	authH := authhandler.New(auth, log, cfg.Auth.AllowedOrigins)
+	authH := authhandler.New(auth, log, cfg.Auth.AllowedOrigins).WithRegional(settings)
 	go cleanupSessions(ctx, auth, log)
 	go rec.RunThrottle(ctx) // summaries of repeated denials (authz.denied.repeated, security.csrf_denied.repeated)
 
@@ -151,7 +168,8 @@ func serve() error {
 	// else requires a session and, per route, a permission (internal/api, default-deny; D-053, D-054).
 	users := usershandler.New(usersservice.New(pool, rec, log, cfg.Auth), log)
 	mods := api.Modules{System: systemhandler.New(sys), UI: uihandler.New(ui), Help: help, Auth: authH, Users: users,
-		Audit: audithandler.New(auditrepo.New(pool), rec, integrity, cfg.DisplayTZ, log)}
+		Audit:    audithandler.New(auditrepo.New(pool), rec, integrity, settings.LocationFor, log),
+		Settings: settingshandler.New(settings, log)}
 	servers := []*http.Server{
 		httpserver.NewServer(cfg.HTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, api.Mount(mods, false)), log),
 		httpserver.NewServer(cfg.InternalHTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, api.Mount(mods, true)), log),

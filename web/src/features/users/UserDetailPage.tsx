@@ -258,7 +258,7 @@ function AccountCard({ user, canManage, self }: { user: User; canManage: boolean
       toast.error(t(`errors:code.${toErrorCode(errText(err).code)}`));
     },
   });
-  const when = (v: string | null) => (v ? fmt.dateTime(v, { dateStyle: "medium", timeStyle: "short" }) : t("list.never"));
+  const when = (v: string | null) => (v ? fmt.dateTime(v) : t("list.never"));
 
   return (
     <Card>

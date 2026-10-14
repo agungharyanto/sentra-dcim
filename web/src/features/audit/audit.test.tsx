@@ -6,6 +6,8 @@ import { initI18n } from "@/i18n";
 import { resources } from "@/i18n/resources";
 import { allPermissions, testBootstrap, testMe } from "@/test/bootstrap";
 
+import { utcToZonedLocal, zonedLocalToUtc } from "@/lib/format";
+
 import { actionPrefixes, type AuditEvent, type AuditVerifyResult } from "./api";
 
 const tx = resources.id.audit;
@@ -138,7 +140,11 @@ describe("audit log", () => {
     const calls = api();
     renderAt("/audit");
     await screen.findAllByTestId("audit-row");
-    await userEvent.type(screen.getByLabelText(tx.filter.since), "2026-10-14T07:30");
+    // Date picker (ISS-043): pick the 14th of the month shown (current month in WIB) → 00:00 WIB in UTC.
+    await userEvent.click(screen.getAllByTestId("datetime-trigger")[0] as HTMLElement);
+    await userEvent.click((await screen.findByTestId("datetime-popover")).querySelector('[data-day="14"]') as HTMLElement);
+    await userEvent.click(screen.getByTestId("datetime-done"));
+    const ym = utcToZonedLocal(new Date().toISOString(), "Asia/Jakarta").slice(0, 7);
     await userEvent.type(screen.getByLabelText(tx.filter.actor), "operator");
     await userEvent.selectOptions(screen.getByTestId("audit-action"), "auth");
     await userEvent.selectOptions(screen.getByLabelText(tx.filter.result), "failure");
@@ -147,7 +153,7 @@ describe("audit log", () => {
     const evCalls = calls.filter((c) => c.url.startsWith("/api/v1/audit/events?"));
     const last = at(evCalls, evCalls.length - 1);
     const p = new URL(last.url, "http://x").searchParams;
-    expect(p.get("since")).toBe("2026-10-14T00:30:00Z");
+    expect(p.get("since")).toBe(zonedLocalToUtc(`${ym}-14T00:00`, "Asia/Jakarta"));
     expect(p.get("actor")).toBe("operator");
     expect(p.get("result")).toBe("failure");
     const href = screen.getByTestId("audit-export").getAttribute("href") ?? "";

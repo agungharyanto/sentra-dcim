@@ -90,6 +90,14 @@ type Session struct {
 	MfaVerifiedAt pgtype.Timestamptz `json:"mfa_verified_at"`
 }
 
+// System settings that differ from their default (schema in internal/settings, v0.3.5).
+type Setting struct {
+	Key       string             `json:"key"`
+	Value     []byte             `json:"value"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy pgtype.UUID        `json:"updated_by"`
+}
+
 // Key/value metadata about this Sentra DCIM installation. All timestamps are UTC.
 type SystemInfo struct {
 	Key       string             `json:"key"`
@@ -122,6 +130,14 @@ type UserMfa struct {
 	LastUsedStep int64              `json:"last_used_step"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+// Per-user overrides of user-overridable settings (v0.3.5).
+type UserPreference struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	Key       string             `json:"key"`
+	Value     []byte             `json:"value"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 // Role assignments (v0.3.2). A user has the union of the permissions of its roles.

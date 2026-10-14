@@ -62,7 +62,8 @@
       "sites": {
         "main": "Main data center",
         "drc": "Disaster recovery center (DRC)"
-      }
+      },
+      "whenLabel": "Maintenance window (date & time picker)"
     },
     "tabs": {
       "overview": "Overview",
@@ -114,5 +115,17 @@
     "copied": "Copied",
     "failed": "Could not copy to the clipboard. Copy manually: {{value}}",
     "failedSecret": "Could not copy to the clipboard."
+  },
+  "datetime": {
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
+    "time": "Time",
+    "hour": "Hour",
+    "minute": "Minute",
+    "ampm": "AM/PM",
+    "am": "AM",
+    "pm": "PM",
+    "done": "Done",
+    "clear": "Clear date"
   }
 }

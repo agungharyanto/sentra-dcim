@@ -24,6 +24,7 @@ import (
 	"github.com/agungharyanto/sentra-dcim/internal/platform/httpserver"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/principal"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/rbac"
+	settings "github.com/agungharyanto/sentra-dcim/internal/settings/service"
 )
 
 // Cookie and header names. `__Host-` forces Secure, Path=/ and no Domain attribute.
@@ -53,10 +54,19 @@ const (
 
 // Handler serves the auth endpoints.
 type Handler struct {
-	svc     *service.Service
-	log     *slog.Logger
-	origins []string
+	svc      *service.Service
+	log      *slog.Logger
+	origins  []string
+	regional RegionalProvider
 }
+
+// RegionalProvider resolves a user's effective regional settings (internal/settings, v0.3.5).
+type RegionalProvider interface {
+	EffectiveRegional(ctx context.Context, userID uuid.UUID) (settings.Regional, map[string]any, error)
+}
+
+// WithRegional makes /auth/me and the login response carry the effective regional settings.
+func (h *Handler) WithRegional(p RegionalProvider) *Handler { h.regional = p; return h }
 
 // New creates a Handler. origins are the exact origins accepted for unsafe requests.
 func New(svc *service.Service, log *slog.Logger, origins []string) *Handler {
@@ -261,6 +271,21 @@ func PasswordChangeGuard(next http.Handler) http.Handler {
 type meResponse struct {
 	User    service.User        `json:"user"`
 	Session service.SessionInfo `json:"session"`
+	// Regional is the effective regional configuration (user preference over system setting); omitted only when
+	// no provider is configured (tests).
+	Regional *settings.Regional `json:"regional,omitempty"`
+}
+
+func (h *Handler) meOf(ctx context.Context, user service.User, info service.SessionInfo) meResponse {
+	resp := meResponse{User: user, Session: info}
+	if h.regional != nil {
+		if reg, _, err := h.regional.EffectiveRegional(ctx, user.ID); err == nil {
+			resp.Regional = &reg
+		} else {
+			h.log.ErrorContext(ctx, "effective regional settings", "error", err)
+		}
+	}
+	return resp
 }
 
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
@@ -295,7 +320,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setSessionCookies(w, res.Token, res.CSRF)
-	httpserver.JSON(w, http.StatusOK, meResponse{User: res.Session.User, Session: res.Session.Info})
+	httpserver.JSON(w, http.StatusOK, h.meOf(r.Context(), res.Session.User, res.Session.Info))
 }
 
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
@@ -309,7 +334,7 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 	sess, _ := SessionFrom(r.Context())
-	httpserver.JSON(w, http.StatusOK, meResponse{User: sess.User, Session: sess.Info})
+	httpserver.JSON(w, http.StatusOK, h.meOf(r.Context(), sess.User, sess.Info))
 }
 
 func (h *Handler) changePassword(w http.ResponseWriter, r *http.Request) {

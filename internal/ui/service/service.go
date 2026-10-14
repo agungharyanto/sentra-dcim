@@ -2,6 +2,7 @@
 package service
 
 import (
+	"context"
 	"slices"
 	"time"
 
@@ -84,7 +85,8 @@ var registry = []Menu{
 		Permission: string(rbac.UsersRead)},
 	{Key: "audit", Path: "/audit", Icon: "scroll-text", Status: StatusAvailable, Group: GroupSystem, Order: 17,
 		Permission: string(rbac.AuditRead)},
-	{Key: "settings", Path: "/settings", Icon: "settings", Status: StatusComingSoon, Group: GroupSystem, Order: 20},
+	{Key: "settings", Path: "/settings", Icon: "settings", Status: StatusAvailable, Group: GroupSystem, Order: 20,
+		Permission: string(rbac.SettingsManage)},
 }
 
 // Service serves the UI bootstrap document.
@@ -92,6 +94,7 @@ type Service struct {
 	locale  string
 	locales []string
 	tz      *time.Location
+	system  func(ctx context.Context) (string, string, bool)
 }
 
 // New creates a Service. locale must be one of locales (validated by config).
@@ -99,15 +102,28 @@ func New(locale string, locales []string, tz *time.Location) *Service {
 	return &Service{locale: locale, locales: slices.Clone(locales), tz: tz}
 }
 
+// SetSystem makes the bootstrap document follow the system language and time zone of Settings – Regional (v0.3.5)
+// instead of DEFAULT_LOCALE / DISPLAY_TIMEZONE (which stay the defaults). f returns ok=false on errors.
+func (s *Service) SetSystem(f func(ctx context.Context) (locale, timezone string, ok bool)) {
+	s.system = f
+}
+
 // Bootstrap returns the bootstrap document: groups sorted by Order, menus sorted by group order then menu Order.
-func (s *Service) Bootstrap() Bootstrap {
+// DefaultLocale and Timezone are the system values; a signed-in user's own values come from /auth/me (regional).
+func (s *Service) Bootstrap(ctx context.Context) Bootstrap {
 	gs, menus := Registry()
+	locale, tz := s.locale, s.tz.String()
+	if s.system != nil {
+		if l, z, ok := s.system(ctx); ok {
+			locale, tz = l, z
+		}
+	}
 	return Bootstrap{
 		AppName:          AppName,
 		Version:          buildinfo.Version,
-		DefaultLocale:    s.locale,
+		DefaultLocale:    locale,
 		SupportedLocales: slices.Clone(s.locales),
-		Timezone:         s.tz.String(),
+		Timezone:         tz,
 		MenuGroups:       gs,
 		Menus:            menus,
 	}

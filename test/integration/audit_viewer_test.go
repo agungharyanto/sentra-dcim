@@ -137,7 +137,7 @@ func TestAuditCSVExportNeutralisesFormulasAndIsAudited(t *testing.T) {
 		if rec[col("actor_username")] != "'-1.user" {
 			t.Errorf("actor_username cell = %q", rec[col("actor_username")])
 		}
-		if !strings.HasSuffix(rec[col("occurred_at_local")], "UTC") { // test env display TZ = UTC
+		if !strings.HasSuffix(rec[col("occurred_at_local")], "WIB") { // effective zone of the exporter: system default Asia/Jakarta
 			t.Errorf("local time = %q", rec[col("occurred_at_local")])
 		}
 	}

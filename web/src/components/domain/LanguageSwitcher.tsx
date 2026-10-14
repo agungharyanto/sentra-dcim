@@ -3,7 +3,10 @@ import { useTranslation } from "react-i18next";
 import { isLocale, type Locale, setLocale, supportedLocales } from "@/i18n";
 import { cn } from "@/lib/utils";
 
-/** ID/EN toggle. Offers only locales that both the server and the bundled catalogs support. */
+/**
+ * ID/EN toggle for this browser. Offers only locales that both the server and the bundled catalogs support. The
+ * account's language preference (Account › Preferences) applies at sign-in.
+ */
 export function LanguageSwitcher({ serverLocales }: { serverLocales: readonly string[] }) {
   const { t, i18n } = useTranslation();
   const locales = supportedLocales.filter((l: Locale) => serverLocales.filter(isLocale).includes(l));

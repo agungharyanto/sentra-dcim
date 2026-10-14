@@ -64,6 +64,8 @@ tags:
     description: Pengguna & Role — akun, penetapan role, nonaktifkan, reset kata sandi (RBAC, v0.3.2)
   - name: audit
     description: Audit log — penelusuran event, ekspor CSV, status & verifikasi hash chain (v0.3.4)
+  - name: settings
+    description: Pengaturan sistem (grup `regional` sejak v0.3.5) dan preferensi pengguna sendiri
 paths:
   /api/v1/health:
     get:
@@ -953,6 +955,99 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorBody" }
+  /api/v1/settings/{group}:
+    parameters:
+      - { name: group, in: path, required: true, schema: { type: string, example: regional } }
+    get:
+      tags: [settings]
+      operationId: getSettings
+      x-sentra-access: login
+      x-sentra-permission: settings.manage
+      summary: Baca satu grup pengaturan beserta skemanya
+      description: Grup `regional` (v0.3.5) berisi `language`, `timezone`, `time_format`, `date_format`.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Nilai dan skema per key
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettingsGroup" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [settings]
+      operationId: updateSettings
+      x-sentra-access: login
+      x-sentra-permission: settings.manage
+      summary: Ubah pengaturan (sebagian); `null` = kembali ke default
+      description: |
+        Divalidasi menurut skema per key (tipe, pilihan, batas min/maks; zona waktu harus nama IANA yang dikenal).
+        Satu nilai tidak valid → tidak ada yang ditulis (`422`, `error.field`). Setiap perubahan nyata dicatat
+        sebagai event audit `settings.update` (`target_id` = key, metadata `old`/`new`).
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettingsUpdate" }
+      responses:
+        "200":
+          description: Grup setelah perubahan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SettingsGroup" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+  /api/v1/me/preferences:
+    get:
+      tags: [settings]
+      operationId: getPreferences
+      x-sentra-access: login
+      summary: Preferensi regional sendiri, nilai efektif, dan nilai sistem
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Preferensi
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Preferences" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+    put:
+      tags: [settings]
+      operationId: updatePreferences
+      x-sentra-access: login
+      summary: Ubah preferensi sendiri; `null` = ikuti sistem
+      description: |
+        Key lengkap (`regional.language`, `regional.timezone`, `regional.time_format`, `regional.date_format`),
+        divalidasi seperti pengaturan sistem. Setiap perubahan dicatat sebagai `user.preferences.update`
+        (metadata `key`, `old`, `new`).
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettingsUpdate" }
+      responses:
+        "200":
+          description: Preferensi setelah perubahan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Preferences" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
 components:
   parameters:
     AuditSince:
@@ -1180,6 +1275,64 @@ components:
       properties:
         user: { $ref: "#/components/schemas/AuthUser" }
         session: { $ref: "#/components/schemas/SessionInfo" }
+        regional: { $ref: "#/components/schemas/Regional" }
+    Regional:
+      type: object
+      description: Pengaturan regional efektif (preferensi pengguna di atas nilai sistem). Data tetap UTC.
+      required: [language, timezone, time_format, date_format]
+      properties:
+        language: { type: string, enum: [id, en] }
+        timezone: { type: string, description: Nama zona IANA, example: Asia/Jakarta }
+        time_format: { type: string, enum: [24h, 12h] }
+        date_format: { type: string, enum: [DD/MM/YYYY, YYYY-MM-DD, DD MMM YYYY] }
+    SettingItem:
+      type: object
+      required: [key, name, type, user_overridable, default, value, is_default, updated_at, updated_by]
+      properties:
+        key: { type: string, example: regional.timezone }
+        name: { type: string, example: timezone, description: Nama di dalam grup (dipakai di body PUT) }
+        type: { type: string, enum: [enum, string, int, bool] }
+        enum: { type: array, items: { type: string } }
+        min: { type: integer }
+        max: { type: integer }
+        max_length: { type: integer }
+        user_overridable: { type: boolean, description: Boleh di-override per pengguna lewat /api/v1/me/preferences }
+        default: { description: Nilai bawaan (untuk regional language/timezone berasal dari konfigurasi server) }
+        value: { description: Nilai efektif (sama dengan default bila belum pernah diubah) }
+        is_default: { type: boolean }
+        updated_at: { type: [string, "null"], format: date-time }
+        updated_by: { type: [string, "null"], format: uuid }
+    SettingsGroup:
+      type: object
+      required: [group, items]
+      properties:
+        group: { type: string, example: regional }
+        items: { type: array, items: { $ref: "#/components/schemas/SettingItem" } }
+    SettingsUpdate:
+      type: object
+      required: [values]
+      additionalProperties: false
+      properties:
+        values:
+          type: object
+          description: Nama → nilai baru, atau `null` untuk kembali ke default. Semua divalidasi sebelum ada yang ditulis.
+          additionalProperties: true
+          example: { timezone: Asia/Makassar, time_format: 12h }
+    Preferences:
+      type: object
+      required: [preferences, effective, system, options]
+      properties:
+        preferences:
+          type: object
+          description: Key lengkap → nilai sendiri, atau `null` = ikuti sistem
+          additionalProperties: true
+          example: { regional.language: null, regional.timezone: UTC, regional.time_format: null, regional.date_format: null }
+        effective: { $ref: "#/components/schemas/Regional" }
+        system: { $ref: "#/components/schemas/Regional" }
+        options:
+          type: object
+          description: Nilai yang diizinkan per key enum
+          additionalProperties: { type: array, items: { type: string } }
     Health:
       type: object
       required: [status]

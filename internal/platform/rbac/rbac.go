@@ -20,10 +20,11 @@ const (
 	AuditRead         Permission = "audit.read"          // audit log viewer and hash-chain integrity status/verification
 	AuditExport       Permission = "audit.export"        // CSV export of the audit log (itself audited)
 	HelpAdmin         Permission = "help.admin"          // Help Center pages for administrators (audience admin, ISS-032)
+	SettingsManage    Permission = "settings.manage"     // read and change system settings (/api/v1/settings/*, v0.3.5)
 )
 
 // All lists every permission (stable order, used by docs and tests).
-var All = []Permission{UsersRead, UsersManage, RolesRead, SystemVersionRead, UIDesignSystem, AuditRead, AuditExport, HelpAdmin}
+var All = []Permission{UsersRead, UsersManage, RolesRead, SystemVersionRead, UIDesignSystem, AuditRead, AuditExport, HelpAdmin, SettingsManage}
 
 // System role keys (seeded by migration 000004; labels are translated by the UI: users:roles.<key>).
 const (

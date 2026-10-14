@@ -57,8 +57,8 @@ export interface AuditFilter {
 
 export const RESULTS: readonly AuditResult[] = ["success", "failure", "denied"];
 
-/** Long date-time format of the detail view (display time zone). */
-export const DETAIL_TIME: Intl.DateTimeFormatOptions = { dateStyle: "full", timeStyle: "long" };
+/** Date-time format of the detail view: weekday, seconds and the zone name. */
+export const DETAIL_TIME = { weekday: true, seconds: true, zone: true } as const;
 
 export const emptyFilter: AuditFilter = { since: "", until: "", actor: "", action: "", result: "", target: "" };
 

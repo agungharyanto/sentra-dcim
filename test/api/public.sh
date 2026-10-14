@@ -82,7 +82,7 @@ done
 for p in /api/v1/ui/bootstrap /api/v1/help/index /api/v1/help/pages/dashboard /api/v1/help/pages/auth/mfa /api/v1/help/openapi \
   /api/v1/help/assets/help-mfa-qr-id.png /api/v1/help/assets/mfa-phone-scan.svg /api/v1/auth/me /api/v1/auth/sessions \
   /api/v1/auth/mfa /api/v1/users /api/v1/roles /api/v1/audit/events /api/v1/audit/integrity \
-  /api/v1/audit/events/export.csv; do
+  /api/v1/audit/events/export.csv /api/v1/settings/regional /api/v1/me/preferences; do
   req "$BASE$p"
   check "GET $p without session = 401 unauthenticated (no Basic challenge)" "$([[ $code == 401 && -z $(hdr WWW-Authenticate) ]] && jq -e '.error.code=="unauthenticated"' "$tmp/b" >/dev/null; echo $?)"
 done

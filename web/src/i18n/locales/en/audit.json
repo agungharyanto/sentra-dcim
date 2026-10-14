@@ -18,8 +18,8 @@
   },
   "filter": {
     "title": "Filters",
-    "since": "From (WIB)",
-    "until": "To (WIB)",
+    "since": "From ({{zone}})",
+    "until": "To ({{zone}})",
     "actor": "Actor",
     "actorPlaceholder": "Username",
     "action": "Action",
@@ -45,7 +45,7 @@
     "anonymous": "Anonymous"
   },
   "table": {
-    "time": "Time (WIB)",
+    "time": "Time",
     "actor": "Actor",
     "action": "Action",
     "result": "Result",

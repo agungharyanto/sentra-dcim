@@ -1,0 +1,51 @@
+{
+  "nav": {
+    "label": "Settings sections",
+    "regional": "Regional"
+  },
+  "regional": {
+    "title": "Regional",
+    "description": "Default language, time zone and date/time formats for every user. Users can choose their own values under Preferences. Data is still stored in UTC.",
+    "save": "Save",
+    "saved": "Regional settings saved.",
+    "noChanges": "Nothing changed.",
+    "reset": "Reset to default",
+    "resetLabel": "Reset {{field}} to default",
+    "resetDone": "{{field}} reset to default.",
+    "default": "Default: {{value}}",
+    "custom": "Changed",
+    "lastChanged": "Last changed {{time}}"
+  },
+  "field": {
+    "language": "Language",
+    "timezone": "Time zone",
+    "time_format": "Time format",
+    "date_format": "Date format"
+  },
+  "hint": {
+    "timezone": "IANA zone name, e.g. Asia/Jakarta (WIB), Asia/Makassar (WITA), Asia/Jayapura (WIT)."
+  },
+  "value": {
+    "language": {
+      "id": "Bahasa Indonesia",
+      "en": "English"
+    },
+    "time_format": {
+      "24h": "24-hour",
+      "12h": "12-hour (AM/PM)"
+    }
+  },
+  "preview": {
+    "title": "Preview",
+    "dateTime": "Date & time",
+    "date": "Date",
+    "time": "Time"
+  },
+  "preferences": {
+    "title": "Preferences",
+    "description": "Choose the language, time zone and date/time formats for your account. \"Follow system\" uses the Admin's settings.",
+    "followSystem": "Follow system ({{value}})",
+    "save": "Save preferences",
+    "saved": "Preferences saved."
+  }
+}

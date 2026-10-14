@@ -241,6 +241,19 @@ else
   sreq "$BASE/api/v1/audit/events/export.csv?since=2099-01-01T00:00:00Z"
   check "GET /api/v1/audit/events/export.csv = $exp (audit.export)" "$([[ $code == "$exp" ]] && { [[ $exp == 403 ]] || head -1 "$tmp/b" | grep -q '^seq,occurred_at_utc,'; }; echo $?)"
 
+  # Settings – Regional (v0.3.5): effective values in /me, own preferences, system settings with settings.manage.
+  sreq "$BASE/api/v1/auth/me"
+  check "GET /auth/me carries effective regional values" "$(jq -e '.regional | (.language and .timezone and .time_format and .date_format)' "$tmp/b" >/dev/null; echo $?)"
+  sreq "$BASE/api/v1/me/preferences"
+  check "GET /api/v1/me/preferences = 200 (every user)" "$([[ $code == 200 ]] && jq -e '.preferences and .effective.timezone and .system.timezone' "$tmp/b" >/dev/null; echo $?)"
+  if has settings.manage; then exp=200; else exp=403; fi
+  sreq "$BASE/api/v1/settings/regional"
+  check "GET /api/v1/settings/regional = $exp (settings.manage)" "$([[ $code == "$exp" ]] && { [[ $exp == 403 ]] || jq -e '[.items[].name] == ["language","timezone","time_format","date_format"]' "$tmp/b" >/dev/null; }; echo $?)"
+  # Invalid value: validated before anything is written (no change in production).
+  if has settings.manage; then exp=422; else exp=403; fi
+  sreq -X PUT -H "X-Sentra-CSRF: $csrf" -H 'Content-Type: application/json' -d '{"values":{"timezone":"Mars/Base"}}' "$BASE/api/v1/settings/regional"
+  check "PUT /api/v1/settings/regional unknown zone = $exp (nothing written)" "$([[ $code == "$exp" ]]; echo $?)"
+
   sreq "$BASE/api/v1/version"
   if has system.version.read; then
     check "GET /version with Admin session = build details" "$(jq -e '.commit and .server_time_display' "$tmp/b" >/dev/null; echo $?)"

@@ -5,6 +5,7 @@ import { canSeeMenu } from "@/features/auth/permissions";
 import type { MenuItem } from "@/features/bootstrap/api";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { HelpCenter } from "@/features/help/HelpCenter";
+import { SettingsModule } from "@/features/settings/SettingsModule";
 
 import { UsersModule } from "@/features/users/UsersModule";
 
@@ -19,6 +20,7 @@ export const moduleRegistry: Record<string, ComponentType> = {
   help: HelpCenter,
   users: UsersModule,
   audit: AuditModule,
+  settings: SettingsModule,
 };
 
 export type RouteKind = "module" | "coming_soon" | "not_connected" | "forbidden";

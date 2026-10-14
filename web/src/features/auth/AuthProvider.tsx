@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { isLocale, setLocale } from "@/i18n";
 import { onAuthError } from "@/lib/api";
 
 import { type AuthMe, fetchMe, login, logout, meQueryKey } from "./api";
@@ -35,6 +36,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(
     async (username: string, password: string) => {
       const res = await login(username, password);
+      // The account's effective language (own preference, else the system language) applies at every sign-in;
+      // the header ID/EN buttons change it for this browser only.
+      const lang = res.regional?.language;
+      if (lang && isLocale(lang)) await setLocale(lang);
       qc.removeQueries({ predicate: (q) => q.queryKey[0] !== meQueryKey[0] });
       qc.setQueryData<AuthMe>(meQueryKey, res);
       setExpired(false);

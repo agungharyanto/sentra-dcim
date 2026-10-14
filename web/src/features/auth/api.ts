@@ -43,10 +43,20 @@ export interface SessionInfo {
   mfa_verified: boolean;
 }
 
+/** Mirrors api/openapi.yaml#/components/schemas/Regional: effective values (own preference over system). */
+export interface Regional {
+  language: string;
+  timezone: string;
+  time_format: "24h" | "12h";
+  date_format: "DD/MM/YYYY" | "YYYY-MM-DD" | "DD MMM YYYY";
+}
+
 /** Mirrors api/openapi.yaml#/components/schemas/AuthMe. */
 export interface AuthMe {
   user: AuthUser;
   session: SessionInfo;
+  /** Effective regional settings (v0.3.5). */
+  regional?: Regional;
 }
 
 export const meQueryKey = ["auth", "me"] as const;

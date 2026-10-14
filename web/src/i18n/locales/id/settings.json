@@ -1,0 +1,51 @@
+{
+  "nav": {
+    "label": "Bagian pengaturan",
+    "regional": "Regional"
+  },
+  "regional": {
+    "title": "Regional",
+    "description": "Bahasa, zona waktu, dan format tanggal/jam bawaan untuk semua pengguna. Pengguna dapat memilih nilai sendiri di Preferensi. Data tetap disimpan dalam UTC.",
+    "save": "Simpan",
+    "saved": "Pengaturan regional disimpan.",
+    "noChanges": "Tidak ada perubahan.",
+    "reset": "Kembalikan ke default",
+    "resetLabel": "Kembalikan {{field}} ke default",
+    "resetDone": "{{field}} dikembalikan ke default.",
+    "default": "Default: {{value}}",
+    "custom": "Diubah",
+    "lastChanged": "Terakhir diubah {{time}}"
+  },
+  "field": {
+    "language": "Bahasa",
+    "timezone": "Zona waktu",
+    "time_format": "Format jam",
+    "date_format": "Format tanggal"
+  },
+  "hint": {
+    "timezone": "Nama zona IANA, mis. Asia/Jakarta (WIB), Asia/Makassar (WITA), Asia/Jayapura (WIT)."
+  },
+  "value": {
+    "language": {
+      "id": "Bahasa Indonesia",
+      "en": "English"
+    },
+    "time_format": {
+      "24h": "24 jam",
+      "12h": "12 jam (AM/PM)"
+    }
+  },
+  "preview": {
+    "title": "Contoh tampilan",
+    "dateTime": "Tanggal & jam",
+    "date": "Tanggal",
+    "time": "Jam"
+  },
+  "preferences": {
+    "title": "Preferensi",
+    "description": "Pilih bahasa, zona waktu, dan format tanggal/jam untuk akun Anda. \"Ikuti sistem\" memakai pengaturan Admin.",
+    "followSystem": "Ikuti sistem ({{value}})",
+    "save": "Simpan preferensi",
+    "saved": "Preferensi disimpan."
+  }
+}

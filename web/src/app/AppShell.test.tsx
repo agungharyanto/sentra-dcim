@@ -89,9 +89,10 @@ describe("app shell", () => {
     render(<App queryClient={createQueryClient()} />);
     expect(await screen.findByTestId("forbidden")).toHaveTextContent(shell.pages.forbidden.title);
     const nav = await sidebar();
-    expect(nav.getAllByRole("link")).toHaveLength(13);
+    expect(nav.getAllByRole("link")).toHaveLength(12);
     expect(nav.queryByRole("link", { name: shell.sidebar.users })).not.toBeInTheDocument();
     expect(nav.queryByRole("link", { name: shell.sidebar.audit })).not.toBeInTheDocument();
+    expect(nav.queryByRole("link", { name: shell.sidebar.settings })).not.toBeInTheDocument();
     // The title still names the menu, so the user knows what was refused.
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(shell.sidebar.users);
   });

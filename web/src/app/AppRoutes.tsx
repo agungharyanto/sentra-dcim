@@ -7,6 +7,7 @@ import { usePermissions } from "@/features/auth/permissions";
 import { SecurityPage } from "@/features/auth/SecurityPage";
 import { SessionsPage } from "@/features/auth/SessionsPage";
 import { useBootstrap } from "@/features/bootstrap/regional";
+import { PreferencesPage } from "@/features/settings/PreferencesPage";
 
 import { ForbiddenPage, NotFoundPage } from "./pages/StatusPages";
 import { buildRoutes } from "./routes";
@@ -55,6 +56,7 @@ export function AppRoutes() {
         <Route path="/account/sessions" element={<SessionsPage />} />
         <Route path="/account/password" element={<AccountPasswordPage />} />
         <Route path="/account/security" element={<SecurityPage />} />
+        <Route path="/account/preferences" element={<PreferencesPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

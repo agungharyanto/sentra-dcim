@@ -20,6 +20,7 @@ function pageTestId(status: string, key: string) {
   if (key === "help") return "help-center";
   if (key === "users") return "users-page"; // the test account has users.read (Admin)
   if (key === "audit") return "audit-page"; // and audit.read (Admin)
+  if (key === "settings") return "settings-regional"; // and settings.manage (Admin); /settings opens Regional
   return status === "not_connected" ? "not-connected" : "coming-soon";
 }
 

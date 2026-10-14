@@ -38,6 +38,8 @@ import (
 	"github.com/agungharyanto/sentra-dcim/internal/platform/httpserver"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/logging"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/migrator"
+	settingshandler "github.com/agungharyanto/sentra-dcim/internal/settings/handler"
+	settingsservice "github.com/agungharyanto/sentra-dcim/internal/settings/service"
 	systemhandler "github.com/agungharyanto/sentra-dcim/internal/system/handler"
 	systemservice "github.com/agungharyanto/sentra-dcim/internal/system/service"
 	uihandler "github.com/agungharyanto/sentra-dcim/internal/ui/handler"
@@ -140,15 +142,28 @@ func newAuthEnv(t *testing.T, mod func(*config.Auth)) *authEnv {
 	srv.StartTLS()
 	t.Cleanup(srv.Close)
 	sys := systemservice.New(log, time.UTC)
+	uiSvc := uiservice.New("id", []string{"id", "en"}, time.UTC)
 	mods := api.Modules{
 		System: systemhandler.New(sys),
-		UI:     uihandler.New(uiservice.New("id", []string{"id", "en"}, time.UTC)),
+		UI:     uihandler.New(uiSvc),
 		Help:   helphandler.New(nil, "id", []string{"id", "en"}),
 		Auth:   authhandler.New(svc, log, []string{srv.URL}),
 	}
 	usr := usersservice.New(appPool, rec, log, cfg)
 	mods.Users = usershandler.New(usr, log)
-	mods.Audit = audithandler.New(auditrepo.New(appPool), rec, chain.NewMonitor(appPool, log, nil, time.Hour), time.UTC, log)
+	reg, err := settingsservice.NewRegistry(settingsservice.Defaults{Language: "id", Timezone: "Asia/Jakarta"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := settingsservice.New(appPool, reg, rec, log)
+	// Same wiring as cmd/sentra (serve).
+	uiSvc.SetSystem(func(ctx context.Context) (string, string, bool) {
+		r, err := set.SystemRegional(ctx)
+		return r.Language, r.Timezone, err == nil
+	})
+	mods.Audit = audithandler.New(auditrepo.New(appPool), rec, chain.NewMonitor(appPool, log, nil, time.Hour), set.LocationFor, log)
+	mods.Settings = settingshandler.New(set, log)
+	mods.Auth.WithRegional(set)
 	srv.Config.Handler = httpserver.NewRouter(log, nil, nil, api.Mount(mods, false))
 	return &authEnv{t: t, srv: srv, pool: pool, svc: svc, usr: usr, dsn: dsn, appDSN: appDSN, totp: map[string][]byte{}}
 }

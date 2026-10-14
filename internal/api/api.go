@@ -8,6 +8,7 @@ import (
 	audithandler "github.com/agungharyanto/sentra-dcim/internal/audit/handler"
 	authhandler "github.com/agungharyanto/sentra-dcim/internal/auth/handler"
 	helphandler "github.com/agungharyanto/sentra-dcim/internal/help/handler"
+	settingshandler "github.com/agungharyanto/sentra-dcim/internal/settings/handler"
 	systemhandler "github.com/agungharyanto/sentra-dcim/internal/system/handler"
 	uihandler "github.com/agungharyanto/sentra-dcim/internal/ui/handler"
 	usershandler "github.com/agungharyanto/sentra-dcim/internal/users/handler"
@@ -15,12 +16,13 @@ import (
 
 // Modules are the HTTP modules mounted under /api/v1.
 type Modules struct {
-	System *systemhandler.Handler
-	UI     *uihandler.Handler
-	Help   *helphandler.Handler
-	Auth   *authhandler.Handler
-	Users  *usershandler.Handler
-	Audit  *audithandler.Handler
+	System   *systemhandler.Handler
+	UI       *uihandler.Handler
+	Help     *helphandler.Handler
+	Auth     *authhandler.Handler
+	Users    *usershandler.Handler
+	Audit    *audithandler.Handler
+	Settings *settingshandler.Handler
 }
 
 // PublicRoutes is the allowlist of "METHOD /path" reachable without a session on the public listener.
@@ -52,6 +54,8 @@ var SelfServiceRoutes = []string{
 	"GET /api/v1/help/pages/*",
 	"GET /api/v1/help/openapi",
 	"GET /api/v1/help/assets/{name}",
+	"GET /api/v1/me/preferences",
+	"PUT /api/v1/me/preferences",
 	"GET /api/v1/ready", // public listener only: a signed-in check of dependency status
 }
 
@@ -76,6 +80,8 @@ var AuditedRoutes = map[string][]string{
 	"POST /api/v1/users/{id}/password-reset": {"user.password.reset"},
 	"POST /api/v1/users/{id}/mfa-reset":      {"user.mfa.reset"},
 	"POST /api/v1/audit/integrity/verify":    {"audit.verify"},
+	"PUT /api/v1/settings/{group}":           {"settings.update"},
+	"PUT /api/v1/me/preferences":             {"user.preferences.update"},
 }
 
 // Mount returns the /api/v1 mount function. internal selects the loopback listener variant.
@@ -101,6 +107,7 @@ func Mount(m Modules, internal bool) func(r chi.Router) {
 			m.Help.Routes(r)
 			m.Users.Routes(r, m.Auth.Require)
 			m.Audit.Routes(r, m.Auth.Require)
+			m.Settings.Routes(r, m.Auth.Require)
 		})
 	}
 }

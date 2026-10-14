@@ -3,6 +3,7 @@ import { Download, RotateCcw, ShieldAlert, ShieldCheck, ShieldQuestion } from "l
 import { type FormEvent, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { DateTimePicker } from "@/components/domain/DateTimePicker";
 import { dcimStatusStyle } from "@/components/domain/status";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +16,6 @@ import { usePermissions } from "@/features/auth/permissions";
 import { useFormatters } from "@/features/bootstrap/regional";
 import { toErrorCode } from "@/i18n/errors";
 import { ApiError } from "@/lib/api";
-import { zonedLocalToUtc } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 import {
@@ -125,7 +125,7 @@ function IntegrityCard() {
             ) : (
               <>
                 <p className="text-muted-foreground">
-                  {t("integrity.verifiedAt", { time: fmt.dateTime(last.verified_at, { dateStyle: "medium", timeStyle: "medium" }) })}
+                  {t("integrity.verifiedAt", { time: fmt.dateTime(last.verified_at, { seconds: true }) })}
                   {" · "}
                   {t("integrity.checked", { count: last.checked, head: last.head_seq })}
                 </p>
@@ -179,8 +179,8 @@ function Filters({ current, onApply }: { current: AuditFilter; onApply: (f: Audi
   const submit = (e: FormEvent) => {
     e.preventDefault();
     onApply({
-      since: zonedLocalToUtc(draft.since, fmt.timezone),
-      until: zonedLocalToUtc(draft.until, fmt.timezone),
+      since: draft.since,
+      until: draft.until,
       actor: draft.actor,
       action: draft.action,
       result: draft.result,
@@ -190,11 +190,11 @@ function Filters({ current, onApply }: { current: AuditFilter; onApply: (f: Audi
   return (
     <form onSubmit={submit} className="space-y-3 rounded-xl border bg-card p-4" aria-label={t("filter.title")} data-testid="audit-filters">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Field htmlFor={`${id}-since`} label={t("filter.since")}>
-          <Input id={`${id}-since`} type="datetime-local" value={draft.since} onChange={set("since")} />
+        <Field htmlFor={`${id}-since`} label={t("filter.since", { zone: fmt.timezone })}>
+          <DateTimePicker id={`${id}-since`} value={draft.since} onChange={(v) => setDraft({ ...draft, since: v })} />
         </Field>
-        <Field htmlFor={`${id}-until`} label={t("filter.until")}>
-          <Input id={`${id}-until`} type="datetime-local" value={draft.until} onChange={set("until")} />
+        <Field htmlFor={`${id}-until`} label={t("filter.until", { zone: fmt.timezone })}>
+          <DateTimePicker id={`${id}-until`} defaultTime="end" value={draft.until} onChange={(v) => setDraft({ ...draft, until: v })} />
         </Field>
         <Field htmlFor={`${id}-actor`} label={t("filter.actor")}>
           <Input id={`${id}-actor`} maxLength={128} placeholder={t("filter.actorPlaceholder")} value={draft.actor} onChange={set("actor")} />
@@ -267,7 +267,7 @@ function EventList({ filter, onSelect }: { filter: AuditFilter; onSelect: (e: Au
   });
   const rows = events.data?.pages.flatMap((p) => p.events) ?? [];
   const filtered = Object.values(filter).some((v) => v !== "");
-  const time = (e: AuditEvent) => fmt.dateTime(e.occurred_at, { dateStyle: "short", timeStyle: "medium" });
+  const time = (e: AuditEvent) => fmt.dateTime(e.occurred_at, { seconds: true });
   const actor = (e: AuditEvent) => e.actor_username || t(`actorType.${e.actor_type}`);
   const target = (e: AuditEvent) => (e.target_type || e.target_id ? [e.target_type, e.target_id].filter(Boolean).join(": ") : t("none"));
   const details = (e: AuditEvent) => (

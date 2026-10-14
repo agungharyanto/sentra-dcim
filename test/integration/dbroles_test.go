@@ -26,8 +26,10 @@ var appGrants = map[string][]string{
 	"roles":              {"SELECT"},
 	"schema_migrations":  {"SELECT"},
 	"sessions":           {"DELETE", "INSERT", "SELECT", "UPDATE"},
+	"settings":           {"DELETE", "INSERT", "SELECT", "UPDATE"},
 	"system_info":        {"SELECT"},
 	"user_mfa":           {"DELETE", "INSERT", "SELECT", "UPDATE"},
+	"user_preferences":   {"DELETE", "INSERT", "SELECT", "UPDATE"},
 	"user_roles":         {"DELETE", "INSERT", "SELECT", "UPDATE"},
 	"users":              {"INSERT", "SELECT", "UPDATE"},
 }

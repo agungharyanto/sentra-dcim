@@ -3,6 +3,29 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [v0.3.5] - 2026-10-14 — Settings – Regional
+
+### Ditambahkan
+- **Fondasi pengaturan generik** (D-076, migrasi 000008): skema per key di kode (tipe, default, pilihan, batas
+  min/maks, validator, boleh-override-pengguna), nilai di tabel `settings` hanya bila berbeda dari default,
+  override per pengguna di `user_preferences`. API `GET/PUT /api/v1/settings/{group}` (izin baru `settings.manage`,
+  Admin): validasi semua-atau-tidak-sama-sekali, `null` = kembali ke default, setiap perubahan tercatat
+  `settings.update` (nilai lama → baru). Siap dipakai Allowed IP (v0.3.6) dan kebijakan sesi/kata sandi (v0.3.7).
+- **Regional sistem**: bahasa (id/en), zona waktu (IANA, zona tak dikenal ditolak), format jam (24/12), format tanggal
+  (`DD/MM/YYYY`, `YYYY-MM-DD`, `DD MMM YYYY`). Default awal dari `.env` (`DEFAULT_LOCALE`, `DISPLAY_TIMEZONE`), lalu
+  diatur Admin di **Pengaturan › Regional** (pratinjau langsung, *Kembalikan ke default*).
+- **Preferensi pengguna** (Akun › Preferensi, `GET/PUT /api/v1/me/preferences`): keempat nilai bisa "Ikuti sistem"
+  atau nilai sendiri; tercatat `user.preferences.update`. `/api/v1/auth/me` mengembalikan nilai efektif (`regional`).
+  Bahasa preferensi diterapkan saat masuk; tombol ID/EN di header tetap pilihan browser.
+- **Satu helper format** (D-077) untuk semua tanggal/jam di UI (Audit Log, Sesi saya, Keamanan, Pengguna, jam header)
+  dari nilai efektif; DB tetap UTC. Ekspor CSV audit: kolom UTC ISO-8601 + kolom lokal dalam zona efektif pengekspor.
+- **Pemilih tanggal & jam** design system (kalender Senin-pertama, navigasi panah/Page Up/Down, 12/24 jam, ID/EN)
+  menggantikan input tanggal bawaan browser di filter Audit Log (ISS-043).
+
+### Diubah
+- Menu **Pengaturan** kini tersedia (khusus `settings.manage`). Dokumen bootstrap UI dan detail `/api/v1/version`
+  memakai zona/bahasa sistem dari pengaturan (`.env` tetap jadi nilai awal).
+
 ## [v0.3.4] - 2026-10-14 — Audit Log
 
 ### Ditambahkan

@@ -61,7 +61,8 @@
     "ui_design_system": "Open the design system showcase",
     "audit_read": "View the audit log",
     "audit_export": "Export the audit log (CSV)",
-    "help_admin": "Read Admin-only guides"
+    "help_admin": "Read Admin-only guides",
+    "settings_manage": "Change system settings"
   },
   "rolesTab": {
     "description": "A role is a set of permissions. Users get the union of the permissions of all their roles. Every signed-in user can use the Dashboard, the Help Center and their own account.",
