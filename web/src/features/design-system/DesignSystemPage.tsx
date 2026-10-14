@@ -3,6 +3,7 @@ import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "@/components/ui/toast";
 
+import { DateTimePicker } from "@/components/domain/DateTimePicker";
 import { LanguageSwitcher } from "@/components/domain/LanguageSwitcher";
 import { CopyButton } from "@/components/domain/CopyButton";
 import { Logo } from "@/components/domain/Logo";
@@ -84,6 +85,7 @@ export function DesignSystemPage() {
   const { t } = useTranslation(["ds", "common"]);
   const boot = useBootstrap();
   const fmt = useFormatters();
+  const [when, setWhen] = useState("2026-10-14T02:00:00Z");
   const [density, setDensity] = useState("comfortable");
 
   return (
@@ -198,6 +200,12 @@ export function DesignSystemPage() {
                   <SelectItem value="drc">{t("showcase.form.sites.drc")}</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <label htmlFor="ds-when" className="text-sm font-medium">
+                {t("showcase.form.whenLabel")}
+              </label>
+              <DateTimePicker id="ds-when" value={when} onChange={setWhen} />
             </div>
           </div>
         </Section>

@@ -62,7 +62,8 @@
       "sites": {
         "main": "Data center utama",
         "drc": "Data center cadangan (DRC)"
-      }
+      },
+      "whenLabel": "Jadwal pemeliharaan (pemilih tanggal & jam)"
     },
     "tabs": {
       "overview": "Ringkasan",
@@ -114,5 +115,17 @@
     "copied": "Disalin",
     "failed": "Gagal menyalin ke clipboard. Salin manual: {{value}}",
     "failedSecret": "Gagal menyalin ke clipboard."
+  },
+  "datetime": {
+    "prevMonth": "Bulan sebelumnya",
+    "nextMonth": "Bulan berikutnya",
+    "time": "Waktu",
+    "hour": "Jam",
+    "minute": "Menit",
+    "ampm": "AM/PM",
+    "am": "AM",
+    "pm": "PM",
+    "done": "Selesai",
+    "clear": "Kosongkan tanggal"
   }
 }

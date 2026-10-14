@@ -61,7 +61,8 @@
     "ui_design_system": "Membuka showcase design system",
     "audit_read": "Melihat audit log",
     "audit_export": "Mengekspor audit log (CSV)",
-    "help_admin": "Membaca panduan khusus Admin"
+    "help_admin": "Membaca panduan khusus Admin",
+    "settings_manage": "Mengubah pengaturan sistem"
   },
   "rolesTab": {
     "description": "Role adalah kumpulan izin. Pengguna mendapat gabungan izin semua role-nya. Semua pengguna yang masuk dapat memakai Dasbor, Pusat Bantuan, dan akun sendiri.",

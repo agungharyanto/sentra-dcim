@@ -3,15 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { useFormatters } from "@/features/bootstrap/regional";
 
-const format: Intl.DateTimeFormatOptions = {
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  timeZoneName: "short",
-};
+const format = { weekday: true, seconds: true, zone: true } as const;
 
 /**
  * Live clock in the server display time zone. Owns its own state, so the 1 s tick re-renders only this component,

@@ -18,8 +18,8 @@
   },
   "filter": {
     "title": "Filter",
-    "since": "Dari (WIB)",
-    "until": "Sampai (WIB)",
+    "since": "Dari ({{zone}})",
+    "until": "Sampai ({{zone}})",
     "actor": "Pelaku",
     "actorPlaceholder": "Nama pengguna",
     "action": "Aksi",
@@ -45,7 +45,7 @@
     "anonymous": "Anonim"
   },
   "table": {
-    "time": "Waktu (WIB)",
+    "time": "Waktu",
     "actor": "Pelaku",
     "action": "Aksi",
     "result": "Hasil",

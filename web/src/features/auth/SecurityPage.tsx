@@ -23,7 +23,7 @@ export function SecurityPage() {
   const fmt = useFormatters();
   const status = useQuery({ queryKey: mfaStatusKey, queryFn: ({ signal }) => fetchMfaStatus(signal) });
   const [open, setOpen] = useState(false);
-  const since = (v: string) => fmt.dateTime(v, { dateStyle: "medium", timeStyle: "short" });
+  const since = (v: string) => fmt.dateTime(v);
 
   return (
     <section className="max-w-2xl space-y-4" data-testid="security-page">

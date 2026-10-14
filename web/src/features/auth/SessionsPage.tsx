@@ -29,7 +29,7 @@ export function SessionsPage() {
     onError: (err) => toast.error(t(`errors:code.${toErrorCode(err instanceof ApiError ? err.code : "unknown")}`)),
   });
 
-  const when = (v: string) => fmt.dateTime(v, { dateStyle: "medium", timeStyle: "short" });
+  const when = (v: string) => fmt.dateTime(v);
   const ends = (s: SessionInfo) => (s.idle_expires_at < s.expires_at ? s.idle_expires_at : s.expires_at);
   const device = (s: SessionInfo) => describeDevice(s.user_agent) || t("sessions.unknownDevice");
   const action = (s: SessionInfo) =>

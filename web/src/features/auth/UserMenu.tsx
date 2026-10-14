@@ -1,4 +1,4 @@
-import { KeyRound, LogOut, MonitorSmartphone, ShieldCheck, UserRound } from "lucide-react";
+import { KeyRound, LogOut, MonitorSmartphone, ShieldCheck, SlidersHorizontal, UserRound } from "lucide-react";
 import { useContext } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
@@ -50,6 +50,12 @@ export function UserMenu() {
           <Link to="/account/security">
             <ShieldCheck aria-hidden />
             {t("security.title")}
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/account/preferences">
+            <SlidersHorizontal aria-hidden />
+            {t("preferences.title")}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>

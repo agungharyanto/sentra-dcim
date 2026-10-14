@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { isLocale, setLocale } from "@/i18n";
 import { onAuthError } from "@/lib/api";
 
 import { type AuthMe, fetchMe, login, logout, meQueryKey } from "./api";
@@ -12,11 +13,17 @@ import { AuthContext, type AuthState } from "./auth-context";
  * locally, so the route guard sends them to the login page; 403 "password_change_required" re-reads /me.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { t } = useTranslation(["common", "errors"]);
+  const { t, i18n } = useTranslation(["common", "errors"]);
   const qc = useQueryClient();
   const [expired, setExpired] = useState(false);
   const query = useQuery({ queryKey: meQueryKey, queryFn: ({ signal }) => fetchMe(signal), staleTime: Infinity });
   const me = query.data ?? null;
+
+  // The effective language (own preference, else the system language) wins after sign-in and on every reload.
+  const language = me?.regional?.language;
+  useEffect(() => {
+    if (language && isLocale(language) && language !== i18n.resolvedLanguage) void setLocale(language);
+  }, [language, i18n]);
 
   useEffect(
     () =>

@@ -103,7 +103,7 @@ function UserList() {
     };
 
   const name = (u: User) => u.display_name || u.username;
-  const lastLogin = (u: User) => (u.last_login_at ? fmt.dateTime(u.last_login_at, { dateStyle: "medium", timeStyle: "short" }) : t("list.never"));
+  const lastLogin = (u: User) => (u.last_login_at ? fmt.dateTime(u.last_login_at) : t("list.never"));
   const action = (u: User) => (
     <Button asChild variant="outline" size="sm">
       <Link to={`/users/${u.id}`} aria-label={t(canManage ? "list.manageLabel" : "list.viewLabel", { name: name(u) })}>

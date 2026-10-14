@@ -62,7 +62,7 @@ pilih versi terbaru yang sudah melewati jendela itu.
 | tailwind-merge | 3.7.0 | MIT | Resolusi konflik kelas Tailwind (`cn()`) |
 | lucide-react | 1.55.0 | ISC | Ikon (nama ikon menu dari registry backend) |
 | shadcn/ui | — (kode disalin, `components.json`) | MIT | Pola komponen di atas Radix; komponen + Radix ditambahkan di v0.2.2 |
-| radix-ui | 1.8.0 | MIT | Primitif aksesibel (Dialog/Sheet, Select, Tabs, Tooltip, DropdownMenu, Slot) untuk komponen shadcn/ui (v0.2.2) |
+| radix-ui | 1.8.0 | MIT | Primitif aksesibel (Dialog/Sheet, Select, Tabs, Tooltip, DropdownMenu, Popover — pemilih tanggal v0.3.5, Slot) untuk komponen shadcn/ui (v0.2.2) |
 | react-markdown | 10.1.0 | MIT | Renderer Markdown Pusat Bantuan (v0.2.4): tanpa raw HTML (tanpa rehype-raw), `urlTransform` hanya https/mailto/route app |
 | remark-gfm | 4.0.1 | MIT | GitHub Flavored Markdown (tabel, daftar, strikethrough) untuk halaman bantuan |
 | ~~sonner~~ | — | — | **Dihapus di v0.3.3**: menyuntik `<style>` tanpa dukungan nonce (ISS-030); diganti `components/ui/toast.tsx` sendiri |
