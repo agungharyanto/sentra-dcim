@@ -17,8 +17,8 @@ import (
 	audithandler "github.com/agungharyanto/sentra-dcim/internal/audit/handler"
 )
 
-// getRaw fetches a non-JSON response (CSV export).
-func (c *client) getRaw(t *testing.T, p string) (*http.Response, string) {
+// getRaw fetches a non-JSON response (CSV export): status, headers, body.
+func (c *client) getRaw(t *testing.T, p string) (int, http.Header, string) {
 	t.Helper()
 	u := *c.url
 	ref, _ := url.Parse(p)
@@ -28,7 +28,7 @@ func (c *client) getRaw(t *testing.T, p string) (*http.Response, string) {
 	}
 	defer func() { _ = res.Body.Close() }()
 	b, _ := io.ReadAll(res.Body)
-	return res, string(b)
+	return res.StatusCode, res.Header, string(b)
 }
 
 func userAgent(ua string) reqOpt { return func(r *http.Request) { r.Header.Set("User-Agent", ua) } }
@@ -113,10 +113,10 @@ func TestAuditCSVExportNeutralisesFormulasAndIsAudited(t *testing.T) {
 		e.client().post("/api/v1/auth/login", map[string]string{"username": "-1.user", "password": "wrong-password-123"}, userAgent(p))
 	}
 
-	res, body := auditor.getRaw(t, "/api/v1/audit/events/export.csv?action=auth.login.failure")
-	if res.StatusCode != http.StatusOK || !strings.HasPrefix(res.Header.Get("Content-Type"), "text/csv") ||
-		!strings.Contains(res.Header.Get("Content-Disposition"), "attachment") || res.Header.Get("Cache-Control") != "no-store" {
-		t.Fatalf("export response: %d %v", res.StatusCode, res.Header)
+	code, hdr, body := auditor.getRaw(t, "/api/v1/audit/events/export.csv?action=auth.login.failure")
+	if code != http.StatusOK || !strings.HasPrefix(hdr.Get("Content-Type"), "text/csv") ||
+		!strings.Contains(hdr.Get("Content-Disposition"), "attachment") || hdr.Get("Cache-Control") != "no-store" {
+		t.Fatalf("export response: %d %v", code, hdr)
 	}
 	recs, err := csv.NewReader(strings.NewReader(body)).ReadAll()
 	if err != nil {
