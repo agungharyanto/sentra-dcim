@@ -20,6 +20,12 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
   diisi trigger di bawah advisory lock (insert paralel tidak bercabang; baris lama di-backfill). Verifikasi
   `sentra audit verify` + job harian di app (gagal → log error). Setiap backup menyimpan kepala chain
   (`audit-anchor.json`); `make audit-verify` mencocokkan chain dengan anchor semua backup (`UNTIL=` setelah restore).
+- **Retensi audit log**: `AUDIT_RETENTION_DAYS` (default 365, minimum 90). `make audit-prune` (juga dijalankan
+  timer backup harian setelah backup sukses) mengarsipkan event di luar retensi ke `$BACKUP_DIR/audit-archive/`
+  (gzip JSON lines + `.sha256`), lalu — sebagai role owner di container `ops` — menghapusnya hanya bila checksum
+  arsip cocok dengan ekspor ulang dalam transaksi yang sama, menyimpan checkpoint (hash baris terakhir) di
+  `audit_checkpoints` dan mencatat event `audit.prune`. Chain tetap terverifikasi; arsip bisa diverifikasi offline
+  dengan `sentra audit verify-archive`.
 
 ### Diperbaiki
 - **ISS-042**: pengaman "Admin aktif terakhir" memakai advisory lock (sebelumnya `FOR UPDATE` yang butuh hak

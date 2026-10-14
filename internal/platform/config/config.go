@@ -40,9 +40,11 @@ type Config struct {
 	RateLimitRPS   float64
 	RateLimitBurst int
 	TrustedProxies []netip.Prefix
-	DB             DB
-	Redis          Redis
-	Auth           Auth
+	// AuditRetentionDays: audit events older than this are archived and pruned by `make audit-prune` (min 90).
+	AuditRetentionDays int
+	DB                 DB
+	Redis              Redis
+	Auth               Auth
 }
 
 // Auth holds authentication settings (ADR-003, v0.3.1).
@@ -146,6 +148,8 @@ func LoadFrom(lookup func(string) (string, bool)) (Config, error) {
 	if cfg.Auth.SessionIdle > cfg.Auth.SessionAbsolute {
 		p.errs = append(p.errs, errors.New("AUTH_SESSION_IDLE must not exceed AUTH_SESSION_ABSOLUTE"))
 	}
+
+	cfg.AuditRetentionDays = int(p.int32("AUDIT_RETENTION_DAYS", 365, 90, 36500))
 
 	cfg.TrustedProxies = p.prefixes("APP_TRUSTED_PROXIES", "127.0.0.1/32,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16")
 
