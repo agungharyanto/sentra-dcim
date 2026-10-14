@@ -228,6 +228,7 @@ test.describe("settings & preferences", () => {
     await page.getByTestId("confirm-dialog").getByTestId("confirm").click();
     await expect(page.getByText(catalog("id", "errors").code.kiosk_requires_allowlist)).toBeVisible();
     await page.screenshot({ path: `${artifactsDir}/users-kiosk-refused.png`, fullPage: true });
-    expect(problems).toEqual([]);
+    // The refusal itself is the expected 409; anything else is a problem.
+    expect(problems.filter((p) => !p.includes("status of 409"))).toEqual([]);
   });
 });
