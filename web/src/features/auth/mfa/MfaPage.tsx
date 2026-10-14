@@ -215,7 +215,7 @@ function Enrolment({ onEnabled }: { onEnabled: (codes: string[]) => void }) {
             </dd>
             <dt className="text-muted-foreground">{t("mfa.key")}</dt>
             <dd className="flex items-start gap-1">
-              <code className="font-mono break-all" data-testid="mfa-secret">
+              <code className="font-mono" data-testid="mfa-secret">
                 {data.secret}
               </code>
               <CopyButton value={data.secret.replaceAll(" ", "")} label={t("mfa.copyKey")} />
