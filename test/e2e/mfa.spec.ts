@@ -126,6 +126,25 @@ test.describe("MFA", () => {
     await page.getByTestId("mfa-verify-page").screenshot({ path: `${artifactsDir}/help-mfa-verify-en.png` });
   });
 
+  test("Help Center MFA page shows its step images (ID + EN)", async ({ page }) => {
+    const problems = await watchProblems(page);
+    for (const lng of ["id", "en"]) {
+      await page.goto("/help/auth/mfa");
+      if (lng === "en") await page.getByRole("button", { name: /English/ }).click();
+      const imgs = page.getByTestId("help-markdown").locator("img");
+      await expect(imgs).toHaveCount(7);
+      for (const img of await imgs.all()) {
+        await img.scrollIntoViewIfNeeded();
+        await expect(img).toHaveJSProperty("complete", true);
+        expect(await img.evaluate((el: HTMLImageElement) => el.naturalWidth), await img.getAttribute("src") ?? "").toBeGreaterThan(0);
+        expect(await img.getAttribute("alt")).toBeTruthy();
+      }
+      await expectAccessible(page, `help mfa ${lng}`);
+      await page.screenshot({ path: `${artifactsDir}/help-mfa-page-${lng}.png`, fullPage: true });
+    }
+    expect(problems).toEqual([]);
+  });
+
   test("account security page (read-only), desktop + mobile, axe", async ({ page }) => {
     const problems = await watchProblems(page);
     await page.goto("/account/security");

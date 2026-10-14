@@ -22,6 +22,8 @@ Semua pengguna, apa pun role-nya. Tanpa MFA, akun tidak bisa memakai menu apa pu
 
 Langkah ini muncul otomatis saat Anda masuk pertama kali (atau setelah Admin mereset MFA Anda).
 
+![Halaman Pasang verifikasi dua langkah dengan tiga langkah dan tombol Mulai](/api/v1/help/assets/help-mfa-intro-id.png)
+
 ### 1. Pasang aplikasi authenticator di HP
 
 Buka Play Store (Android) atau App Store (iPhone), cari **Google Authenticator** (atau Microsoft Authenticator /
@@ -37,6 +39,8 @@ Buka aplikasi, lalu tekan tombol **+** (Tambah akun / Add a code).
 
 Di Sentra DCIM pilih **Mulai** sampai kode QR tampil. Di HP pilih **Pindai kode QR** dan arahkan kamera ke kode
 QR di layar komputer.
+
+![Halaman Sentra DCIM dengan kode QR, akun, kunci penyiapan, dan kolom kode 6 digit (data contoh)](/api/v1/help/assets/help-mfa-qr-id.png)
 
 ![Kamera HP membingkai kode QR untuk dipindai](/api/v1/help/assets/mfa-phone-scan.svg)
 
@@ -56,12 +60,16 @@ Setelah aktif, Sentra DCIM menampilkan **10 recovery code** — **hanya sekali**
 kata sandi, atau dicetak/ditulis dan disimpan di lemari terkunci), **jangan** di HP yang sama. Centang *Saya sudah
 menyimpan recovery code*, lalu pilih **Lanjutkan**.
 
+![Daftar 10 recovery code dengan peringatan hanya tampil sekali dan kotak centang konfirmasi (kode contoh)](/api/v1/help/assets/help-mfa-recovery-id.png)
+
 ## Langkah-langkah: masuk sehari-hari
 
 1. Masuk dengan nama pengguna dan kata sandi seperti biasa.
 2. Buka aplikasi authenticator, lihat kode 6 digit akun **Sentra DCIM**.
 3. Ketik kode itu lalu pilih **Verifikasi**. Kode yang sudah dipakai tidak bisa dipakai lagi; bila ditolak, tunggu
    kode berikutnya (maksimal 30 detik).
+
+![Halaman Verifikasi dua langkah dengan kolom kode 6 digit dan tautan recovery code](/api/v1/help/assets/help-mfa-verify-id.png)
 
 ## HP hilang, rusak, atau ganti HP
 

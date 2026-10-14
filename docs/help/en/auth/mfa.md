@@ -22,6 +22,8 @@ Every user, whatever the role. Without MFA an account cannot use any menu.
 
 This appears automatically at your first sign-in (or after an Admin reset your MFA).
 
+![Set up two-step verification page with three steps and the Start button](/api/v1/help/assets/help-mfa-intro-en.png)
+
 ### 1. Install an authenticator app on your phone
 
 Open the Play Store (Android) or App Store (iPhone), search for **Google Authenticator** (or Microsoft
@@ -37,6 +39,8 @@ Open the app and tap the **+** button (Add account / Add a code).
 
 In Sentra DCIM select **Start** until the QR code appears. On the phone choose **Scan a QR code** and point the camera
 at the QR code on the computer screen.
+
+![Sentra DCIM page with the QR code, account, setup key and the 6-digit code field (sample data)](/api/v1/help/assets/help-mfa-qr-en.png)
 
 ![Phone camera framing the QR code to scan](/api/v1/help/assets/mfa-phone-scan.svg)
 
@@ -56,12 +60,16 @@ Once active, Sentra DCIM shows **10 recovery codes** — **only once**. Keep the
 or printed/written down in a locked drawer), **not** on the same phone. Tick *I have saved the recovery codes*, then
 select **Continue**.
 
+![List of 10 recovery codes with the shown-once warning and the confirmation checkbox (sample codes)](/api/v1/help/assets/help-mfa-recovery-en.png)
+
 ## Steps: everyday sign-in
 
 1. Sign in with your username and password as usual.
 2. Open the authenticator app and look at the 6-digit code of the **Sentra DCIM** account.
 3. Type the code and select **Verify**. A code that was used cannot be used again; if it is refused, wait for the
    next code (at most 30 seconds).
+
+![Two-step verification page with the 6-digit code field and the recovery code link](/api/v1/help/assets/help-mfa-verify-en.png)
 
 ## Phone lost, broken or replaced
 
