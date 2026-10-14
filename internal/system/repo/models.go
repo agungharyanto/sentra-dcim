@@ -10,6 +10,18 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// Hash of the last pruned audit row per pruning run (v0.3.4); append-only.
+type AuditCheckpoint struct {
+	ThroughSeq    int64              `json:"through_seq"`
+	LastHash      []byte             `json:"last_hash"`
+	RowsPruned    int64              `json:"rows_pruned"`
+	OldestAt      pgtype.Timestamptz `json:"oldest_at"`
+	NewestAt      pgtype.Timestamptz `json:"newest_at"`
+	ArchiveName   string             `json:"archive_name"`
+	ArchiveSha256 string             `json:"archive_sha256"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
 // Append-only audit log (ADR-003). UPDATE/DELETE/TRUNCATE are rejected by triggers.
 type AuditEvent struct {
 	ID            int64              `json:"id"`
@@ -27,6 +39,7 @@ type AuditEvent struct {
 	Metadata      []byte             `json:"metadata"`
 	PrevHash      []byte             `json:"prev_hash"`
 	Hash          []byte             `json:"hash"`
+	ChainSeq      int64              `json:"chain_seq"`
 }
 
 // One-time MFA recovery codes (v0.3.3), stored as keyed hashes.
