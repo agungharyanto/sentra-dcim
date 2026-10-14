@@ -67,6 +67,17 @@ fail_login() {
     -d "{\"username\":\"f2b.test.$RANDOM\",\"password\":\"not-a-real-password\"}" "https://$domain/api/v1/auth/login" || true
 }
 banned() { fail2ban-client status "$JAIL" | grep -q "Banned IP list:.*\b${TESTER_IP//./\\.}\b"; }
+total_failed() { fail2ban-client status "$JAIL" | sed -n 's/.*Total failed:[[:space:]]*//p'; }
+# The jail tails its log with backend=polling: right after a fail2ban restart (e.g. ops/harden re-run earlier in the
+# full regression) lines written before the first poll are skipped. Repeat failed logins until the jail counts one.
+wait_watching() {
+  local base; base="$(total_failed)"
+  for _ in $(seq 1 15); do
+    fail_login >/dev/null; sleep 1
+    (( $(total_failed) > base )) && return 0
+  done
+  return 1
+}
 wait_banned() { for _ in $(seq 1 40); do banned && return 0; sleep 0.5; done; return 1; }
 admin_ips() { sed -n 's/^ADMIN_IPS=//p' "$root/.env" | tr -d "'\"" | tr ',' ' '; who | grep -oE '\(([0-9]{1,3}\.){3}[0-9]{1,3}\)' | tr -d '()'; }
 
@@ -76,6 +87,7 @@ cleanup; start_tester
 
 check "tester reaches the site before the test (health 200)" "$([[ $(probe) == 200/0 ]]; echo $?)"
 check "a failed app login answers 401" "$([[ $(fail_login) == 401 ]]; echo $?)"
+check "jail $JAIL counts the tester's failed logins (log watcher ready)" "$(wait_watching; echo $?)"
 for _ in $(seq 2 "$ATTEMPTS"); do fail_login >/dev/null; done
 check "tester IP banned after $ATTEMPTS failed app logins (> maxretry 10)" "$(wait_banned; echo $?)"
 check "DOCKER-USER → f2b-$JAIL rejects $TESTER_IP" "$(iptables -S "f2b-$JAIL" | grep -q -- "-s $TESTER_IP/32 .*-j REJECT"; echo $?)"
