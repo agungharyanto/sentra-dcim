@@ -51,14 +51,17 @@
     "security": "Security & physical access staff.",
     "technician": "Facility & equipment technicians.",
     "viewer": "Read only (management/stakeholders).",
-    "auditor": "Auditors: view users & roles (audit log to follow)."
+    "auditor": "Auditors: view users & roles, the audit log and its export."
   },
   "permission": {
     "users_read": "View users",
     "users_manage": "Manage users",
     "roles_read": "View roles",
     "system_version_read": "View build details",
-    "ui_design_system": "Open the design system showcase"
+    "ui_design_system": "Open the design system showcase",
+    "audit_read": "View the audit log",
+    "audit_export": "Export the audit log (CSV)",
+    "help_admin": "Read Admin-only guides"
   },
   "rolesTab": {
     "description": "A role is a set of permissions. Users get the union of the permissions of all their roles. Every signed-in user can use the Dashboard, the Help Center and their own account.",

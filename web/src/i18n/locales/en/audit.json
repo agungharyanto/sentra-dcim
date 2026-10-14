@@ -1,0 +1,82 @@
+{
+  "description": "Trail of every important action: who, when, from where, and with which result. Records cannot be changed and are locked in a hash chain.",
+  "integrity": {
+    "title": "Hash chain integrity",
+    "intact": "Intact",
+    "broken": "Broken",
+    "unknown": "Not verified yet",
+    "unknownBody": "No verification since the application last started. Automatic verification runs daily.",
+    "running": "Verifying…",
+    "verifiedAt": "Verified {{time}}",
+    "checked": "{{count}} events checked (up to seq {{head}})",
+    "checkpoint": "Starting after pruning checkpoint seq {{seq}}",
+    "brokenAt": "First problem at seq {{seq}}: {{reason}}",
+    "verify": "Verify now",
+    "verifyDone": "Verification finished: the hash chain is intact.",
+    "verifyBroken": "Verification finished: the hash chain is BROKEN.",
+    "busy": "Another verification is running. Try again shortly."
+  },
+  "filter": {
+    "title": "Filters",
+    "since": "From (WIB)",
+    "until": "To (WIB)",
+    "actor": "Actor",
+    "actorPlaceholder": "Username",
+    "action": "Action",
+    "allActions": "All actions",
+    "prefixOption": "{{prefix}}.* (all)",
+    "result": "Result",
+    "allResults": "All results",
+    "target": "Target",
+    "targetPlaceholder": "Object ID",
+    "apply": "Apply",
+    "reset": "Reset",
+    "export": "Export CSV",
+    "exportHint": "Up to 50,000 of the newest events matching the filters. The export is recorded in the audit log."
+  },
+  "result": {
+    "success": "Success",
+    "failure": "Failure",
+    "denied": "Denied"
+  },
+  "actorType": {
+    "user": "User",
+    "system": "System",
+    "anonymous": "Anonymous"
+  },
+  "table": {
+    "time": "Time (WIB)",
+    "actor": "Actor",
+    "action": "Action",
+    "result": "Result",
+    "target": "Target",
+    "ip": "IP",
+    "details": "Details",
+    "detailsLabel": "Details of event seq {{seq}}",
+    "empty": "No audit events yet.",
+    "emptyFiltered": "No events match the filters.",
+    "loadMore": "Load more",
+    "end": "No older events.",
+    "shown": "{{count}} events shown"
+  },
+  "detail": {
+    "title": "Event details",
+    "description": "Audit event seq {{seq}}",
+    "seq": "Seq",
+    "time": "Time",
+    "timeUtc": "Time (UTC)",
+    "actor": "Actor",
+    "actorId": "Actor ID",
+    "action": "Action",
+    "result": "Result",
+    "target": "Target",
+    "ip": "IP",
+    "userAgent": "User agent",
+    "requestId": "Request ID",
+    "metadata": "Metadata",
+    "noMetadata": "No metadata",
+    "hash": "Hash",
+    "close": "Close"
+  },
+  "none": "—"
+}

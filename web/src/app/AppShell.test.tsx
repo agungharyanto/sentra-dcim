@@ -44,7 +44,7 @@ describe("app shell", () => {
       expect(nav.getByRole("group", { name: shell.groups[g.key as keyof typeof shell.groups] })).toBeInTheDocument();
     }
     const links = nav.getAllByRole("link");
-    expect(links).toHaveLength(14);
+    expect(links).toHaveLength(15);
     expect(links.map((l) => l.getAttribute("href"))).toEqual(registry.menus.map((m) => m.path));
     expect(nav.getByRole("link", { name: shell.sidebar.dashboard })).toHaveAttribute("aria-current", "page");
     // Infrastructure group contains exactly its three menus, in order.
@@ -91,6 +91,7 @@ describe("app shell", () => {
     const nav = await sidebar();
     expect(nav.getAllByRole("link")).toHaveLength(13);
     expect(nav.queryByRole("link", { name: shell.sidebar.users })).not.toBeInTheDocument();
+    expect(nav.queryByRole("link", { name: shell.sidebar.audit })).not.toBeInTheDocument();
     // The title still names the menu, so the user knows what was refused.
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(shell.sidebar.users);
   });

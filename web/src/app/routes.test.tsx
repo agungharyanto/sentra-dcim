@@ -14,8 +14,8 @@ describe("registry ↔ pages", () => {
     },
   );
 
-  it("fixture holds the full registry (14 menus in 4 groups)", () => {
-    expect(menus).toHaveLength(14);
+  it("fixture holds the full registry (15 menus in 4 groups)", () => {
+    expect(menus).toHaveLength(15);
     expect(registry.menu_groups.map((g) => g.key)).toEqual(["monitoring", "infrastructure", "operations", "system"]);
   });
 });

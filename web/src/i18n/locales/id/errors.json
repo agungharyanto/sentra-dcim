@@ -28,6 +28,7 @@
     "mfa_required": "Selesaikan verifikasi dua langkah terlebih dahulu.",
     "invalid_mfa_code": "Kode verifikasi salah, kedaluwarsa, atau sudah dipakai.",
     "mfa_already_enabled": "Verifikasi dua langkah sudah aktif.",
-    "mfa_not_enrolled": "Verifikasi dua langkah belum dipasang."
+    "mfa_not_enrolled": "Verifikasi dua langkah belum dipasang.",
+    "verification_running": "Verifikasi lain sedang berjalan."
   }
 }
