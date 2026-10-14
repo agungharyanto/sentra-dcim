@@ -13,6 +13,8 @@ export interface User {
   must_change_password: boolean;
   locked: boolean;
   mfa_enabled: boolean;
+  /** Monitoring/kiosk account (v0.3.7). */
+  kiosk?: boolean;
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
@@ -102,4 +104,9 @@ export function resetMfa(id: string) {
 
 export function resetPassword(id: string) {
   return postJson<{ temporary_password: string }>(`/api/v1/users/${encodeURIComponent(id)}/password-reset`);
+}
+
+/** Monitoring/kiosk mode (v0.3.7): Viewer-only accounts, Allowed IP in use; ends the account's sessions. */
+export function setKiosk(id: string, enabled: boolean) {
+  return putJson<User>(`/api/v1/users/${encodeURIComponent(id)}/kiosk`, { enabled });
 }

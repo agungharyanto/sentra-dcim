@@ -86,7 +86,7 @@ for p in /api/v1/ui/bootstrap /api/v1/help/index /api/v1/help/pages/dashboard /a
   req "$BASE$p"
   check "GET $p without session = 401 unauthenticated (no Basic challenge)" "$([[ $code == 401 && -z $(hdr WWW-Authenticate) ]] && jq -e '.error.code=="unauthenticated"' "$tmp/b" >/dev/null; echo $?)"
 done
-for p in /api/v1/auth/mfa/enrol /api/v1/auth/mfa/verify /api/v1/auth/mfa/enrol/confirm /api/v1/auth/mfa/recovery-codes; do
+for p in /api/v1/auth/mfa/enrol /api/v1/auth/mfa/verify /api/v1/auth/mfa/enrol/confirm /api/v1/auth/mfa/recovery-codes /api/v1/auth/activity; do
   req -X POST -H "Origin: $BASE" -H 'X-Sentra-CSRF: x' -H 'Content-Type: application/json' -d '{"code":"000000"}' "$BASE$p"
   check "POST $p without session = 401 unauthenticated" "$([[ $code == 401 ]] && jq -e '.error.code=="unauthenticated"' "$tmp/b" >/dev/null; echo $?)"
 done

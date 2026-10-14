@@ -6,6 +6,7 @@ import { Outlet, useLocation } from "react-router";
 import { Logo } from "@/components/domain/Logo";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { PasswordExpiryBanner, SessionGuard } from "@/features/auth/SessionGuard";
 import { useBootstrap } from "@/features/bootstrap/regional";
 import { cn } from "@/lib/utils";
 
@@ -88,6 +89,8 @@ export function AppShell() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Header onOpenMenu={() => setDrawerOpen(true)} />
+        <PasswordExpiryBanner />
+        <SessionGuard />
         <main id="main-content" tabIndex={-1} className="flex-1 p-4 outline-none lg:p-6">
           {/* key: a new page gets a fresh boundary, so an error on one page is cleared by navigating away. */}
           <ErrorBoundary key={pathname} fallback={<ErrorPage />}>

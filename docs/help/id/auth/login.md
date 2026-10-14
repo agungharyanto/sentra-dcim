@@ -39,8 +39,11 @@ cookie sesi, tetapi **Keluar** lebih aman, terutama di komputer bersama.
 
 ## Batas waktu sesi
 
-- Sesi berakhir setelah **30 menit tanpa aktivitas**.
+- Sesi berakhir setelah **30 menit tanpa aktivitas** (klik, ketikan, gulir; pembaruan otomatis halaman tidak
+  dihitung). Dua menit sebelumnya muncul peringatan dengan tombol **Tetap masuk**.
 - Sesi juga berakhir paling lambat **12 jam setelah masuk**, walau Anda terus aktif.
+- Kedua batas dapat diubah Admin ([Kebijakan sesi & kata sandi](../settings/session-password.md)); akun monitoring
+  (kiosk) tidak memiliki batas ini.
 
 ## Siapa yang bisa memakai
 

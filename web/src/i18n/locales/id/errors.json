@@ -34,6 +34,10 @@
     "lockout_risk": "Ditolak: IP Anda sendiri tidak akan diizinkan lagi.",
     "no_pending_change": "Tidak ada perubahan Tegakkan yang menunggu konfirmasi (mungkin sudah kembali ke Pantau).",
     "too_many_entries": "Daftar sudah penuh.",
-    "ip_not_allowed": "Akses dari alamat IP ini tidak diizinkan."
+    "ip_not_allowed": "Akses dari alamat IP ini tidak diizinkan.",
+    "password_reused": "Kata sandi ini sudah pernah dipakai baru-baru ini. Pilih kata sandi lain.",
+    "kiosk_requires_viewer": "Mode monitoring hanya untuk akun yang role-nya hanya Viewer. Matikan mode monitoring sebelum mengubah role.",
+    "kiosk_requires_allowlist": "Mode monitoring memerlukan Allowed IP aktif (Pantau atau Tegakkan) dengan minimal satu IP. Atur dulu di Pengaturan › Allowed IP.",
+    "maintenance": "Layanan sedang dalam pemeliharaan. Coba lagi sebentar lagi."
   }
 }

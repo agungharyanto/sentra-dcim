@@ -40,8 +40,11 @@ the browser also removes the session cookie, but **Sign out** is safer, especial
 
 ## Session time limits
 
-- A session ends after **30 minutes without activity**.
+- A session ends after **30 minutes without activity** (clicks, typing, scrolling; automatic page updates do not
+  count). Two minutes before, a warning appears with **Stay signed in**.
 - A session also ends at the latest **12 hours after signing in**, even while you are active.
+- An Admin can change both limits ([Session & password policy](../settings/session-password.md)); monitoring (kiosk)
+  accounts have no such limits.
 
 ## Who can use it
 

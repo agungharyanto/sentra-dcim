@@ -54,6 +54,20 @@ The username cannot be changed once the account exists (it is used in the audit 
 
 For your own account use [Change password](../auth/ganti-password.md).
 
+### Monitoring mode (kiosk)
+For monitoring screens that stay on in the NOC room. On the page of a user whose **only role is Viewer**, the
+**Monitoring mode (kiosk)** card offers **Turn monitoring mode on**.
+
+- A monitoring account's sessions **do not end** by idling or by the absolute limit, but are **valid only from IPs in
+  [Allowed IP](../settings/allowed-ip.md)**. Used from another IP, the session is revoked at once and recorded in the
+  Audit Log (`auth.session.kiosk_revoked`).
+- It can only be turned on while Allowed IP is in **Monitor** or **Enforce** with at least one IP; otherwise the request
+  is refused with a message explaining why.
+- MFA is still required at sign-in. Turning the mode on/off, changing or resetting the password, disabling the account
+  and resetting MFA end all of the account's sessions. A monitoring account's roles cannot be changed until the mode is
+  turned off.
+- The user list marks it **Monitoring**. Every change is recorded (`user.kiosk`).
+
 ### Resetting two-step verification (MFA)
 If a user lost the phone and the recovery codes: on the user's page select **Reset MFA** and confirm. The user's MFA
 and recovery codes are removed, all sessions end, and they set it up again at the next sign-in
@@ -84,6 +98,7 @@ administration command (see [Account & sign-in](../auth/index.md)).
 | `POST /api/v1/users/{id}/disable`, `POST /api/v1/users/{id}/enable` | `users.manage` |
 | `POST /api/v1/users/{id}/password-reset` | `users.manage` |
 | `POST /api/v1/users/{id}/mfa-reset` | `users.manage` |
+| `PUT /api/v1/users/{id}/kiosk` (`{"enabled": true\|false}`) | `users.manage` |
 | `GET /api/v1/roles` | `roles.read` |
 
 Schema details: [API reference](/help/api/reference).

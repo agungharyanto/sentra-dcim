@@ -52,6 +52,20 @@ Nama pengguna tidak bisa diubah setelah akun dibuat (dipakai di log audit).
 
 Untuk akun Anda sendiri gunakan [Ganti kata sandi](../auth/ganti-password.md).
 
+### Mode monitoring (kiosk)
+Untuk layar pemantauan yang selalu menyala di ruang NOC. Pada halaman pengguna yang role-nya **hanya Viewer**, kartu
+**Mode monitoring (kiosk)** menampilkan tombol **Aktifkan mode monitoring**.
+
+- Sesi akun monitoring **tidak berakhir** karena idle maupun batas absolut, tetapi **hanya sah dari IP di
+  [Allowed IP](../settings/allowed-ip.md)**. Dipakai dari IP lain, sesinya langsung dicabut dan tercatat di Audit Log
+  (`auth.session.kiosk_revoked`).
+- Hanya bisa diaktifkan bila Allowed IP sedang **Pantau** atau **Tegakkan** dan berisi minimal satu IP; bila belum,
+  permintaan ditolak dengan pesan yang menjelaskannya.
+- MFA tetap diminta saat masuk. Mengaktifkan/mematikan mode, mengganti atau me-reset kata sandi, menonaktifkan akun,
+  dan me-reset MFA mengakhiri semua sesi akun tersebut. Role akun monitoring tidak bisa diubah sebelum modenya
+  dimatikan.
+- Kolom daftar pengguna memberi tanda **Monitoring**. Setiap perubahan tercatat (`user.kiosk`).
+
 ### Mereset verifikasi dua langkah (MFA)
 Bila pengguna kehilangan HP dan recovery code-nya: pada halaman pengguna pilih **Reset MFA** lalu konfirmasi. MFA dan
 recovery code pengguna dihapus, semua sesinya ditutup, dan ia memasang ulang saat masuk berikutnya
@@ -83,6 +97,7 @@ administrasi server (lihat [Akun & masuk](../auth/index.md)).
 | `POST /api/v1/users/{id}/disable`, `POST /api/v1/users/{id}/enable` | `users.manage` |
 | `POST /api/v1/users/{id}/password-reset` | `users.manage` |
 | `POST /api/v1/users/{id}/mfa-reset` | `users.manage` |
+| `PUT /api/v1/users/{id}/kiosk` (`{"enabled": true\|false}`) | `users.manage` |
 | `GET /api/v1/roles` | `roles.read` |
 
 Detail skema: [Referensi API](/help/api/reference).

@@ -35,7 +35,8 @@
     "disabled": "Nonaktif",
     "locked": "Terkunci",
     "mustChange": "Wajib ganti kata sandi",
-    "mfaOff": "MFA belum aktif"
+    "mfaOff": "MFA belum aktif",
+    "kiosk": "Monitoring"
   },
   "roles": {
     "admin": "Admin",
@@ -140,5 +141,17 @@
     "display_name": "Nama tampilan wajib diisi (maksimal 128 karakter, satu baris).",
     "email": "Alamat e-mail tidak valid.",
     "roles": "Pilih minimal satu role yang valid."
+  },
+  "kiosk": {
+    "title": "Mode monitoring (kiosk)",
+    "description": "Untuk layar pemantauan di ruang NOC: sesi akun ini tidak berakhir karena idle atau batas waktu, tetapi hanya sah dari IP di Pengaturan › Allowed IP. Hanya untuk akun dengan role Viewer saja; MFA tetap diminta saat masuk.",
+    "on": "Aktif",
+    "off": "Tidak aktif",
+    "turnOn": "Aktifkan mode monitoring",
+    "turnOff": "Matikan mode monitoring",
+    "confirmOn": "Semua sesi akun ini diakhiri; masuk berikutnya menjadi sesi monitoring yang hanya sah dari IP Allowed IP.",
+    "confirmOff": "Semua sesi akun ini diakhiri; masuk berikutnya kembali memakai batas idle dan absolut biasa.",
+    "enabled": "Mode monitoring diaktifkan.",
+    "disabled": "Mode monitoring dimatikan."
   }
 }

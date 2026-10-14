@@ -278,6 +278,17 @@ check "POST /auth/login from foreign Origin = 403" "$([[ $code == 403 ]] && jq -
   sreq -X PUT -H "X-Sentra-CSRF: $csrf" -H 'Content-Type: application/json' -d '{"values":{"timezone":"Mars/Base"}}' "$BASE/api/v1/settings/regional"
   check "PUT /api/v1/settings/regional unknown zone = $exp (nothing written)" "$([[ $code == "$exp" ]]; echo $?)"
 
+  # Session & password policy (v0.3.7): server clock and password expiry in /me, activity signal, policy settings.
+  sreq "$BASE/api/v1/auth/me"
+  check "GET /auth/me: server_time, password expiry fields, kiosk flag" "$(jq -e '.server_time and (.user|has("password_expires_at") and has("password_expired") and has("kiosk")) and (.session|has("kiosk"))' "$tmp/b" >/dev/null; echo $?)"
+  sreq -X POST -H "X-Sentra-CSRF: $csrf" "$BASE/api/v1/auth/activity"
+  check "POST /auth/activity = 200 with new idle deadline" "$([[ $code == 200 ]] && jq -e '.session.idle_expires_at and .server_time' "$tmp/b" >/dev/null; echo $?)"
+  if has settings.manage; then exp=200; else exp=403; fi
+  sreq "$BASE/api/v1/settings/session"
+  check "GET /api/v1/settings/session = $exp (settings.manage)" "$([[ $code == "$exp" ]] && { [[ $exp == 403 ]] || jq -e '[.items[].name] == ["idle_minutes","absolute_hours"]' "$tmp/b" >/dev/null; }; echo $?)"
+  sreq "$BASE/api/v1/settings/password"
+  check "GET /api/v1/settings/password = $exp (settings.manage)" "$([[ $code == "$exp" ]] && { [[ $exp == 403 ]] || jq -e '[.items[].name] == ["expiry_days","warn_days","history"]' "$tmp/b" >/dev/null; }; echo $?)"
+
   # Allowed IP (v0.3.6): state with the client IP as the server sees it; the decision endpoint is internal only.
   if has settings.manage; then exp=200; else exp=403; fi
   sreq "$BASE/api/v1/settings/allowed-ips"

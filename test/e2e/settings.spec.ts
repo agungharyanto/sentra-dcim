@@ -170,4 +170,64 @@ test.describe("settings & preferences", () => {
     }
     expect(problems).toEqual([]);
   });
+
+  // Read-only: the session & password policy page, desktop + mobile.
+  test("Session & password policy page, desktop + mobile, axe", async ({ page }) => {
+    const problems = await watchProblems(page);
+    await page.goto("/dashboard");
+    test.skip(!(await me(page)).user.permissions.includes("settings.manage"), "test account has no settings.manage");
+    await page.goto("/settings/session-password");
+    await expect(page.getByTestId("policy-idle_minutes")).toHaveValue(/\d+/);
+    await expect(page.getByTestId("policy-expiry_days")).toHaveValue(/\d+/);
+    await expectAccessible(page, "policy settings");
+    await page.screenshot({ path: `${artifactsDir}/settings-policy.png`, fullPage: true });
+    await page.setViewportSize(mobile);
+    expect(await noHorizontalScroll(page)).toBe(true);
+    await page.screenshot({ path: `${artifactsDir}/settings-policy-mobile.png`, fullPage: true });
+    expect(problems).toEqual([]);
+  });
+
+  // The idle warning, with the activity response mocked to a near deadline (nothing changes on the server).
+  test("idle warning 2 minutes before sign-out (mocked deadline), axe", async ({ page }) => {
+    const problems = await watchProblems(page);
+    let near = true;
+    await page.route("**/api/v1/auth/activity", async (route) => {
+      const res = await route.fetch();
+      const body = await res.json();
+      if (near) body.session.idle_expires_at = new Date(Date.now() + 90_000).toISOString();
+      await route.fulfill({ response: res, json: body });
+    });
+    await page.goto("/dashboard");
+    const dialog = page.getByTestId("session-warning");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByTestId("session-countdown")).toHaveText(/^1:[0-3]\d$/);
+    await expectAccessible(page, "session warning");
+    await page.screenshot({ path: `${artifactsDir}/session-warning.png` });
+    near = false;
+    await dialog.getByTestId("session-stay").click();
+    await expect(dialog).toHaveCount(0);
+    expect(problems).toEqual([]);
+  });
+
+  // Creates a Viewer account: CI throwaway stack only.
+  test("kiosk card: refused while Allowed IP is off (CI only)", async ({ page }) => {
+    test.skip(process.env.E2E_MUTATIONS !== "1", "creates an account: runs only on the CI throwaway stack");
+    const problems = await watchProblems(page);
+    await page.goto("/dashboard");
+    const csrf = (await page.context().cookies()).find((c) => c.name === "__Host-sentra_csrf")?.value ?? "";
+    const res = await page.request.post("/api/v1/users", {
+      headers: { "X-Sentra-CSRF": csrf, Origin: new URL(page.url()).origin },
+      data: { username: `wall.${Date.now().toString(36)}`, display_name: "Layar NOC", roles: ["viewer"] },
+    });
+    expect(res.status()).toBe(201);
+    const id = (await res.json()).user.id as string;
+    await page.goto(`/users/${id}`);
+    const card = page.getByTestId("kiosk-card");
+    await expect(card).toBeVisible();
+    await card.getByTestId("kiosk-toggle").click();
+    await page.getByTestId("confirm-dialog").getByTestId("confirm").click();
+    await expect(page.getByText(catalog("id", "errors").code.kiosk_requires_allowlist)).toBeVisible();
+    await page.screenshot({ path: `${artifactsDir}/users-kiosk-refused.png`, fullPage: true });
+    expect(problems).toEqual([]);
+  });
 });

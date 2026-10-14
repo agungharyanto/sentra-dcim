@@ -2,7 +2,8 @@
   "nav": {
     "label": "Bagian pengaturan",
     "regional": "Regional",
-    "allowedIp": "Allowed IP"
+    "allowedIp": "Allowed IP",
+    "policy": "Sesi & Kata Sandi"
   },
   "regional": {
     "title": "Regional",
@@ -99,5 +100,27 @@
     "removed": "{{cidr}} dihapus.",
     "alwaysPublic": "Selalu terbuka di semua mode",
     "alwaysPublicHelp": "Untuk pemantauan kesehatan dan perpanjangan sertifikat HTTPS otomatis."
+  },
+  "policy": {
+    "description": "Batas waktu sesi dan aturan kata sandi untuk semua pengguna. Perubahan dicatat di Audit Log.",
+    "saved": "Pengaturan disimpan.",
+    "session": {
+      "title": "Sesi",
+      "description": "Berlaku untuk sesi yang dibuat setelah perubahan; idle dihitung dari aktivitas nyata pengguna (bukan pembaruan otomatis halaman). Akun monitoring (kiosk) tidak terpengaruh.",
+      "idle_minutes": "Batas idle (menit)",
+      "idle_minutesHint": "{{min}}–{{max}} menit, default {{def}}. Peringatan muncul 2 menit sebelum keluar otomatis.",
+      "absolute_hours": "Batas absolut (jam)",
+      "absolute_hoursHint": "{{min}}–{{max}} jam, default {{def}}. Harus ≥ batas idle."
+    },
+    "password": {
+      "title": "Kata sandi",
+      "description": "Kedaluwarsa tidak berlaku untuk akun yang role-nya hanya Viewer. Riwayat mencegah kata sandi lama dipakai lagi.",
+      "expiry_days": "Masa berlaku (hari)",
+      "expiry_daysHint": "0 = tidak kedaluwarsa, atau 30–{{max}} hari; default {{def}}.",
+      "warn_days": "Peringatan sebelum kedaluwarsa (hari)",
+      "warn_daysHint": "{{min}}–{{max}} hari, default {{def}}; lebih pendek dari masa berlaku.",
+      "history": "Riwayat kata sandi",
+      "historyHint": "{{min}}–{{max}} kata sandi terakhir (termasuk yang sekarang) tidak boleh dipakai ulang; default {{def}}."
+    }
   }
 }

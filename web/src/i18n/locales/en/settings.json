@@ -2,7 +2,8 @@
   "nav": {
     "label": "Settings sections",
     "regional": "Regional",
-    "allowedIp": "Allowed IP"
+    "allowedIp": "Allowed IP",
+    "policy": "Session & password"
   },
   "regional": {
     "title": "Regional",
@@ -99,5 +100,27 @@
     "removed": "{{cidr}} removed.",
     "alwaysPublic": "Always open in every mode",
     "alwaysPublicHelp": "For health monitoring and automatic HTTPS certificate renewal."
+  },
+  "policy": {
+    "description": "Session time limits and password rules for every user. Changes are recorded in the Audit Log.",
+    "saved": "Settings saved.",
+    "session": {
+      "title": "Sessions",
+      "description": "Applies to sessions created after the change; idle time counts real user activity (not automatic page refreshes). Monitoring (kiosk) accounts are not affected.",
+      "idle_minutes": "Idle limit (minutes)",
+      "idle_minutesHint": "{{min}}–{{max}} minutes, default {{def}}. A warning appears 2 minutes before the automatic sign-out.",
+      "absolute_hours": "Absolute limit (hours)",
+      "absolute_hoursHint": "{{min}}–{{max}} hours, default {{def}}. Must be ≥ the idle limit."
+    },
+    "password": {
+      "title": "Passwords",
+      "description": "Expiry does not apply to accounts whose only role is Viewer. The history prevents re-using old passwords.",
+      "expiry_days": "Validity (days)",
+      "expiry_daysHint": "0 = never expires, or 30–{{max}} days; default {{def}}.",
+      "warn_days": "Warning before expiry (days)",
+      "warn_daysHint": "{{min}}–{{max}} days, default {{def}}; shorter than the validity.",
+      "history": "Password history",
+      "historyHint": "The last {{min}}–{{max}} passwords (the current one included) may not be re-used; default {{def}}."
+    }
   }
 }

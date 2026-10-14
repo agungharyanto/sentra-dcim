@@ -174,8 +174,8 @@ docker compose exec -T app /sentra allowlist remove 198.51.100.7/32
 `sentra allowlist mode enforce` dari CLI ditolak tanpa `--force` (tanpa pengaman lockout dan tanpa auto-rollback —
 hanya untuk uji); aktifkan enforce dari **Pengaturan › Allowed IP**.
 
-Bila container app tidak berjalan sama sekali, Caddy menjawab `502` untuk panel (bukan 403); Allowed IP tidak
-berperan — pulihkan app dulu (`make up`, log: `make logs SERVICE=app`). Sebagai jalan terakhir tanpa app, mode bisa
+Bila container app tidak berjalan sama sekali, Caddy menampilkan halaman **"Sedang pemeliharaan"** (503, sejak v0.3.7;
+API menjawab JSON `maintenance`) — bukan 403; Allowed IP tidak berperan — pulihkan app dulu (`make up`, log: `make logs SERVICE=app`). Sebagai jalan terakhir tanpa app, mode bisa
 diubah langsung di database (owner, container `ops`/`db`):
 `DELETE FROM settings WHERE key IN ('allowlist.mode','allowlist.pending_until');` (= mode off), lalu restart app.
 
