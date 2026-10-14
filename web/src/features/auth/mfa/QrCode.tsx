@@ -17,7 +17,7 @@ export function QrCode({ rows, label, size = 240 }: { rows: string[]; label: str
       height={size}
       viewBox={`0 0 ${n} ${n}`}
       shapeRendering="crispEdges"
-      className="rounded-md border"
+      className="shrink-0 rounded-md border"
       data-testid="mfa-qr"
     >
       <rect width={n} height={n} fill="#ffffff" />
