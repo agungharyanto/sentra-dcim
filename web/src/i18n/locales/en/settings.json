@@ -44,7 +44,7 @@
   "preferences": {
     "title": "Preferences",
     "description": "Choose the language, time zone and date/time formats for your account. \"Follow system\" uses the Admin's settings.",
-    "followSystem": "Follow system ({{value}})",
+    "followSystem": "Follow system — {{value}}",
     "save": "Save preferences",
     "saved": "Preferences saved."
   }

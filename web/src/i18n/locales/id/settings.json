@@ -44,7 +44,7 @@
   "preferences": {
     "title": "Preferensi",
     "description": "Pilih bahasa, zona waktu, dan format tanggal/jam untuk akun Anda. \"Ikuti sistem\" memakai pengaturan Admin.",
-    "followSystem": "Ikuti sistem ({{value}})",
+    "followSystem": "Ikuti sistem — {{value}}",
     "save": "Simpan preferensi",
     "saved": "Preferensi disimpan."
   }
