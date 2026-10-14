@@ -61,8 +61,11 @@ for p in /api/v1/version /api/v1/health /api/v1/auth/me; do
 done
 
 check "app restarted and healthy" "$(start_app; echo $?)"
-# Caddy's next active health check (every 15 s) marks the upstream healthy again.
-for _ in $(seq 1 30); do req "$BASE/"; [[ $code == 200 ]] && break; sleep 1; done
+# Caddy's next active health check (every 15 s) marks the upstream healthy again. Wait for the API too: the SPA
+# coming back first and /api/v1/health still 503 a moment later failed CI once (v0.3.9, ISS-047).
+for _ in $(seq 1 45); do
+  req "$BASE/api/v1/health"; [[ $code == 200 ]] && { req "$BASE/"; [[ $code == 200 ]] && break; }; sleep 1
+done
 check "app back: GET / = 200 (SPA)" "$([[ $code == 200 ]] && ! grep -q 'Sedang pemeliharaan' "$tmp/b"; echo $?)"
 req "$BASE/api/v1/health"
 check "app back: /api/v1/health = 200" "$([[ $code == 200 ]]; echo $?)"

@@ -5,18 +5,21 @@
 ## Tujuan
 Bila server tidak bisa boot dengan kernel baru (mis. `7.0.0-1013-oracle`, v0.2.9) atau layanan rusak setelah boot,
 pilih kernel sebelumnya (`6.17.0-1020-oracle`) dari menu GRUB lewat **OCI Serial Console**, lalu (bila perlu)
-jadikan default. Kernel lama sengaja dipertahankan sampai penutup sprint v0.3 (ISS-036).
+jadikan default. Sejak penutup sprint **v0.3.9** kernel 6.17 sudah dipensiunkan (ISS-036): pilih kernel lain yang
+tampil di menu, pulihkan backup boot volume OCI, atau pasang kernel lama lewat serial console (`sudo apt install
+linux-image-<versi>-oracle`). Pemensiunan kernel lama berikutnya: `sudo scripts/kernel-retire.sh <versi>` (simulasi
+dulu, lalu `--yes`), kemudian reboot + `make post-reboot-check`.
 
 ## Prasyarat (sudah disiapkan oleh `make boot-menu`)
 | Hal | Nilai |
 |---|---|
 | Menu GRUB | tampil **10 detik** (`/etc/default/grub.d/99-sentra-boot-menu.cfg`, menimpa `50-cloudimg-settings.cfg` yang menyembunyikan menu) |
 | Terminal GRUB | `console` (konsol EFI = yang tampil di serial console OCI Arm) |
-| Kernel lama | `linux-image/modules/modules-extra-6.17.0-1020-oracle`: `apt-mark manual` + `APT::NeverAutoRemove` (`/etc/apt/apt.conf.d/99sentra-keep-kernel-6.17`) — tidak dihapus unattended-upgrades |
+| Kernel lama | Sampai v0.3.9: 6.17 ditahan (`apt-mark manual` + `APT::NeverAutoRemove`); dipensiunkan di v0.3.9. Setelah pembaruan kernel berikutnya, kernel sebelumnya tetap ada sampai unattended-upgrades membersihkannya |
 | Akses konsol | user `ubuntu` + password konsol (brankas pemilik), lihat [akses-darurat.md](akses-darurat.md) |
 
 Cek cepat: `sudo grep -E "timeout(_style)?=" /boot/grub/grub.cfg | head -3` → `menu` dan `10`;
-`apt-mark showmanual | grep 6.17` → tiga paket.
+`grep -o "vmlinuz-[^ ]*" /boot/grub/grub.cfg | sort -u` → kernel yang bisa dipilih.
 
 ## Role yang dibutuhkan
 | Aksi | Role |

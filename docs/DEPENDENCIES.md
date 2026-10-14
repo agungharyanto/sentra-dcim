@@ -3,6 +3,9 @@
 Semua driver, library, framework, dan tools yang dipakai Sentra DCIM. Perbarui tabel ini setiap kali dependensi
 ditambah, diubah versinya, atau dihapus.
 
+> Diaudit di penutup sprint v0.3.9 (2026-10-15): versi modul Go langsung (`go.mod`), paket web (`web/package.json` +
+> resolusi `pnpm-lock.yaml`), dan image container (compose/Dockerfile) cocok dengan tabel ini.
+
 ## Runtime & infrastruktur
 
 | Nama | Versi | Lisensi | Fungsi |
@@ -108,7 +111,7 @@ pilih versi terbaru yang sudah melewati jendela itu.
 | systemd timer | (Ubuntu 24.04) | LGPL-2.1 | Penjadwalan backup harian |
 | GNU Make | 4.3 | GPL-3.0 | Task runner (`Makefile`) |
 | ufw | 0.36.2 | GPL-3.0 | Firewall host |
-| acl (`setfacl`/`getfacl`) | 2.3.2 | GPL-2.0 / LGPL-2.1 | ACL repo & `.env` untuk user admin (`bootstrap --admin-user`) |
+| acl (`setfacl`/`getfacl`) | 2.3.2 | GPL-2.0 / LGPL-2.1 | ACL repo & `.env` untuk user admin (`bootstrap --admin-user`); `getfacl` dipakai `scripts/env-perm-check.sh` (cek `.env` owner-only, v0.3.9) |
 | fail2ban | 1.0.2 | GPL-2.0 | Proteksi brute-force SSH |
 | unattended-upgrades | 2.9.1 (paket Ubuntu) | GPL-2.0 | Update keamanan otomatis |
 | apt-listchanges | 3.27 | GPL-2.0 | Ringkasan changelog paket saat upgrade |

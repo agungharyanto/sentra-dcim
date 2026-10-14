@@ -134,6 +134,7 @@ sed -e "s/^POSTGRES_PASSWORD=CHANGE_ME/POSTGRES_PASSWORD=$(gen)/" -e "s/^REDIS_P
     -e "s/^POSTGRES_HOST_PORT=.*/POSTGRES_HOST_PORT=25432/" -e "s/^REDIS_HOST_PORT=.*/REDIS_HOST_PORT=26379/" \
     .env.example > .env
 echo "APP_ALLOWED_ORIGINS=https://localhost:28443" >> .env
+chmod 600 .env   # make preflight requires an owner-only .env (ISS-046)
 umask 022
 # Own image names: the drill must never overwrite or delete production images (same version tag possible).
 cat > "$dir/drill.override.yml" <<YAML

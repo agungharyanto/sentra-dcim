@@ -20,7 +20,8 @@ echo "kernel running: $running   newest installed: $newest"
 echo "booted: $(uptime -s)   uptime: $(uptime -p)"
 check "running the newest installed kernel ($newest)" "$([[ $running == "$newest" ]]; echo $?)"
 check "no reboot pending (/var/run/reboot-required absent)" "$([[ ! -e /var/run/reboot-required ]]; echo $?)"
-check "kernel 6.17.0-1020-oracle still installed (rollback target, ISS-036)" "$(dpkg -s linux-image-6.17.0-1020-oracle >/dev/null 2>&1; echo $?)"
+# Kernel 6.17 was the rollback target until v0.3.9; it is retired (scripts/kernel-retire.sh, ISS-036).
+check "retired kernel 6.17 has no packages left (ISS-036)" "$(! dpkg -l | awk '/^ii/{print $2}' | grep -q -- '6\.17'; echo $?)"
 check "GRUB menu visible 10 s" "$(grep -q 'set timeout_style=menu' /boot/grub/grub.cfg; echo $?)"
 
 for u in docker containerd fail2ban; do

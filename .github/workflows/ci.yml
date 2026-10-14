@@ -143,6 +143,7 @@ jobs:
               -e "s/^DOMAIN=.*/DOMAIN=/" -e "s/^ACME_EMAIL=.*/ACME_EMAIL=/" \
               -e "s/^CADDY_PUBLIC_HTTP_BIND=.*/CADDY_PUBLIC_HTTP_BIND=127.0.0.1:80/" \
               -e "s/^CADDY_PUBLIC_HTTPS_BIND=.*/CADDY_PUBLIC_HTTPS_BIND=127.0.0.1:443/" .env.example > .env
+          chmod 600 .env
           make up
           make test-api
       - name: Throwaway app account (CLI create-admin + first password change via API)
@@ -150,6 +151,9 @@ jobs:
           gen() { openssl rand -hex 16; }
           first="first-$(gen)" app_pass="app-$(gen)"
           echo "::add-mask::$first"; echo "::add-mask::$app_pass"
+          # First HTTPS request of the job: Caddy issues its internal localhost certificate asynchronously after
+          # start; until then the handshake fails with "tlsv1 alert internal error" (ISS-047).
+          for _ in $(seq 1 30); do curl -sfk -o /dev/null https://localhost/api/v1/health && break; sleep 1; done
           printf '%s\n' "$first" | docker compose exec -T app /sentra user create-admin --username ci.e2e
           jar="$(mktemp)"
           c=(curl -fsS -k -b "$jar" -c "$jar" -H 'Origin: https://localhost' -H 'Content-Type: application/json')

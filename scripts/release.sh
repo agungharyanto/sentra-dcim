@@ -33,6 +33,7 @@ branches="$(git for-each-ref --format='%(refname:short)' "refs/heads/feat/$versi
 [[ "$(wc -l <<<"$branches")" -eq 1 ]] || die "more than one branch feat/$version-*: $(tr '\n' ' ' <<<"$branches")"
 branch="$branches"
 
+"$root/scripts/env-perm-check.sh" || die ".env permissions — fix them before releasing (ISS-046)"
 fail2ban_check_branch "$branch"
 
 if git ls-remote --exit-code origin main >/dev/null 2>&1; then

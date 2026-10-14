@@ -3,7 +3,8 @@
 #   1. scripts/fail2ban-web-check.sh against a temporary install tree (missing / in sync / drift / no DOMAIN);
 #   2. scripts/fail2ban-web-install.sh refuses the test overrides;
 #   3. scripts/release.sh in a throwaway git repo with a stubbed check: drift before the merge stops the release
-#      with nothing merged, tagged or pushed; drift after the redeploy exits 1; in sync releases normally.
+#      with nothing merged, tagged or pushed; drift after the redeploy exits 1; in sync releases normally;
+#      a .env that is not owner-only (ISS-046) stops it before the merge too.
 set -euo pipefail
 
 main() {
@@ -73,6 +74,10 @@ ok "in sync: merged, tagged, pushed, worktree + branch removed" $r
 release_case changed 0 "released v9.9.9"
 r=0; [[ "$(wc -l < "$tmp/rel.calls")" == 2 && -n "$(git -C "$tmp/origin.git" tag -l v9.9.9)" ]] || r=1
 ok "jail-changing release: checked against the branch before the merge, main after" $r
+# ISS-046: a .env readable by group/other stops the release before anything is merged.
+ENV_MODE=640 release_case none 1 "ISS-046"
+r=0; [[ "$(git -C "$tmp/rel" rev-list --count main)" == 1 && -z "$(git -C "$tmp/origin.git" tag -l v9.9.9)" && ! -e "$tmp/rel.calls" ]] || r=1
+ok ".env 0640: release refused, nothing merged, tagged or pushed" $r
 
 echo "fail2ban-web-check-test: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]
@@ -107,7 +112,7 @@ release_case() {
   git init -q --bare -b main "$tmp/origin.git"
   git init -q -b main "$tmp/rel"
   mkdir -p "$tmp/rel/scripts/lib"
-  cp "$repo/scripts/release.sh" "$tmp/rel/scripts/"
+  cp "$repo/scripts/release.sh" "$repo/scripts/env-perm-check.sh" "$tmp/rel/scripts/"
   cp "$repo/scripts/lib/source-rev.sh" "$tmp/rel/scripts/lib/"
   # Stub: records each call; fails on the call named by $1 (1st = before merge, 2nd = after redeploy).
   cat > "$tmp/rel/scripts/fail2ban-web-check.sh" <<STUB
@@ -119,6 +124,8 @@ case "$1" in before) [[ \$n -eq 1 ]] && exit 1;; after) [[ \$n -eq 2 ]] && exit 
 exit 0
 STUB
   chmod +x "$tmp/rel/scripts/fail2ban-web-check.sh"
+  echo .env > "$tmp/rel/.gitignore"
+  echo "DOMAIN=" > "$tmp/rel/.env"; chmod "${ENV_MODE:-600}" "$tmp/rel/.env"
   git -C "$tmp/rel" add -A && git -C "$tmp/rel" commit -qm init
   git -C "$tmp/rel" remote add origin "$tmp/origin.git"
   git -C "$tmp/rel" push -q origin main

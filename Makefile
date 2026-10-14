@@ -50,7 +50,8 @@ version-check: .env ## Verify the running /api/v1/version == git describe of HEA
 	if [[ "$$got" != "$$want" ]]; then echo "version-check: running '$$got' != git describe $$want after 30 s (run: make up)" >&2; exit 1; fi; \
 	[[ $$i -gt 1 ]] && echo "version-check: OK $$got (after $$i attempts)" || echo "version-check: OK $$got"
 
-preflight: .env ## Validate .env before starting (domain/ACME settings)
+preflight: .env ## Validate .env before starting (owner-only permissions, domain/ACME, secrets format)
+	@./scripts/env-perm-check.sh
 	@set -a; source .env; set +a; \
 	if [[ -n "$${DOMAIN:-}" && "$$DOMAIN" != localhost && -z "$${ACME_EMAIL:-}" ]]; then \
 	  echo "preflight: DOMAIN=$$DOMAIN requires ACME_EMAIL in .env" >&2; exit 1; fi; \
@@ -121,7 +122,7 @@ fail2ban-web-remove: ## Remove the sentra-web jail, filter and systemd drop-in (
 fail2ban-ban-test: ## Real ban/unban test from a throwaway container network against this host (sudo)
 	sudo ./scripts/fail2ban-ban-test.sh
 
-boot-menu: ## Host boot prep: GRUB menu 10 s on the serial console, keep kernel 6.17 for rollback (idempotent; sudo)
+boot-menu: ## Host boot prep: GRUB menu 10 s on the serial console, boot services enabled (idempotent; sudo)
 	sudo ./scripts/host-boot-setup.sh
 
 post-reboot-check: ## After a reboot: kernel, uptime, services, containers, fail2ban/DOCKER-USER, smoke, edge, ban test (sudo)
