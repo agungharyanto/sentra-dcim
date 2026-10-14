@@ -165,6 +165,9 @@ step "login page public, data API needs a session (no basic_auth)" "$dir/ui.log"
   "[[ \$(curl -sk -o /dev/null -w '%{http_code}' https://localhost:28443/login) == 200 &&
      \$(curl -sk -o /dev/null -w '%{http_code}' https://localhost:28443/api/v1/ui/bootstrap) == 401 ]]"
 step "admin via CLI, login, MFA enrolment, forced password change, help API, Admin role (session)" "$dir/login.log" drill_login
+# The login above wrote audit events: the hash chain of the fresh install must verify (D-073).
+step "audit hash chain intact (sentra audit verify)" "$dir/audit.log" bash -c \
+  "set -o pipefail; docker compose -p $project -f docker-compose.yml -f '$dir/drill.override.yml' exec -T app /sentra audit verify | tee /dev/stderr | jq -e '.ok and .checked > 0' >/dev/null"
 # shellcheck disable=SC2016 # evaluated by the inner bash
 step "production stack untouched (project sentra still 4 healthy)" "$dir/prod.log" \
   bash -c '[[ $(docker ps --filter label=com.docker.compose.project=sentra --filter health=healthy -q | wc -l) -eq 4 ]]'
