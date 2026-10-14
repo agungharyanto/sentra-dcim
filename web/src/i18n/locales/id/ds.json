@@ -112,6 +112,7 @@
   },
   "copy": {
     "copied": "Disalin",
-    "failed": "Gagal menyalin ke clipboard. Salin manual: {{value}}"
+    "failed": "Gagal menyalin ke clipboard. Salin manual: {{value}}",
+    "failedSecret": "Gagal menyalin ke clipboard."
   }
 }

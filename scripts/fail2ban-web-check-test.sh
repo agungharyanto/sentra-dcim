@@ -68,6 +68,11 @@ ok "drift after redeploy: tag pushed, exit 1 tells to update the jail" $r
 release_case none 0 "released v9.9.9"
 r=0; [[ -n "$(git -C "$tmp/origin.git" tag -l v9.9.9)" && -z "$(git -C "$tmp/rel" branch -l 'feat/v9.9.9-*')" && ! -d "$tmp/rel-wt" ]] || r=1
 ok "in sync: merged, tagged, pushed, worktree + branch removed" $r
+# ISS-041: the release changes the jail. main's files no longer match the installed jail, the branch's do: the
+# pre-merge check must use the branch and pass; after the merge main = branch and passes too.
+release_case changed 0 "released v9.9.9"
+r=0; [[ "$(wc -l < "$tmp/rel.calls")" == 2 && -n "$(git -C "$tmp/origin.git" tag -l v9.9.9)" ]] || r=1
+ok "jail-changing release: checked against the branch before the merge, main after" $r
 
 echo "fail2ban-web-check-test: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]
@@ -109,6 +114,8 @@ release_case() {
 #!/usr/bin/env bash
 echo x >> "$tmp/rel.calls"; n=\$(wc -l < "$tmp/rel.calls")
 case "$1" in before) [[ \$n -eq 1 ]] && exit 1;; after) [[ \$n -eq 2 ]] && exit 1;; esac
+# 'changed': only a check script that knows the new jail (marker added on the feature branch) is in sync.
+[[ "$1" == changed ]] && ! grep -qx '# NEW-JAIL' "\$0" && exit 1
 exit 0
 STUB
   chmod +x "$tmp/rel/scripts/fail2ban-web-check.sh"
@@ -117,6 +124,7 @@ STUB
   git -C "$tmp/rel" push -q origin main
   git -C "$tmp/rel" worktree add -q -b feat/v9.9.9-test "$tmp/rel-wt" main
   echo change > "$tmp/rel-wt/feature.txt"
+  [[ "$1" == changed ]] && echo "# NEW-JAIL" >> "$tmp/rel-wt/scripts/fail2ban-web-check.sh"
   git -C "$tmp/rel-wt" add -A && git -C "$tmp/rel-wt" commit -qm "feat: test"
   local out rc=0
   out="$(cd "$tmp/rel" && ./scripts/release.sh v9.9.9 "Test" 2>&1)" || rc=$?

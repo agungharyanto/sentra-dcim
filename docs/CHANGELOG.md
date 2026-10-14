@@ -3,6 +3,19 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [Unreleased] — v0.3.4 Audit Log
+
+### Ditambahkan
+- **Tampilkan/sembunyikan kata sandi** (D-071): tombol ikon mata di kolom kata sandi login dan form ganti kata
+  sandi (wajib & akun) — default tersembunyi, `type="button"`, `aria-label` ID/EN + `aria-pressed`, tersembunyi lagi
+  setelah submit, `autocomplete` tidak berubah. Kata sandi sementara (buat pengguna/reset) kini **tersembunyi secara
+  default** (nilainya tidak ada di DOM) dengan tombol mata; tombol salin menyalin tanpa menampilkan, dan pesan gagal
+  salin tidak memuat nilainya.
+
+### Diperbaiki
+- **ISS-041**: `make release` kini bisa merilis versi yang mengganti file jail fail2ban — cek pra-merge memakai
+  versi branch yang dirilis.
+
 ## [v0.3.3] - 2026-10-14 — MFA & Cabut basic_auth
 
 Keputusan: D-061..D-067 (urutan v0.3.3/v0.3.4 ditukar; MFA wajib untuk semua role).

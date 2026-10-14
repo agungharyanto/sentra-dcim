@@ -23,5 +23,9 @@
   },
   "toast": {
     "region": "Notifikasi"
+  },
+  "password": {
+    "show": "Tampilkan kata sandi",
+    "hide": "Sembunyikan kata sandi"
   }
 }

@@ -13,7 +13,18 @@ const COPIED_MS = 2000;
  * "Copied" politely; a missing or failing clipboard shows an error toast. `label` is the accessible name and
  * tooltip (already translated by the caller, e.g. "Copy path /api/v1/health").
  */
-export function CopyButton({ value, label, className }: { value: string; label: string; className?: string }) {
+export function CopyButton({
+  value,
+  label,
+  className,
+  secret = false,
+}: {
+  value: string;
+  label: string;
+  className?: string;
+  /** The value must never be shown (e.g. a temporary password): the failure toast omits it. */
+  secret?: boolean;
+}) {
   const { t } = useTranslation("ds");
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | undefined>(undefined);
@@ -31,7 +42,7 @@ export function CopyButton({ value, label, className }: { value: string; label: 
       window.clearTimeout(timer.current);
       timer.current = window.setTimeout(() => setCopied(false), COPIED_MS);
     } catch {
-      toast.error(t("copy.failed", { value }));
+      toast.error(secret ? t("copy.failedSecret") : t("copy.failed", { value }));
     }
   };
 

@@ -1,8 +1,8 @@
 import { type FormEvent, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { PasswordInput } from "@/components/domain/PasswordInput";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { toErrorCode } from "@/i18n/errors";
 import { ApiError } from "@/lib/api";
 
@@ -93,9 +93,8 @@ function PasswordField(props: {
       <label htmlFor={props.id} className="text-sm font-medium">
         {props.label}
       </label>
-      <Input
+      <PasswordInput
         id={props.id}
-        type="password"
         autoComplete={props.autoComplete}
         required
         maxLength={PASSWORD_MAX * 4}
