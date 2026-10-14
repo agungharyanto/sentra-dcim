@@ -152,6 +152,15 @@
 		import app_proxy app:8080
 	}
 
+	# Settings (settings.manage) and own preferences (every signed-in user), v0.3.5: checked by the app.
+	@settings {
+		method GET HEAD PUT
+		path /api/v1/settings/* /api/v1/me/*
+	}
+	handle @settings {
+		import app_proxy app:8080
+	}
+
 	handle /api/* {
 		header Content-Type "application/json; charset=utf-8"
 		respond `{"error":{"code":"forbidden","message":"not publicly available"}}` 403

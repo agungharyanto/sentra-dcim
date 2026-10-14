@@ -59,14 +59,15 @@ type Handler struct {
 	q   Querier
 	rec *audit.Recorder
 	mon *chain.Monitor
-	tz  *time.Location
+	tz  func(ctx context.Context) *time.Location
 	log *slog.Logger
 }
 
-// New creates a Handler; tz is the display time zone used for the local time column of the CSV export.
-func New(q Querier, rec *audit.Recorder, mon *chain.Monitor, tz *time.Location, log *slog.Logger) *Handler {
+// New creates a Handler; tz returns the caller's effective display time zone, used for the local time column of
+// the CSV export and its file name (nil = UTC).
+func New(q Querier, rec *audit.Recorder, mon *chain.Monitor, tz func(ctx context.Context) *time.Location, log *slog.Logger) *Handler {
 	if tz == nil {
-		tz = time.UTC
+		tz = func(context.Context) *time.Location { return time.UTC }
 	}
 	return &Handler{q: q, rec: rec, mon: mon, tz: tz, log: log}
 }
@@ -240,14 +241,14 @@ func (h *Handler) export(w http.ResponseWriter, r *http.Request) {
 	if p.Before.Valid {
 		echo["before"] = p.Before.Int64
 	}
-	now := time.Now().UTC()
+	now, loc := time.Now().UTC(), h.tz(r.Context())
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", `attachment; filename="sentra-audit-`+now.In(h.tz).Format("20060102-150405")+`.csv"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="sentra-audit-`+now.In(loc).Format("20060102-150405")+`.csv"`)
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	cw := csv.NewWriter(w)
 	_ = cw.Write(CSVColumns)
-	rows, truncated, err := h.writeCSV(r.Context(), cw, p)
+	rows, truncated, err := h.writeCSV(r.Context(), cw, p, loc)
 	cw.Flush()
 	result := audit.ResultSuccess
 	md := map[string]any{"rows": rows, "truncated": truncated, "filters": echo}
@@ -264,7 +265,7 @@ func (h *Handler) export(w http.ResponseWriter, r *http.Request) {
 		TargetType: "audit_log", Meta: audit.MetaFromRequest(r), Metadata: md})
 }
 
-func (h *Handler) writeCSV(ctx context.Context, cw *csv.Writer, p repo.ListEventsParams) (int, bool, error) {
+func (h *Handler) writeCSV(ctx context.Context, cw *csv.Writer, p repo.ListEventsParams, loc *time.Location) (int, bool, error) {
 	n := 0
 	for {
 		p.Lim = exportBatch
@@ -282,7 +283,7 @@ func (h *Handler) writeCSV(ctx context.Context, cw *csv.Writer, p repo.ListEvent
 				actorID = e.ActorID.String()
 			}
 			rec := []string{strconv.FormatInt(e.Seq, 10), e.OccurredAt.Format(time.RFC3339Nano),
-				e.OccurredAt.In(h.tz).Format("2006-01-02 15:04:05 MST"), e.ActorType, e.ActorUsername, actorID, e.Action,
+				e.OccurredAt.In(loc).Format("2006-01-02 15:04:05 MST"), e.ActorType, e.ActorUsername, actorID, e.Action,
 				e.Result, e.TargetType, e.TargetID, e.IP, e.UserAgent, e.RequestID, string(e.Metadata), e.Hash}
 			for i := range rec {
 				rec[i] = SafeCell(rec[i])

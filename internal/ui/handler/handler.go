@@ -23,8 +23,8 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Get("/ui/bootstrap", h.bootstrap)
 }
 
-func (h *Handler) bootstrap(w http.ResponseWriter, _ *http.Request) {
+func (h *Handler) bootstrap(w http.ResponseWriter, r *http.Request) {
 	// Locale/timezone come from server config and may change on restart; never cache across deploys.
 	w.Header().Set("Cache-Control", "no-store")
-	httpserver.JSON(w, http.StatusOK, h.svc.Bootstrap())
+	httpserver.JSON(w, http.StatusOK, h.svc.Bootstrap(r.Context()))
 }

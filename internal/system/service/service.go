@@ -58,6 +58,7 @@ type Service struct {
 	checkers     []Checker
 	checkTimeout time.Duration
 	tz           *time.Location
+	location     func() *time.Location // system display time zone from Settings – Regional (v0.3.5); nil = tz
 	now          func() time.Time
 	log          *slog.Logger
 	draining     atomic.Bool
@@ -73,6 +74,9 @@ func New(log *slog.Logger, tz *time.Location, checkers ...Checker) *Service {
 		log:          log,
 	}
 }
+
+// SetLocation makes Version follow the system time zone setting (Settings – Regional) instead of DISPLAY_TIMEZONE.
+func (s *Service) SetLocation(f func() *time.Location) { s.location = f }
 
 // SetDraining marks the service as shutting down; readiness then reports not_ready.
 func (s *Service) SetDraining() { s.draining.Store(true) }
@@ -117,12 +121,15 @@ func (s *Service) PublicVersion() PublicVersion { return PublicVersion{Version: 
 
 // Version returns build metadata and the current server time in UTC and display timezone.
 func (s *Service) Version() Version {
-	now := s.now()
+	now, tz := s.now(), s.tz
+	if s.location != nil {
+		tz = s.location()
+	}
 	return Version{
 		Info:              buildinfo.Get(),
 		ServerTimeUTC:     now.UTC(),
-		DisplayTimezone:   s.tz.String(),
-		ServerTimeDisplay: now.In(s.tz).Format(time.RFC3339),
+		DisplayTimezone:   tz.String(),
+		ServerTimeDisplay: now.In(tz).Format(time.RFC3339),
 	}
 }
 
