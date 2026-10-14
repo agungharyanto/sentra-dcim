@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/agungharyanto/sentra-dcim/internal/platform/buildinfo"
+	"github.com/agungharyanto/sentra-dcim/internal/platform/rbac"
 )
 
 // AppName is the product name shown by the UI shell.
@@ -40,6 +41,9 @@ type Menu struct {
 	Status string `json:"status"`
 	Group  string `json:"group"`
 	Order  int    `json:"order"` // position within its group
+	// Permission needed to see the menu ("" = every signed-in user). The UI hides menus the user lacks; the API
+	// enforces the same permission on the module's routes.
+	Permission string `json:"permission"`
 }
 
 // Bootstrap is the document the UI loads on start (GET /api/v1/ui/bootstrap).
@@ -76,6 +80,8 @@ var registry = []Menu{
 	{Key: "maintenance", Path: "/maintenance", Icon: "wrench", Status: StatusComingSoon, Group: GroupOperations, Order: 30},
 	{Key: "analytics", Path: "/analytics", Icon: "chart-line", Status: StatusComingSoon, Group: GroupOperations, Order: 40},
 	{Key: "help", Path: "/help", Icon: "circle-help", Status: StatusAvailable, Group: GroupSystem, Order: 10},
+	{Key: "users", Path: "/users", Icon: "user-cog", Status: StatusAvailable, Group: GroupSystem, Order: 15,
+		Permission: string(rbac.UsersRead)},
 	{Key: "settings", Path: "/settings", Icon: "settings", Status: StatusComingSoon, Group: GroupSystem, Order: 20},
 }
 

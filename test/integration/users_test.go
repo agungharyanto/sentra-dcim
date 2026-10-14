@@ -15,6 +15,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.yaml.in/yaml/v3"
+
+	apispec "github.com/agungharyanto/sentra-dcim/api"
 
 	"github.com/agungharyanto/sentra-dcim/internal/api"
 	auditservice "github.com/agungharyanto/sentra-dcim/internal/audit/service"
@@ -159,9 +162,55 @@ func TestPermissionDefaultDeny(t *testing.T) {
 	if checked < 15 {
 		t.Fatalf("only %d routes checked: %v", checked, all)
 	}
-	if n := countAudit(t, e, authservice.ActionAuthzDenied); n == 0 {
-		t.Error("no authz.denied audit events")
+	// The permission each route really requires (recorded by authz.denied) must be the one documented in
+	// api/openapi.yaml (x-sentra-permission), and every documented permission must be enforced.
+	enforced := map[string]string{}
+	rows, err := e.pool.Query(context.Background(),
+		`SELECT target_id, metadata->>'permission' FROM audit_events WHERE action = $1`, authservice.ActionAuthzDenied)
+	if err != nil {
+		t.Fatal(err)
 	}
+	for rows.Next() {
+		var route, perm string
+		_ = rows.Scan(&route, &perm)
+		enforced[route] = perm
+	}
+	if len(enforced) == 0 {
+		t.Fatal("no authz.denied audit events")
+	}
+	documented := documentedPermissions(t)
+	for route, perm := range enforced {
+		if documented[route] != perm {
+			t.Errorf("%s requires %q, OpenAPI x-sentra-permission = %q", route, perm, documented[route])
+		}
+	}
+	for route, perm := range documented {
+		if enforced[route] != perm {
+			t.Errorf("%s documents %q but the router requires %q", route, perm, enforced[route])
+		}
+	}
+}
+
+// documentedPermissions maps "METHOD /path" to x-sentra-permission of api/openapi.yaml.
+func documentedPermissions(t *testing.T) map[string]string {
+	t.Helper()
+	var doc struct {
+		Paths map[string]map[string]any `yaml:"paths"`
+	}
+	if err := yaml.Unmarshal(apispec.OpenAPI, &doc); err != nil {
+		t.Fatal(err)
+	}
+	out := map[string]string{}
+	for path, item := range doc.Paths {
+		for method, v := range item {
+			if op, ok := v.(map[string]any); ok {
+				if p, ok := op["x-sentra-permission"].(string); ok {
+					out[strings.ToUpper(method)+" "+path] = p
+				}
+			}
+		}
+	}
+	return out
 }
 
 // TestUsersAdminFlow: create → first login with the temporary password → roles apply immediately → disable

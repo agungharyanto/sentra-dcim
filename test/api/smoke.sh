@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # API smoke tests against a running stack (through Caddy).
-# Usage: BASE_URL=http://127.0.0.1:8080 EXPECT_VERSION=v0.1.3 EXPECT_TZ=Asia/Jakarta test/api/smoke.sh
-# BASE_URL is the internal listener (full /version details). EXPECT_TZ defaults to DISPLAY_TIMEZONE or Asia/Jakarta.
+# Usage: BASE_URL=http://127.0.0.1:8080 EXPECT_VERSION=v0.1.3 test/api/smoke.sh
+# BASE_URL is the internal listener. No account is used: /version build details (commit, Go, server clock and
+# display timezone) need system.version.read since v0.3.2 and are checked by test/api/ui.sh and the Go tests.
 set -uo pipefail
 
 # Whole body in main(): bash parses the entire file before running, so editing the script mid-run cannot make it
@@ -13,8 +14,6 @@ source_rev_line "$0"
 
 BASE_URL="${BASE_URL:-http://127.0.0.1:8080}"
 EXPECT_VERSION="${EXPECT_VERSION:-}"
-EXPECT_TZ="${EXPECT_TZ:-${DISPLAY_TIMEZONE:-Asia/Jakarta}}"
-EXPECT_OFFSET="$(TZ="$EXPECT_TZ" date +%:z)"
 pass=0 fail=0
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 
@@ -47,18 +46,15 @@ done
 
 req GET /api/v1/version
 check "GET /version = 200" "$([[ $code == 200 ]]; echo $?)"
-check "version fields" "$(jq -e '.version and .commit and .go_version and .server_time_utc and .server_time_display' "$tmp/b" >/dev/null; echo $?)"
+check "/version without session = {version} only (details need system.version.read)" "$(jq -e 'keys==["version"]' "$tmp/b" >/dev/null; echo $?)"
 check "Cache-Control no-store" "$([[ $(hdr Cache-Control) == no-store ]]; echo $?)"
-check "display_timezone = $EXPECT_TZ" "$(jq -e --arg tz "$EXPECT_TZ" '.display_timezone==$tz' "$tmp/b" >/dev/null; echo $?)"
-check "server_time_display offset $EXPECT_OFFSET" "$(jq -e --arg o "$EXPECT_OFFSET" '.server_time_display|endswith($o)' "$tmp/b" >/dev/null; echo $?)"
-check "server_time_utc is UTC (Z)" "$(jq -e '.server_time_utc|endswith("Z")' "$tmp/b" >/dev/null; echo $?)"
 if [[ -n "$EXPECT_VERSION" ]]; then
   check "version = $EXPECT_VERSION" "$(jq -e --arg v "$EXPECT_VERSION" '.version==$v' "$tmp/b" >/dev/null; echo $?)"
 fi
-echo "  info  version=$(jq -r .version "$tmp/b") commit=$(jq -r .commit "$tmp/b")"
+echo "  info  version=$(jq -r .version "$tmp/b")"
 
 # Default-deny (v0.3.1): everything except health/ready/version/login needs a session.
-for p in /api/v1/ui/bootstrap /api/v1/help/index /api/v1/auth/me /api/v1/auth/sessions; do
+for p in /api/v1/ui/bootstrap /api/v1/help/index /api/v1/auth/me /api/v1/auth/sessions /api/v1/users /api/v1/roles; do
   req GET "$p"
   check "GET $p without session = 401 unauthenticated" "$([[ $code == 401 ]] && jq -e '.error.code=="unauthenticated"' "$tmp/b" >/dev/null; echo $?)"
 done
