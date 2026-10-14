@@ -44,7 +44,8 @@ func runAllowlist(args []string) error {
 	}
 	defer pool.Close()
 	log := logging.New(os.Stderr, cfg.LogLevel)
-	reg, err := settingsservice.NewRegistry(settingsservice.Defaults{Language: cfg.DefaultLocale, Timezone: cfg.DisplayTZ.String()})
+	reg, err := settingsservice.NewRegistry(settingsservice.Defaults{Language: cfg.DefaultLocale, Timezone: cfg.DisplayTZ.String(),
+		SessionIdle: cfg.Auth.SessionIdle, SessionAbsolute: cfg.Auth.SessionAbsolute})
 	if err != nil {
 		return err
 	}

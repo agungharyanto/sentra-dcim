@@ -5,11 +5,13 @@ import { NotFoundPage } from "@/app/pages/StatusPages";
 import { cn } from "@/lib/utils";
 
 import { AllowedIpPage } from "./AllowedIpPage";
+import { PolicySettingsPage } from "./PolicySettingsPage";
 import { RegionalSettingsPage } from "./RegionalSettingsPage";
 
 const sections = [
   { path: "regional", label: "nav.regional" },
   { path: "allowed-ip", label: "nav.allowedIp" },
+  { path: "session-password", label: "nav.policy" },
 ] as const;
 
 /** Settings (/settings, permission settings.manage): one sub-page per group — Regional (v0.3.5), Allowed IP (v0.3.6). */
@@ -37,6 +39,7 @@ export function SettingsModule() {
         <Route index element={<Navigate to="regional" replace />} />
         <Route path="regional" element={<RegionalSettingsPage />} />
         <Route path="allowed-ip" element={<AllowedIpPage />} />
+        <Route path="session-password" element={<PolicySettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </div>

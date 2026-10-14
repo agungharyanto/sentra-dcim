@@ -10,7 +10,8 @@ order: 50
 ## Tujuan
 
 Mengatur perilaku Sentra DCIM untuk **semua pengguna**: **Regional** (bahasa, zona waktu, format jam & tanggal, v0.3.5)
-dan **Allowed IP** (siapa yang boleh membuka panel web, v0.3.6). Kebijakan sesi & kata sandi menyusul sesuai roadmap.
+**Allowed IP** (siapa yang boleh membuka panel web, v0.3.6), dan **Sesi & Kata Sandi** (batas waktu sesi, masa berlaku
+dan riwayat kata sandi, v0.3.7).
 
 ## Siapa yang bisa memakai
 
@@ -29,7 +30,7 @@ Role lain tidak melihat menu ini; bila membuka alamatnya langsung, halaman menam
   tidak ada yang disimpan.
 - Setiap perubahan **tercatat di Audit Log** (aksi `settings.update`): siapa, kapan, nilai lama → nilai baru.
 
-Rincian: [Regional](regional.md), [Allowed IP](allowed-ip.md).
+Rincian: [Regional](regional.md), [Allowed IP](allowed-ip.md), [Sesi & kata sandi](session-password.md).
 
 ## Endpoint API terkait
 

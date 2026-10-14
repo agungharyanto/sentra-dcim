@@ -27,6 +27,12 @@ export interface AuthUser {
   permissions: string[];
   /** MFA set up; false → enrolment at sign-in (v0.3.3). */
   mfa_enabled: boolean;
+  /** Kiosk/monitoring account (v0.3.7). */
+  kiosk?: boolean;
+  /** Password expiry (v0.3.7); null = does not expire. */
+  password_expires_at?: string | null;
+  password_expired?: boolean;
+  password_expires_soon?: boolean;
 }
 
 /** Mirrors api/openapi.yaml#/components/schemas/SessionInfo. Times are UTC (RFC 3339). */
@@ -41,6 +47,8 @@ export interface SessionInfo {
   current: boolean;
   /** false while the session is mfa_pending: only me, logout and auth/mfa/* work. */
   mfa_verified: boolean;
+  /** Kiosk session: no idle or absolute limit (v0.3.7). */
+  kiosk?: boolean;
 }
 
 /** Mirrors api/openapi.yaml#/components/schemas/Regional: effective values (own preference over system). */
@@ -57,6 +65,18 @@ export interface AuthMe {
   session: SessionInfo;
   /** Effective regional settings (v0.3.5). */
   regional?: Regional;
+  server_time?: string;
+}
+
+/** Response of POST /api/v1/auth/activity (v0.3.7). */
+export interface ActivityResult {
+  session: SessionInfo;
+  server_time: string;
+}
+
+/** Signals real user interaction: moves the idle deadline (reads and polling never do, D-069). */
+export function sendActivity() {
+  return postJson<ActivityResult>("/api/v1/auth/activity");
 }
 
 export const meQueryKey = ["auth", "me"] as const;

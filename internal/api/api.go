@@ -42,6 +42,7 @@ var InternalPublicRoutes = append(append([]string{}, PublicRoutes...), "GET /api
 // without roles and expects 403 from everything not listed here.
 var SelfServiceRoutes = []string{
 	"POST /api/v1/auth/logout",
+	"POST /api/v1/auth/activity",
 	"GET /api/v1/auth/me",
 	"POST /api/v1/auth/password",
 	"GET /api/v1/auth/sessions",
@@ -81,6 +82,7 @@ var AuditedRoutes = map[string][]string{
 	"POST /api/v1/users/{id}/enable":            {"user.enable"},
 	"POST /api/v1/users/{id}/password-reset":    {"user.password.reset"},
 	"POST /api/v1/users/{id}/mfa-reset":         {"user.mfa.reset"},
+	"PUT /api/v1/users/{id}/kiosk":              {"user.kiosk"},
 	"POST /api/v1/audit/integrity/verify":       {"audit.verify"},
 	"PUT /api/v1/settings/{group}":              {"settings.update"},
 	"PUT /api/v1/me/preferences":                {"user.preferences.update"},
@@ -89,6 +91,11 @@ var AuditedRoutes = map[string][]string{
 	"DELETE /api/v1/settings/allowed-ips/{id}":  {"allowlist.remove"},
 	"PUT /api/v1/settings/allowed-ips/mode":     {"allowlist.mode"},
 	"POST /api/v1/settings/allowed-ips/confirm": {"allowlist.confirm"},
+}
+
+// UnauditedRoutes are unsafe routes deliberately not audited, each with the reason (reviewed like AuditedRoutes).
+var UnauditedRoutes = map[string]string{
+	"POST /api/v1/auth/activity": "idle heartbeat about once a minute (D-069): changes only the session's idle deadline",
 }
 
 // Mount returns the /api/v1 mount function. internal selects the loopback listener variant.

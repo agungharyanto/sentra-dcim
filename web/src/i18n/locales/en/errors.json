@@ -34,6 +34,10 @@
     "lockout_risk": "Refused: your own IP would no longer be allowed.",
     "no_pending_change": "No Enforce change is waiting for confirmation (it may have returned to Monitor).",
     "too_many_entries": "The list is full.",
-    "ip_not_allowed": "Access from this IP address is not allowed."
+    "ip_not_allowed": "Access from this IP address is not allowed.",
+    "password_reused": "This password was used recently. Choose a different one.",
+    "kiosk_requires_viewer": "Monitoring mode is only for accounts whose only role is Viewer. Turn monitoring mode off before changing roles.",
+    "kiosk_requires_allowlist": "Monitoring mode needs Allowed IP in use (Monitor or Enforce) with at least one IP. Set it up in Settings › Allowed IP first.",
+    "maintenance": "The service is under maintenance. Try again shortly."
   }
 }

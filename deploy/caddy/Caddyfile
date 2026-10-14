@@ -187,6 +187,29 @@
 
 	# Errors raised by handlers (file_server 404/405) bypass the deferred header block above;
 	# re-apply the security headers and answer with the standard JSON error envelope.
+	# Maintenance page (v0.3.7): when the app does not answer (Caddy's own 502/503/504 — connection refused, no healthy
+	# upstream, timeout; never the app's own 503 responses), show a static page without data, version or stack details.
+	# The style is inline and pinned by hash in the CSP: while the app is down even a CSS request could not pass
+	# forward_auth. test/api/maintenance.sh checks the hash against deploy/caddy/maintenance/index.html.
+	handle_errors 502 503 504 {
+		import security_headers
+		header Retry-After "30"
+		header Cache-Control "no-store"
+		@api path /api/*
+		handle @api {
+			header Content-Type "application/json; charset=utf-8"
+			respond `{"error":{"code":"maintenance","message":"service temporarily unavailable, try again shortly"}}` 503
+		}
+		handle {
+			header Content-Security-Policy "default-src 'none'; style-src 'sha256-URTnBYdIairiAY5h5/sQXK4EJLXXFRgQ0hItWm4mD7I='; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+			root * /srv/maintenance
+			rewrite * /index.html
+			file_server {
+				status 503
+			}
+		}
+	}
+
 	handle_errors {
 		import security_headers
 		map {err.status_code} {err_code} {

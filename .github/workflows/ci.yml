@@ -176,6 +176,8 @@ jobs:
       - name: Browser tests (Playwright + axe, UI screenshots)
         # E2E_MUTATIONS=1: the throwaway CI stack may create and change accounts (never set against production).
         run: BASE_URL=https://localhost E2E_MUTATIONS=1 ./test/e2e/run.sh
+      - name: Maintenance page while the app is down (stops/starts app; throwaway stack only)
+        run: BASE_URL=https://localhost ./test/api/maintenance.sh
       - name: Upload UI screenshots (design system, shell)
         if: always()
         uses: actions/upload-artifact@v7

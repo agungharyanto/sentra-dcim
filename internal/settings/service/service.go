@@ -45,6 +45,7 @@ type Service struct {
 	reg *Registry
 	rec *audit.Recorder
 	log *slog.Logger
+	pc  policyCache
 }
 
 // New creates a Service.
@@ -119,6 +120,20 @@ func (s *Service) Update(ctx context.Context, group string, changes map[string]j
 		if err != nil {
 			return err
 		}
+		after := map[string]any{}
+		for _, it := range before {
+			after[it.Name()] = it.Value
+		}
+		for _, c := range parsed {
+			if c.reset {
+				after[c.def.Name()] = c.def.Default
+			} else {
+				after[c.def.Name()] = c.value
+			}
+		}
+		if field, reason := s.reg.CheckGroup(group, after); field != "" {
+			return &ValidationError{Field: field, Reason: reason}
+		}
 		for _, c := range parsed {
 			old := before[c.def.Key]
 			if c.reset {
@@ -149,6 +164,7 @@ func (s *Service) Update(ctx context.Context, group string, changes map[string]j
 	if err != nil {
 		return nil, err
 	}
+	s.invalidatePolicy()
 	for _, ev := range events {
 		_ = s.rec.Record(ctx, ev)
 	}

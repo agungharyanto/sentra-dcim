@@ -400,10 +400,15 @@ paths:
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "422":
-          description: Kata sandi baru tidak memenuhi ketentuan (`password_policy`)
+          description: |
+            Kata sandi baru tidak memenuhi ketentuan (`password_policy`), atau sama dengan salah satu kata sandi terakhir
+            (`password_reused`, `password.history` termasuk yang sekarang; v0.3.7)
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/PasswordPolicyError" }
+              schema:
+                oneOf:
+                  - { $ref: "#/components/schemas/PasswordPolicyError" }
+                  - { $ref: "#/components/schemas/ErrorBody" }
   /api/v1/auth/sessions:
     get:
       tags: [auth]
@@ -964,7 +969,12 @@ paths:
       x-sentra-access: login
       x-sentra-permission: settings.manage
       summary: Baca satu grup pengaturan beserta skemanya
-      description: Grup `regional` (v0.3.5) berisi `language`, `timezone`, `time_format`, `date_format`.
+      description: |
+        Grup `regional` (v0.3.5): `language`, `timezone`, `time_format`, `date_format`. Grup `session` (v0.3.7):
+        `idle_minutes` (5–240, default 30), `absolute_hours` (1–24, default 12; idle tidak boleh melebihi absolut).
+        Grup `password` (v0.3.7): `expiry_days` (0 = tidak kedaluwarsa, atau 30–365; default 90; akun Viewer saja
+        dikecualikan), `warn_days` (1–60, default 14, kurang dari expiry), `history` (1–24, default 5). Grup
+        `allowlist` hanya-baca di sini (diubah lewat `/settings/allowed-ips`).
       security:
         - sessionCookie: []
       responses:
@@ -1234,6 +1244,70 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorBody" }
+  /api/v1/auth/activity:
+    post:
+      tags: [auth]
+      operationId: sessionActivity
+      x-sentra-access: login
+      summary: Sinyal aktivitas pengguna — memperpanjang batas idle
+      description: |
+        Dikirim UI saat ada interaksi nyata (keyboard, pointer, sentuh), paling sering sekitar 1×/menit (D-069).
+        Request baca dan polling latar belakang tidak memperpanjang idle. Tidak dicatat di audit (detak). Sesi kiosk
+        tidak berubah.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      responses:
+        "200":
+          description: Batas sesi yang baru
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [session, server_time]
+                properties:
+                  session: { $ref: "#/components/schemas/SessionInfo" }
+                  server_time: { type: string, format: date-time }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/users/{id}/kiosk:
+    put:
+      tags: [users]
+      operationId: setUserKiosk
+      x-sentra-access: login
+      x-sentra-permission: users.manage
+      summary: Aktifkan/nonaktifkan mode monitoring (kiosk) akun
+      description: |
+        Hanya akun dengan role **Viewer saja** (`409 kiosk_requires_viewer`) dan hanya bila Allowed IP berada di mode
+        monitor/enforce dengan minimal satu jaringan (`409 kiosk_requires_allowlist`). Sesi kiosk tanpa batas idle dan
+        absolut, tetapi hanya sah dari jaringan Allowed IP — dari IP lain sesi dicabut (`auth.session.kiosk_revoked`).
+        Setiap perubahan mengakhiri semua sesi akun dan dicatat `user.kiosk`.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              additionalProperties: false
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "200":
+          description: Pengguna setelah perubahan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
 components:
   parameters:
     AuditSince:
@@ -1307,7 +1381,8 @@ components:
     Conflict:
       description: |
         `username_taken` (nama pengguna sudah ada, tidak peka huruf besar/kecil), `self_action` (aksi tidak boleh
-        pada akun sendiri), atau `last_admin` (Admin aktif terakhir tidak boleh kehilangan akses)
+        pada akun sendiri), `last_admin` (Admin aktif terakhir tidak boleh kehilangan akses), `kiosk_requires_viewer`
+        (kiosk hanya untuk akun Viewer saja; matikan kiosk sebelum mengubah role), atau `kiosk_requires_allowlist`
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorBody" }
@@ -1449,6 +1524,13 @@ components:
           description: Gabungan izin semua role (UI menyembunyikan menu tanpa izin; API tetap memeriksa)
           example: [roles.read, system.version.read, users.manage, users.read]
         mfa_enabled: { type: boolean, description: "MFA aktif; false → enrolment saat login" }
+        kiosk: { type: boolean, description: "Akun monitoring/kiosk (v0.3.7): sesi tanpa batas waktu, hanya dari Allowed IP" }
+        password_expires_at:
+          type: [string, "null"]
+          format: date-time
+          description: "Kedaluwarsa kata sandi (v0.3.7); null bila tidak kedaluwarsa (kebijakan 0 atau akun Viewer saja)"
+        password_expired: { type: boolean, description: "Lewat masa berlaku → must_change_password true" }
+        password_expires_soon: { type: boolean, description: "Dalam masa peringatan (password.warn_days)" }
     SessionInfo:
       type: object
       required: [id, created_at, last_seen_at, expires_at, idle_expires_at, ip, user_agent, current, mfa_verified]
@@ -1456,12 +1538,18 @@ components:
         id: { type: string, format: uuid }
         created_at: { type: string, format: date-time }
         last_seen_at: { type: string, format: date-time }
-        expires_at: { type: string, format: date-time, description: Batas absolut (12 jam sejak masuk) }
-        idle_expires_at: { type: string, format: date-time, description: "Batas idle (30 menit sejak aktivitas terakhir, diperbarui paling sering 1×/menit)" }
+        expires_at: { type: string, format: date-time, description: "Batas absolut (session.absolute_hours sejak masuk, default 12 jam)" }
+        idle_expires_at:
+          type: string
+          format: date-time
+          description: |
+            Batas idle (session.idle_minutes, default 30 menit). Sejak v0.3.7 hanya diperpanjang oleh aktivitas pengguna:
+            `POST /api/v1/auth/activity` atau request tulis — request baca/polling tidak memperpanjangnya.
         ip: { type: [string, "null"], description: IP klien saat masuk }
         user_agent: { type: string, maxLength: 512 }
         current: { type: boolean, description: Sesi yang dipakai request ini }
         mfa_verified: { type: boolean, description: "false = mfa_pending (hanya me, logout, auth/mfa/*)" }
+        kiosk: { type: boolean, description: Sesi kiosk (tanpa idle/absolut; dicabut bila dipakai dari luar Allowed IP) }
     AuthMe:
       type: object
       required: [user, session]
@@ -1469,6 +1557,7 @@ components:
         user: { $ref: "#/components/schemas/AuthUser" }
         session: { $ref: "#/components/schemas/SessionInfo" }
         regional: { $ref: "#/components/schemas/Regional" }
+        server_time: { type: string, format: date-time, description: Jam server (hitung mundur sesi tidak bergantung jam klien) }
     Regional:
       type: object
       description: Pengaturan regional efektif (preferensi pengguna di atas nilai sistem). Data tetap UTC.
@@ -1705,6 +1794,7 @@ components:
         must_change_password: { type: boolean }
         locked: { type: boolean, description: Sedang terkunci karena salah kata sandi atau kode MFA (lockout) }
         mfa_enabled: { type: boolean }
+        kiosk: { type: boolean, description: "Akun monitoring/kiosk (v0.3.7)" }
         last_login_at: { type: [string, "null"], format: date-time }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }

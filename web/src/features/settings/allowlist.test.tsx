@@ -94,7 +94,7 @@ describe("settings › allowed IP", () => {
 
     await userEvent.click(screen.getByTestId("allowlist-add-mine"));
     await waitFor(() => expect(screen.getByTestId("allowlist-your-ip")).toHaveAttribute("data-covered", "true"));
-    expect(calls.find((c) => c.method === "POST")?.body).toMatchObject({ cidr: "203.0.113.5" });
+    expect(calls.find((c) => c.method === "POST" && c.url === "/api/v1/settings/allowed-ips")?.body).toMatchObject({ cidr: "203.0.113.5" });
 
     await userEvent.click(screen.getByTestId("allowlist-mode-enforce"));
     await userEvent.click(screen.getByTestId("allowlist-mode-save"));

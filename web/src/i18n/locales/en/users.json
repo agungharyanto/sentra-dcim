@@ -35,7 +35,8 @@
     "disabled": "Disabled",
     "locked": "Locked",
     "mustChange": "Must change password",
-    "mfaOff": "MFA not set up"
+    "mfaOff": "MFA not set up",
+    "kiosk": "Monitoring"
   },
   "roles": {
     "admin": "Admin",
@@ -140,5 +141,17 @@
     "display_name": "Display name is required (at most 128 characters, one line).",
     "email": "Invalid e-mail address.",
     "roles": "Select at least one valid role."
+  },
+  "kiosk": {
+    "title": "Monitoring mode (kiosk)",
+    "description": "For monitoring screens in the NOC room: this account's sessions do not end by idling or by time, but are valid only from IPs in Settings › Allowed IP. Only for accounts whose only role is Viewer; MFA is still required at sign-in.",
+    "on": "On",
+    "off": "Off",
+    "turnOn": "Turn monitoring mode on",
+    "turnOff": "Turn monitoring mode off",
+    "confirmOn": "All sessions of this account end; the next sign-in becomes a monitoring session valid only from Allowed IP addresses.",
+    "confirmOff": "All sessions of this account end; the next sign-in uses the normal idle and absolute limits again.",
+    "enabled": "Monitoring mode turned on.",
+    "disabled": "Monitoring mode turned off."
   }
 }

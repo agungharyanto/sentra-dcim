@@ -51,8 +51,8 @@ WHERE id = @id;
 UPDATE users SET password_hash = @password_hash, updated_at = now() WHERE id = @id;
 
 -- name: CreateSession :one
-INSERT INTO sessions (token_hash, user_id, expires_at, idle_expires_at, ip, user_agent)
-VALUES (@token_hash, @user_id, @expires_at, @idle_expires_at, @ip, @user_agent)
+INSERT INTO sessions (token_hash, user_id, expires_at, idle_expires_at, ip, user_agent, kiosk)
+VALUES (@token_hash, @user_id, @expires_at, @idle_expires_at, @ip, @user_agent, @kiosk)
 RETURNING *;
 
 -- name: GetActiveSession :one
@@ -61,7 +61,8 @@ SELECT s.id AS session_id, s.user_id, s.created_at AS session_created_at, s.last
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
              WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
        (s.mfa_verified_at IS NOT NULL)::boolean AS mfa_verified,
-       EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled
+       EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled,
+       s.kiosk AS session_kiosk, u.kiosk AS user_kiosk, u.password_changed_at
 FROM sessions s
 JOIN users u ON u.id = s.user_id
 WHERE s.token_hash = @token_hash
@@ -70,8 +71,30 @@ WHERE s.token_hash = @token_hash
   AND s.idle_expires_at > now()
   AND u.status = 'active';
 
--- name: TouchSession :exec
+-- ExtendIdle records user activity (UI activity signal or a write request): the idle deadline moves (D-069).
+-- name: ExtendIdle :exec
 UPDATE sessions SET last_seen_at = now(), idle_expires_at = LEAST(@idle_expires_at, expires_at) WHERE id = @id AND revoked_at IS NULL;
+
+-- TouchSeen records that the session was used (any request, e.g. background polling) WITHOUT extending idle.
+-- name: TouchSeen :exec
+UPDATE sessions SET last_seen_at = now() WHERE id = @id AND revoked_at IS NULL;
+
+-- name: RevokeSessionByID :execrows
+UPDATE sessions SET revoked_at = now() WHERE id = @id AND revoked_at IS NULL;
+
+-- name: RevokeAllSessions :execrows
+UPDATE sessions SET revoked_at = now() WHERE user_id = @user_id AND revoked_at IS NULL;
+
+-- name: ListPasswordHistory :many
+SELECT password_hash FROM password_history WHERE user_id = @user_id ORDER BY id DESC LIMIT @lim;
+
+-- name: InsertPasswordHistory :exec
+INSERT INTO password_history (user_id, password_hash) VALUES (@user_id, @password_hash);
+
+-- Keeps the newest @keep entries of a user.
+-- name: TrimPasswordHistory :exec
+DELETE FROM password_history p
+WHERE p.user_id = @user_id::uuid AND p.id NOT IN (SELECT h.id FROM password_history h WHERE h.user_id = @user_id::uuid ORDER BY h.id DESC LIMIT @keep);
 
 -- name: RevokeSession :execrows
 UPDATE sessions SET revoked_at = now() WHERE id = @id AND user_id = @user_id AND revoked_at IS NULL;

@@ -3,6 +3,26 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [v0.3.7] - 2026-10-15 — Kebijakan Sesi & Kata Sandi
+
+### Ditambahkan
+- **Batas sesi yang bisa diatur** (D-069, D-079): Pengaturan › **Sesi & Kata Sandi** — idle (default 30 menit,
+  5–240) dan absolut (default 12 jam, 1–24), idle ≤ absolut. Idle hanya diperpanjang oleh aktivitas nyata pengguna
+  (klik/ketik/gulir/sentuh → `POST /api/v1/auth/activity`, ≤ 1×/menit) dan tindakan yang menyimpan data; polling dan
+  pembaruan otomatis halaman tidak lagi memperpanjang sesi. **Peringatan 2 menit** sebelum keluar otomatis dengan
+  hitung mundur dan **Tetap masuk** (saat batas absolut: hanya **Keluar sekarang**).
+- **Kedaluwarsa kata sandi** (D-070): default 90 hari (0 = tidak kedaluwarsa), kecuali akun yang role-nya hanya
+  Viewer; banner peringatan 14 hari sebelumnya; setelah lewat wajib ganti setelah masuk. **Riwayat 5 kata sandi**
+  (termasuk yang sekarang) tidak boleh dipakai ulang (`password_reused`), juga setelah reset oleh Admin.
+- **Mode monitoring (kiosk)** per akun Viewer (D-068): `PUT /api/v1/users/{id}/kiosk` + kartu di detail pengguna.
+  Sesi tanpa idle/absolut, hanya sah dari IP Allowed IP (dari IP lain dicabut, `auth.session.kiosk_revoked`); hanya
+  bisa diaktifkan bila Allowed IP Pantau/Tegakkan dengan ≥ 1 IP (`kiosk_requires_allowlist`); MFA tetap diminta.
+- **Halaman pemeliharaan** (D-080): saat app tidak merespons, panel menampilkan halaman statis "Sedang pemeliharaan /
+  Under maintenance" (503 + `Retry-After`), API menjawab JSON `maintenance`; tanpa info versi/stack. Diuji di CI.
+- `/api/v1/auth/me` membawa `server_time`, `password_expires_at`, `password_expired`, `password_expires_soon`,
+  `kiosk`. Migrasi 000010. OpenAPI, Pusat Bantuan ID/EN (Kebijakan sesi & kata sandi, mode monitoring, login, ganti
+  kata sandi).
+
 ## [v0.3.6] - 2026-10-15 — Settings – Allowed IP
 
 ### Ditambahkan

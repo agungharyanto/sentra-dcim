@@ -19,6 +19,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"os/signal"
 	"strconv"
@@ -139,7 +140,8 @@ func serve() error {
 
 	rec := auditservice.New(auditrepo.New(pool), log)
 	// Settings – Regional (v0.3.5): DEFAULT_LOCALE and DISPLAY_TIMEZONE are the defaults until an Admin changes them.
-	reg, err := settingsservice.NewRegistry(settingsservice.Defaults{Language: cfg.DefaultLocale, Timezone: cfg.DisplayTZ.String()})
+	reg, err := settingsservice.NewRegistry(settingsservice.Defaults{Language: cfg.DefaultLocale, Timezone: cfg.DisplayTZ.String(),
+		SessionIdle: cfg.Auth.SessionIdle, SessionAbsolute: cfg.Auth.SessionAbsolute})
 	if err != nil {
 		return fmt.Errorf("settings: %w", err)
 	}
@@ -166,6 +168,8 @@ func serve() error {
 	if err != nil {
 		return fmt.Errorf("auth: %w", err)
 	}
+	// Session/password policy from Settings; kiosk sessions are valid only from Allowed IP networks (v0.3.7).
+	auth.WithPolicy(settings).WithKioskGate(func(ip netip.Addr) bool { return allow.Current().Covers(ip) })
 	authH := authhandler.New(auth, log, cfg.Auth.AllowedOrigins).WithRegional(settings)
 	go cleanupSessions(ctx, auth, log)
 	go rec.RunThrottle(ctx) // summaries of repeated denials (authz.denied.repeated, security.csrf_denied.repeated)
@@ -176,7 +180,7 @@ func serve() error {
 	// Public listener (behind Caddy's public site) and internal listener (Caddy 127.0.0.1 only) share all
 	// modules; they differ only in the unauthenticated allowlist (internal adds /ready for ops scripts). Everything
 	// else requires a session and, per route, a permission (internal/api, default-deny; D-053, D-054).
-	users := usershandler.New(usersservice.New(pool, rec, log, cfg.Auth), log)
+	users := usershandler.New(usersservice.New(pool, rec, log, cfg.Auth).WithKioskReady(kioskReady(allow)), log)
 	mods := api.Modules{System: systemhandler.New(sys), UI: uihandler.New(ui), Help: help, Auth: authH, Users: users,
 		Audit:    audithandler.New(auditrepo.New(pool), rec, integrity, settings.LocationFor, log),
 		Settings: settingshandler.New(settings, log), Allowlist: allowlisthandler.New(allow, log)}
@@ -344,4 +348,18 @@ func healthcheck() error {
 		return fmt.Errorf("health status %d", resp.StatusCode)
 	}
 	return nil
+}
+
+// kioskReady: kiosk mode needs Allowed IP in monitor or enforce with at least one network (v0.3.7).
+func kioskReady(allow *allowlistservice.Service) func(ctx context.Context) error {
+	return func(ctx context.Context) error {
+		st, err := allow.State(ctx)
+		if err != nil {
+			return err
+		}
+		if st.Mode == allowlistservice.ModeOff || len(st.Entries) == 0 {
+			return usersservice.ErrKioskNeedsAllowlist
+		}
+		return nil
+	}
 }

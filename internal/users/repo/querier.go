@@ -17,6 +17,7 @@ type Querier interface {
 	DeleteUserMFA(ctx context.Context, userID uuid.UUID) (int64, error)
 	DeleteUserRecoveryCodes(ctx context.Context, userID uuid.UUID) error
 	DeleteUserRoles(ctx context.Context, userID uuid.UUID) error
+	GetPasswordHash(ctx context.Context, id uuid.UUID) (string, error)
 	GetRolesByKeys(ctx context.Context, keys []string) ([]GetRolesByKeysRow, error)
 	GetUser(ctx context.Context, id uuid.UUID) (GetUserRow, error)
 	GetUserIDByUsername(ctx context.Context, username string) (uuid.UUID, error)
@@ -25,10 +26,13 @@ type Querier interface {
 	// LockAdminRole serialises every change that could remove the last active Admin (role changes, disabling). An
 	// advisory transaction lock: the application role has no UPDATE on roles, which SELECT … FOR UPDATE would need.
 	LockAdminRole(ctx context.Context) error
+	RememberPasswordHash(ctx context.Context, arg RememberPasswordHashParams) error
 	// ResetPassword stores a temporary password: it must be changed at the next login, and the lockout is cleared.
 	ResetPassword(ctx context.Context, arg ResetPasswordParams) (int64, error)
 	RevokeUserSessions(ctx context.Context, userID uuid.UUID) (int64, error)
+	SetKiosk(ctx context.Context, arg SetKioskParams) (int64, error)
 	SetUserStatus(ctx context.Context, arg SetUserStatusParams) (int64, error)
+	TrimPasswordHistoryTo(ctx context.Context, arg TrimPasswordHistoryToParams) error
 	UnlockUser(ctx context.Context, id uuid.UUID) (int64, error)
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (int64, error)
 }

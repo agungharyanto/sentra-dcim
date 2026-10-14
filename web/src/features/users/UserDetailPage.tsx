@@ -18,6 +18,7 @@ import { toErrorCode } from "@/i18n/errors";
 import { ApiError } from "@/lib/api";
 
 import {
+  setKiosk,
   fetchRoles,
   fetchUser,
   PERM_ROLES_READ,
@@ -90,6 +91,11 @@ function UserDetail({ user }: { user: User }) {
         <div className="lg:col-span-2">
           <RolesCard key={user.roles.join()} user={user} canManage={canManage} self={self} />
         </div>
+        {(user.kiosk || (user.roles.length === 1 && user.roles[0] === "viewer")) && (
+          <div className="lg:col-span-2">
+            <KioskCard user={user} canManage={canManage} />
+          </div>
+        )}
       </div>
     </>
   );
@@ -342,5 +348,57 @@ function Row({ id, label, children }: { id: string; label: string; children: Rea
       </label>
       {children}
     </div>
+  );
+}
+
+/** Monitoring/kiosk mode of a Viewer-only account (v0.3.7, D-068). */
+function KioskCard({ user, canManage }: { user: User; canManage: boolean }) {
+  const { t } = useTranslation(["users", "errors"]);
+  const apply = useApply(user);
+  const [confirming, setConfirming] = useState(false);
+  const change = useMutation({
+    mutationFn: (on: boolean) => setKiosk(user.id, on),
+    onSuccess: (u) => {
+      apply(u);
+      setConfirming(false);
+      toast.success(u.kiosk ? t("kiosk.enabled") : t("kiosk.disabled"));
+    },
+    onError: (err) => {
+      setConfirming(false);
+      toast.error(t(`errors:code.${toErrorCode(err instanceof ApiError ? err.code : "unknown")}`));
+    },
+  });
+  return (
+    <Card data-testid="kiosk-card" data-kiosk={user.kiosk === true}>
+      <CardHeader>
+        <CardTitle>{t("kiosk.title")}</CardTitle>
+        <CardDescription>{t("kiosk.description")}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-wrap items-center gap-3">
+        <span className="text-sm font-medium" data-testid="kiosk-state">
+          {user.kiosk ? t("kiosk.on") : t("kiosk.off")}
+        </span>
+        {canManage && (
+          <Button
+            variant={user.kiosk ? "outline" : "default"}
+            size="sm"
+            className="sm:ml-auto"
+            disabled={change.isPending}
+            onClick={() => setConfirming(true)}
+            data-testid="kiosk-toggle"
+          >
+            {user.kiosk ? t("kiosk.turnOff") : t("kiosk.turnOn")}
+          </Button>
+        )}
+      </CardContent>
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title={user.kiosk ? t("kiosk.turnOff") : t("kiosk.turnOn")}
+        body={user.kiosk ? t("kiosk.confirmOff") : t("kiosk.confirmOn")}
+        busy={change.isPending}
+        onConfirm={() => change.mutate(!user.kiosk)}
+      />
+    </Card>
   );
 }

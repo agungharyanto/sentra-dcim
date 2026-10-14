@@ -9,11 +9,14 @@ import (
 	"errors"
 	"log/slog"
 	"math"
+	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -42,6 +45,7 @@ const (
 	CodeCSRF                   = "csrf_failed"
 	CodePasswordChangeRequired = "password_change_required"
 	CodePasswordPolicy         = "password_policy"
+	CodePasswordReused         = "password_reused"
 	CodeInvalidCurrentPassword = "invalid_current_password"
 	CodeInvalidRequest         = "invalid_request"
 	CodeUnavailable            = "auth_unavailable"
@@ -81,6 +85,7 @@ func (h *Handler) PublicRoutes(r chi.Router) {
 // Routes registers the authenticated auth endpoints (mounted behind Authenticate + CSRF + PasswordChangeGuard).
 func (h *Handler) Routes(r chi.Router) {
 	r.Post("/auth/logout", h.logout)
+	r.Post("/auth/activity", h.activity)
 	r.Get("/auth/me", h.me)
 	r.Post("/auth/password", h.changePassword)
 	r.Get("/auth/sessions", h.sessions)
@@ -113,7 +118,10 @@ func (h *Handler) Authenticate(next http.Handler) http.Handler {
 			httpserver.Error(w, r, http.StatusUnauthorized, CodeUnauthenticated, "authentication required")
 			return
 		}
-		sess, err := h.svc.Authenticate(r.Context(), c.Value)
+		// Only write requests count as user activity here; reads (and background polling) never extend the idle
+		// deadline — the UI sends POST /auth/activity on real interaction (D-069).
+		active := r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions
+		sess, err := h.svc.Authenticate(r.Context(), c.Value, clientAddr(r), active)
 		if errors.Is(err, service.ErrUnauthenticated) {
 			clearCookies(w)
 			httpserver.Error(w, r, http.StatusUnauthorized, CodeUnauthenticated, "authentication required")
@@ -136,7 +144,7 @@ func (h *Handler) Identify(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if c, err := r.Cookie(SessionCookie); err == nil && c.Value != "" && h.svc != nil {
 			// Only a session that passed MFA identifies the caller.
-			if sess, err := h.svc.Authenticate(r.Context(), c.Value); err == nil && sess.MFAVerified {
+			if sess, err := h.svc.Authenticate(r.Context(), c.Value, clientAddr(r), false); err == nil && sess.MFAVerified {
 				ctx := context.WithValue(r.Context(), sessionKey{}, sess)
 				r = r.WithContext(principal.With(ctx, sess.Principal))
 			}
@@ -274,10 +282,43 @@ type meResponse struct {
 	// Regional is the effective regional configuration (user preference over system setting); omitted only when
 	// no provider is configured (tests).
 	Regional *settings.Regional `json:"regional,omitempty"`
+	// ServerTime lets the UI count down to the session deadlines independent of the client clock (v0.3.7).
+	ServerTime time.Time `json:"server_time"`
+}
+
+// clientAddr is the client IP resolved by the realIP middleware (invalid when unknown).
+func clientAddr(r *http.Request) netip.Addr {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	ip, err := netip.ParseAddr(host)
+	if err != nil {
+		return netip.Addr{}
+	}
+	return ip.Unmap()
+}
+
+type activityResponse struct {
+	Session    service.SessionInfo `json:"session"`
+	ServerTime time.Time           `json:"server_time"`
+}
+
+// activity extends the idle deadline on real user interaction (D-069) and returns the new deadlines.
+func (h *Handler) activity(w http.ResponseWriter, r *http.Request) {
+	sess, _ := SessionFrom(r.Context())
+	info, err := h.svc.Activity(r.Context(), sess)
+	if err != nil {
+		h.log.ErrorContext(r.Context(), "session activity", "error", err)
+		httpserver.Error(w, r, http.StatusInternalServerError, "internal_error", "internal server error")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpserver.JSON(w, http.StatusOK, activityResponse{Session: info, ServerTime: time.Now().UTC()})
 }
 
 func (h *Handler) meOf(ctx context.Context, user service.User, info service.SessionInfo) meResponse {
-	resp := meResponse{User: user, Session: info}
+	resp := meResponse{User: user, Session: info, ServerTime: time.Now().UTC()}
 	if h.regional != nil {
 		if reg, _, err := h.regional.EffectiveRegional(ctx, user.ID); err == nil {
 			resp.Regional = &reg
@@ -350,6 +391,8 @@ func (h *Handler) changePassword(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, service.ErrInvalidCredentials):
 		httpserver.Error(w, r, http.StatusBadRequest, CodeInvalidCurrentPassword, "current password is incorrect")
+	case errors.Is(err, service.ErrPasswordReused):
+		httpserver.FieldError(w, r, http.StatusUnprocessableEntity, CodePasswordReused, "new_password", "password used recently")
 	case errors.Is(err, service.ErrPolicy):
 		httpserver.JSON(w, http.StatusUnprocessableEntity, map[string]any{"error": map[string]any{
 			"code": CodePasswordPolicy, "message": "new password must be 12 to 128 characters and differ from the current one",

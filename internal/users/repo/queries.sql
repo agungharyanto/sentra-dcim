@@ -5,6 +5,7 @@ SELECT u.id, u.username::text AS username, u.display_name, COALESCE(u.email::tex
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
              WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
        EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled,
+       u.kiosk,
        count(*) OVER () AS total
 FROM users u
 WHERE (@query::text = '' OR u.username::text ILIKE '%' || @query || '%' ESCAPE '\'
@@ -21,7 +22,8 @@ SELECT u.id, u.username::text AS username, u.display_name, COALESCE(u.email::tex
        u.last_login_at, u.created_at, u.updated_at,
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
              WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
-       EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled
+       EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled,
+       u.kiosk
 FROM users u
 WHERE u.id = @id;
 
@@ -82,3 +84,16 @@ SELECT id FROM users WHERE username = @username;
 
 -- name: UnlockUser :execrows
 UPDATE users SET failed_attempts = 0, locked_until = NULL, updated_at = now() WHERE id = @id;
+
+-- name: SetKiosk :execrows
+UPDATE users SET kiosk = @kiosk, updated_at = now() WHERE id = @id;
+
+-- name: GetPasswordHash :one
+SELECT password_hash FROM users WHERE id = @id;
+
+-- name: RememberPasswordHash :exec
+INSERT INTO password_history (user_id, password_hash) VALUES (@user_id, @password_hash);
+
+-- name: TrimPasswordHistoryTo :exec
+DELETE FROM password_history p
+WHERE p.user_id = @user_id::uuid AND p.id NOT IN (SELECT h.id FROM password_history h WHERE h.user_id = @user_id::uuid ORDER BY h.id DESC LIMIT @keep);

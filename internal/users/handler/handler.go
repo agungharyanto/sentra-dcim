@@ -25,6 +25,8 @@ const (
 	CodeUsernameTaken = "username_taken"
 	CodeLastAdmin     = "last_admin"
 	CodeSelfAction    = "self_action"
+	CodeKioskViewer   = "kiosk_requires_viewer"
+	CodeKioskAllow    = "kiosk_requires_allowlist"
 	CodeInvalidJSON   = "invalid_request"
 )
 
@@ -49,6 +51,7 @@ func (h *Handler) Routes(r chi.Router, require func(rbac.Permission) func(http.H
 	r.With(manage).Post("/users/{id}/enable", h.status(service.StatusActive))
 	r.With(manage).Post("/users/{id}/password-reset", h.resetPassword)
 	r.With(manage).Post("/users/{id}/mfa-reset", h.resetMFA)
+	r.With(manage).Put("/users/{id}/kiosk", h.kiosk)
 	r.With(require(rbac.RolesRead)).Get("/roles", h.roles)
 }
 
@@ -219,6 +222,10 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, what string, err 
 		httpserver.FieldError(w, r, http.StatusConflict, CodeUsernameTaken, "username", "username already exists")
 	case errors.Is(err, service.ErrLastAdmin):
 		httpserver.Error(w, r, http.StatusConflict, CodeLastAdmin, err.Error())
+	case errors.Is(err, service.ErrKioskViewerOnly):
+		httpserver.Error(w, r, http.StatusConflict, CodeKioskViewer, err.Error())
+	case errors.Is(err, service.ErrKioskNeedsAllowlist):
+		httpserver.Error(w, r, http.StatusConflict, CodeKioskAllow, err.Error())
 	case errors.Is(err, service.ErrSelf):
 		httpserver.Error(w, r, http.StatusConflict, CodeSelfAction, err.Error())
 	default:
@@ -255,3 +262,22 @@ func atoiDefault(s string, def int) (int, error) {
 
 // noStore keeps responses carrying a temporary password out of every cache.
 func noStore(w http.ResponseWriter) { w.Header().Set("Cache-Control", "no-store") }
+
+func (h *Handler) kiosk(w http.ResponseWriter, r *http.Request) {
+	id, ok := userID(w, r)
+	if !ok {
+		return
+	}
+	var in struct {
+		Enabled bool `json:"enabled"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	u, err := h.svc.SetKiosk(r.Context(), id, in.Enabled, audit.MetaFromRequest(r))
+	if err != nil {
+		h.fail(w, r, "set kiosk", err)
+		return
+	}
+	httpserver.JSON(w, http.StatusOK, u)
+}

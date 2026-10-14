@@ -20,23 +20,32 @@ type Querier interface {
 	DeleteRecoveryCodes(ctx context.Context, userID uuid.UUID) error
 	DeleteStaleSessions(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	EnableMFA(ctx context.Context, arg EnableMFAParams) (int64, error)
+	// ExtendIdle records user activity (UI activity signal or a write request): the idle deadline moves (D-069).
+	ExtendIdle(ctx context.Context, arg ExtendIdleParams) error
 	GetActiveSession(ctx context.Context, tokenHash []byte) (GetActiveSessionRow, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
 	GetUserMFA(ctx context.Context, userID uuid.UUID) (UserMfa, error)
 	GetUserRoleKeys(ctx context.Context, userID uuid.UUID) ([]string, error)
+	InsertPasswordHistory(ctx context.Context, arg InsertPasswordHistoryParams) error
 	InsertRecoveryCode(ctx context.Context, arg InsertRecoveryCodeParams) error
 	ListActiveSessions(ctx context.Context, userID uuid.UUID) ([]ListActiveSessionsRow, error)
+	ListPasswordHistory(ctx context.Context, arg ListPasswordHistoryParams) ([]string, error)
 	MarkSessionMFAVerified(ctx context.Context, id uuid.UUID) error
 	// RecordLoginFailure counts a wrong password and locks the account at the threshold. A lock that has already
 	// expired starts a fresh count, so an unlocked account gets the full number of attempts again.
 	RecordLoginFailure(ctx context.Context, arg RecordLoginFailureParams) (RecordLoginFailureRow, error)
 	RecordLoginSuccess(ctx context.Context, id uuid.UUID) error
 	RehashPassword(ctx context.Context, arg RehashPasswordParams) error
+	RevokeAllSessions(ctx context.Context, userID uuid.UUID) (int64, error)
 	RevokeOtherSessions(ctx context.Context, arg RevokeOtherSessionsParams) (int64, error)
 	RevokeSession(ctx context.Context, arg RevokeSessionParams) (int64, error)
+	RevokeSessionByID(ctx context.Context, id uuid.UUID) (int64, error)
 	RevokeUserSessions(ctx context.Context, userID uuid.UUID) (int64, error)
-	TouchSession(ctx context.Context, arg TouchSessionParams) error
+	// TouchSeen records that the session was used (any request, e.g. background polling) WITHOUT extending idle.
+	TouchSeen(ctx context.Context, id uuid.UUID) error
+	// Keeps the newest @keep entries of a user.
+	TrimPasswordHistory(ctx context.Context, arg TrimPasswordHistoryParams) error
 	UpdatePasswordHash(ctx context.Context, arg UpdatePasswordHashParams) error
 	// UpsertPendingMFA stores a new enrolment secret unless MFA is already active (then no row is returned).
 	UpsertPendingMFA(ctx context.Context, arg UpsertPendingMFAParams) (uuid.UUID, error)

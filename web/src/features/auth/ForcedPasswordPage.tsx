@@ -30,7 +30,7 @@ export function ForcedPasswordPage() {
           <CardDescription>{t("forced.description", { name: me?.user.display_name ?? "" })}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <FormMessage tone="info">{t("forced.why")}</FormMessage>
+          <FormMessage tone="info">{me?.user.password_expired ? t("forced.whyExpired") : t("forced.why")}</FormMessage>
           <PasswordForm
             onDone={async () => {
               toast.success(t("password.changed"));

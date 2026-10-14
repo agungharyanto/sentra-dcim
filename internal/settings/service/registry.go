@@ -71,11 +71,28 @@ var (
 	DateFormats = []string{"DD/MM/YYYY", "YYYY-MM-DD", "DD MMM YYYY"}
 )
 
-// Defaults are the values used when no setting is stored (from .env: DEFAULT_LOCALE, DISPLAY_TIMEZONE).
+// Defaults are the values used when no setting is stored (from .env: DEFAULT_LOCALE, DISPLAY_TIMEZONE,
+// AUTH_SESSION_IDLE, AUTH_SESSION_ABSOLUTE). Zero session durations mean 30 min / 12 h.
 type Defaults struct {
-	Language string
-	Timezone string
+	Language        string
+	Timezone        string
+	SessionIdle     time.Duration
+	SessionAbsolute time.Duration
 }
+
+// Session and password policy keys (v0.3.7, D-069/D-070/D-079).
+const (
+	KeySessionIdleMinutes   = "session.idle_minutes"
+	KeySessionAbsoluteHours = "session.absolute_hours"
+	KeyPasswordExpiryDays   = "password.expiry_days"
+	KeyPasswordWarnDays     = "password.warn_days"
+	KeyPasswordHistory      = "password.history"
+)
+
+func i64(n int64) *int64 { return &n }
+
+// clamp keeps a .env default inside the setting's range.
+func clamp(v, lo, hi int64) int64 { return max(lo, min(hi, v)) }
 
 // ValidTimezone accepts IANA zone names ("Asia/Jakarta", "UTC"); rejects "Local", empty and unknown names.
 func ValidTimezone(name string) error {
@@ -96,12 +113,30 @@ func NewRegistry(d Defaults) (*Registry, error) {
 	if err := ValidTimezone(d.Timezone); err != nil {
 		return nil, fmt.Errorf("default time zone %q: %w", d.Timezone, err)
 	}
+	idle, abs := d.SessionIdle, d.SessionAbsolute
+	if idle <= 0 {
+		idle = 30 * time.Minute
+	}
+	if abs <= 0 {
+		abs = 12 * time.Hour
+	}
 	defs := []Def{
 		{Key: KeyLanguage, Type: TypeEnum, Enum: Languages, Default: d.Language, UserOverridable: true},
 		{Key: KeyTimezone, Type: TypeString, MaxLen: 64, Default: d.Timezone, UserOverridable: true,
 			Validate: func(v any) error { return ValidTimezone(v.(string)) }},
 		{Key: KeyTimeFormat, Type: TypeEnum, Enum: TimeFormats, Default: "24h", UserOverridable: true},
 		{Key: KeyDateFormat, Type: TypeEnum, Enum: DateFormats, Default: "DD/MM/YYYY", UserOverridable: true},
+		{Key: KeySessionIdleMinutes, Type: TypeInt, Min: i64(5), Max: i64(240), Default: clamp(int64(idle/time.Minute), 5, 240)},
+		{Key: KeySessionAbsoluteHours, Type: TypeInt, Min: i64(1), Max: i64(24), Default: clamp(int64(abs/time.Hour), 1, 24)},
+		{Key: KeyPasswordExpiryDays, Type: TypeInt, Min: i64(0), Max: i64(365), Default: int64(90),
+			Validate: func(v any) error {
+				if n := v.(int64); n != 0 && n < 30 {
+					return errors.New("0 (never) or between 30 and 365")
+				}
+				return nil
+			}},
+		{Key: KeyPasswordWarnDays, Type: TypeInt, Min: i64(1), Max: i64(60), Default: int64(14)},
+		{Key: KeyPasswordHistory, Type: TypeInt, Min: i64(1), Max: i64(24), Default: int64(5)},
 		{Key: KeyAllowlistMode, Type: TypeEnum, Enum: AllowlistModes, Default: "off", Managed: true},
 		{Key: KeyAllowlistPending, Type: TypeString, MaxLen: 40, Default: "", Managed: true,
 			Validate: func(v any) error {
@@ -128,6 +163,26 @@ func NewRegistry(d Defaults) (*Registry, error) {
 type Registry struct {
 	byKey map[string]Def
 	order []string
+}
+
+// CheckGroup validates rules that span several keys of a group, on the values a change would leave in place
+// (name → value). It returns the offending name and reason.
+func (r *Registry) CheckGroup(group string, values map[string]any) (string, string) {
+	switch group {
+	case "session":
+		idle, _ := values["idle_minutes"].(int64)
+		abs, _ := values["absolute_hours"].(int64)
+		if idle > abs*60 {
+			return "idle_minutes", "must not exceed the absolute session limit"
+		}
+	case "password":
+		exp, _ := values["expiry_days"].(int64)
+		warn, _ := values["warn_days"].(int64)
+		if exp != 0 && warn >= exp {
+			return "warn_days", "must be shorter than the expiry period"
+		}
+	}
+	return "", ""
 }
 
 // Def returns the schema of key.

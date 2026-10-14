@@ -15,7 +15,11 @@ and voluntarily at any time, for example if you suspect someone else knows it.
 
 - Length **12–128 characters**. No mandatory upper-case letters, digits or symbols.
 - A long phrase you can remember (e.g. several random words) is safer than a short complex word.
-- It must differ from the current password. Do not reuse a password from another service.
+- It must differ from the current password **and from your last few passwords** (default 5, set by an Admin);
+  otherwise the message "This password was used recently" appears. Do not reuse a password from another service.
+- A password is **valid for 90 days** (set by an Admin; accounts whose only role is Viewer do not expire). From 14 days
+  before, a banner at the top of the application reminds you. After it expires you must choose a new password after
+  signing in. See [Session & password policy](../settings/session-password.md).
 
 ## Steps — first password
 

@@ -10,5 +10,7 @@ RUN apk add --no-cache libcap \
 COPY Caddyfile /etc/caddy/Caddyfile
 # Static web UI built by web/Dockerfile (target dist); docker-compose.yml supplies it as the "web" build context.
 COPY --from=web /dist /srv/web
+# Static maintenance page shown while the app is down (v0.3.7).
+COPY maintenance /srv/maintenance
 USER 65532:65532
 EXPOSE 80 443 8081

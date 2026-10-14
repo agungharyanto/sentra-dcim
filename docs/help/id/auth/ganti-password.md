@@ -15,7 +15,12 @@ kapan saja secara sukarela, misalnya bila Anda curiga kata sandi diketahui orang
 
 - Panjang **12–128 karakter**. Tidak ada aturan wajib huruf besar, angka, atau simbol.
 - Frasa panjang yang mudah Anda ingat (mis. beberapa kata acak) lebih aman daripada kata pendek yang rumit.
-- Harus berbeda dari kata sandi saat ini. Jangan memakai kata sandi yang sama dengan layanan lain.
+- Harus berbeda dari kata sandi saat ini **dan dari beberapa kata sandi terakhir** (default 5, diatur Admin); bila
+  tidak, muncul pesan "Kata sandi ini sudah pernah dipakai baru-baru ini". Jangan memakai kata sandi yang sama dengan
+  layanan lain.
+- Kata sandi **berlaku 90 hari** (diatur Admin; akun yang role-nya hanya Viewer tidak kedaluwarsa). Mulai 14 hari
+  sebelum habis, banner di bagian atas aplikasi mengingatkan Anda. Setelah lewat, Anda wajib membuat kata sandi baru
+  setelah masuk. Lihat [Kebijakan sesi & kata sandi](../settings/session-password.md).
 
 ## Langkah — kata sandi pertama
 
