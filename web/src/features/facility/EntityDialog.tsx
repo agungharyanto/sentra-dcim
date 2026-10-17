@@ -232,7 +232,11 @@ export function EntityDialog({
     onClose();
   };
 
-  const set = (k: string, v: string | boolean) => setValues((s) => ({ ...s, [k]: v }));
+  const set = (k: string, v: string | boolean) => {
+    setValues((s) => ({ ...s, [k]: v }));
+    // Editing the field the error points at clears the error (and its red frame).
+    if (error?.field === k) setError(null);
+  };
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
