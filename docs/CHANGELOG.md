@@ -30,6 +30,8 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
   ETag) di CI, Playwright facility + screenshot.
 
 ### Diubah
+- Caddy meneruskan `/api/v1/facility/*`, `/sites`, `/buildings`, `/floors`, `/rooms`, `/racks` ke app (sesi + izin
+  diperiksa app); edge test publik memeriksa jalur baru menjawab `401` tanpa sesi.
 - Penugasan role "global" kini berarti `site_id IS NULL`; daftar role pengguna (`roles`) hanya berisi role global.
 - Auditor dan role operasional mendapat izin baca fasilitas.
 - ROADMAP: rincian v0.4.1–v0.4.9; v0.9 "Visitor, Goods & Cross-Connect Order"; v0.10 menambah Smart Hands (D-086).

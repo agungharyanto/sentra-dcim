@@ -175,6 +175,15 @@
 		import app_proxy app:8080
 	}
 
+	# Facility hierarchy and racks (v0.4.1): session + facility.*/rack.* and the site scope checked by the app.
+	@facility {
+		method GET HEAD POST PATCH
+		path /api/v1/facility/* /api/v1/sites /api/v1/sites/* /api/v1/buildings /api/v1/buildings/* /api/v1/floors /api/v1/floors/* /api/v1/rooms /api/v1/rooms/* /api/v1/racks /api/v1/racks/*
+	}
+	handle @facility {
+		import app_proxy app:8080
+	}
+
 	handle /api/* {
 		header Content-Type "application/json; charset=utf-8"
 		respond `{"error":{"code":"forbidden","message":"not publicly available"}}` 403
