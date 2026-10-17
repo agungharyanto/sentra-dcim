@@ -57,12 +57,12 @@ describe("app shell", () => {
   it("navigates to a coming-soon module with breadcrumb and aria-current", async () => {
     renderAt("/dashboard");
     const nav = await sidebar();
-    await userEvent.click(nav.getByRole("link", { name: new RegExp(shell.sidebar.facility) }));
-    expect(await screen.findByTestId("coming-soon")).toHaveTextContent(shell.menuDescription.facility);
-    expect(window.location.pathname).toBe("/facility");
-    expect(nav.getByRole("link", { name: new RegExp(shell.sidebar.facility) })).toHaveAttribute("aria-current", "page");
+    await userEvent.click(nav.getByRole("link", { name: new RegExp(shell.sidebar.assets) }));
+    expect(await screen.findByTestId("coming-soon")).toHaveTextContent(shell.menuDescription.assets);
+    expect(window.location.pathname).toBe("/assets");
+    expect(nav.getByRole("link", { name: new RegExp(shell.sidebar.assets) })).toHaveAttribute("aria-current", "page");
     const crumbs = screen.getByRole("navigation", { name: shell.layout.breadcrumb });
-    expect(crumbs).toHaveTextContent(`Sentra DCIM${shell.groups.infrastructure}${shell.sidebar.facility}`);
+    expect(crumbs).toHaveTextContent(`Sentra DCIM${shell.groups.infrastructure}${shell.sidebar.assets}`);
   });
 
   it("scrolls the active menu into view (short screens, deep links)", async () => {
@@ -89,7 +89,8 @@ describe("app shell", () => {
     render(<App queryClient={createQueryClient()} />);
     expect(await screen.findByTestId("forbidden")).toHaveTextContent(shell.pages.forbidden.title);
     const nav = await sidebar();
-    expect(nav.getAllByRole("link")).toHaveLength(12);
+    // Viewer without permissions: no Users, Audit, Settings and (v0.4.1) Facility.
+    expect(nav.getAllByRole("link")).toHaveLength(11);
     expect(nav.queryByRole("link", { name: shell.sidebar.users })).not.toBeInTheDocument();
     expect(nav.queryByRole("link", { name: shell.sidebar.audit })).not.toBeInTheDocument();
     expect(nav.queryByRole("link", { name: shell.sidebar.settings })).not.toBeInTheDocument();

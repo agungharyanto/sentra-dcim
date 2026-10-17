@@ -11,6 +11,13 @@ export function usePermissions(): ReadonlySet<string> {
   return useMemo(() => new Set(perms ?? []), [perms]);
 }
 
+/** Permissions granted by global role assignments (v0.4.1): e.g. creating a site needs facility.manage globally. */
+export function useGlobalPermissions(): ReadonlySet<string> {
+  const auth = useContext(AuthContext);
+  const perms = auth?.me?.user.global_permissions;
+  return useMemo(() => new Set(perms ?? []), [perms]);
+}
+
 /** Whether a menu is visible with these permissions. The API enforces the same permission on its routes. */
 export function canSeeMenu(menu: MenuItem, perms: ReadonlySet<string>): boolean {
   return !menu.permission || perms.has(menu.permission);

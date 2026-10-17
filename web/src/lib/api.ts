@@ -42,8 +42,14 @@ export function onAuthError(listener: AuthListener): () => void {
   return () => authListeners.delete(listener);
 }
 
-async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
-  const headers: Record<string, string> = { Accept: "application/json" };
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  signal?: AbortSignal,
+  extra?: Record<string, string>,
+): Promise<T> {
+  const headers: Record<string, string> = { Accept: "application/json", ...extra };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   // Unsafe methods carry the CSRF token; before login there is none yet and any non-empty value is accepted.
   if (method !== "GET") headers[CSRF_HEADER] = csrfToken() || "login";
@@ -98,4 +104,17 @@ export function patchJson<T = void>(path: string, body?: unknown): Promise<T> {
 
 export function deleteJson<T = void>(path: string): Promise<T> {
   return request<T>("DELETE", path);
+}
+
+/** Optimistic locking (v0.4.1, D-085): the ETag of an object is its version; changes send it as If-Match. */
+export function etag(version: number): string {
+  return `"${version}"`;
+}
+
+export function patchJsonIfMatch<T>(path: string, body: unknown, version: number): Promise<T> {
+  return request<T>("PATCH", path, body, undefined, { "If-Match": etag(version) });
+}
+
+export function postJsonIfMatch<T>(path: string, version: number, body?: unknown): Promise<T> {
+  return request<T>("POST", path, body, undefined, { "If-Match": etag(version) });
 }

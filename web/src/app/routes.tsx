@@ -4,6 +4,7 @@ import { AuditModule } from "@/features/audit/AuditModule";
 import { canSeeMenu } from "@/features/auth/permissions";
 import type { MenuItem } from "@/features/bootstrap/api";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
+import { FacilityModule } from "@/features/facility/FacilityModule";
 import { HelpCenter } from "@/features/help/HelpCenter";
 import { SettingsModule } from "@/features/settings/SettingsModule";
 
@@ -21,6 +22,7 @@ export const moduleRegistry: Record<string, ComponentType> = {
   users: UsersModule,
   audit: AuditModule,
   settings: SettingsModule,
+  facility: FacilityModule,
 };
 
 export type RouteKind = "module" | "coming_soon" | "not_connected" | "forbidden";

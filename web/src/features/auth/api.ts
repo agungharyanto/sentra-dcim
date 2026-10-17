@@ -25,6 +25,8 @@ export interface AuthUser {
   /** Role keys (label: users:roles.<key>) and the union of their permissions (RBAC, v0.3.2). */
   roles: string[];
   permissions: string[];
+  /** Permissions of global role assignments only (v0.4.1, D-084); site-scoped ones are in `permissions` too. */
+  global_permissions?: string[];
   /** MFA set up; false → enrolment at sign-in (v0.3.3). */
   mfa_enabled: boolean;
   /** Kiosk/monitoring account (v0.3.7). */

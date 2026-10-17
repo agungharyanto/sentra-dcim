@@ -15,9 +15,20 @@ export interface User {
   mfa_enabled: boolean;
   /** Monitoring/kiosk account (v0.3.7). */
   kiosk?: boolean;
+  /** Role assignments limited to one site (v0.4.1, D-084); filled on the detail only. */
+  site_roles?: SiteRole[];
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Mirrors api/openapi.yaml#/components/schemas/SiteRole. */
+export interface SiteRole {
+  role: string;
+  site_id: string;
+  site_code: string;
+  site_name: string;
+  site_archived: boolean;
 }
 
 /** Mirrors api/openapi.yaml#/components/schemas/UserList. */
@@ -109,4 +120,9 @@ export function resetPassword(id: string) {
 /** Monitoring/kiosk mode (v0.3.7): Viewer-only accounts, Allowed IP in use; ends the account's sessions. */
 export function setKiosk(id: string, enabled: boolean) {
   return putJson<User>(`/api/v1/users/${encodeURIComponent(id)}/kiosk`, { enabled });
+}
+
+/** Site-scoped roles (v0.4.1, D-084): replaces all of them; Admin is global only. */
+export function setSiteRoles(id: string, siteRoles: { role: string; site_id: string }[]) {
+  return putJson<User>(`/api/v1/users/${encodeURIComponent(id)}/site-roles`, { site_roles: siteRoles });
 }

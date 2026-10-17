@@ -1,0 +1,148 @@
+{
+  "title": "Fasilitas",
+  "description": "Hierarki site, gedung, lantai, ruang, dan rak.",
+  "readOnly": "Anda hanya dapat melihat data fasilitas.",
+  "tabs": {
+    "hierarchy": "Hierarki",
+    "racks": "Daftar rak"
+  },
+  "level": {
+    "site": "Site",
+    "building": "Gedung",
+    "floor": "Lantai",
+    "room": "Ruang",
+    "rack": "Rak"
+  },
+  "add": {
+    "site": "Tambah site",
+    "building": "Tambah gedung",
+    "floor": "Tambah lantai",
+    "room": "Tambah ruang",
+    "rack": "Tambah rak"
+  },
+  "tree": {
+    "label": "Pohon fasilitas",
+    "empty": "Belum ada site.",
+    "emptyHint": "Tambahkan site pertama untuk mulai menyusun hierarki fasilitas.",
+    "racks_one": "{{count}} rak",
+    "racks_other": "{{count}} rak",
+    "expand": "Buka {{name}}",
+    "collapse": "Tutup {{name}}",
+    "mmr": "Meet-me room"
+  },
+  "detail": {
+    "select": "Pilih site, gedung, lantai, ruang, atau rak di pohon untuk melihat detailnya.",
+    "location": "Lokasi",
+    "archived": "Diarsipkan",
+    "edit": "Ubah",
+    "rename": "Ubah nama",
+    "archive": "Arsipkan",
+    "updated": "Terakhir diubah",
+    "version": "Versi {{version}}",
+    "children": "Isi",
+    "noChildren": "Belum ada isi.",
+    "notFound": "Data tidak ditemukan atau di luar akses Anda."
+  },
+  "fields": {
+    "code": "Kode",
+    "name": "Nama",
+    "address": "Alamat",
+    "status": "Status",
+    "notes": "Catatan",
+    "level": "Level lantai",
+    "room_type": "Jenis ruang",
+    "asset_tag": "Asset tag",
+    "row_label": "Baris",
+    "row_position": "Posisi di baris",
+    "u_height": "Tinggi (U)",
+    "starting_unit": "Nomor U awal",
+    "desc_units": "Nomor U menurun (dari atas)",
+    "width_in": "Lebar",
+    "depth_mm": "Kedalaman (mm)",
+    "max_weight_kg": "Beban maks. (kg)",
+    "max_power_kw": "Daya maks. (kW)",
+    "room_id": "Ruang",
+    "site_id": "Site",
+    "building_id": "Gedung",
+    "floor_id": "Lantai",
+    "units": "Unit"
+  },
+  "hint": {
+    "rackName": "1–64 karakter: huruf, angka, spasi dan . _ - /, diawali huruf atau angka. Unik per site (huruf besar/kecil dianggap sama).",
+    "siteCode": "1–16 karakter A–Z, 0–9, _ dan -. Tidak bisa diubah setelah dibuat.",
+    "codeFixed": "Kode site tidak bisa diubah.",
+    "buildingCode": "Opsional, maks. 16 karakter.",
+    "level": "0 = lantai dasar, negatif = basement.",
+    "optional": "Opsional",
+    "moveRack": "Rak hanya bisa dipindah ke ruang lain di site yang sama.",
+    "siteGlobalOnly": "Site hanya dapat ditambah atau diarsipkan oleh pengelola fasilitas global."
+  },
+  "siteStatus": {
+    "planned": "Direncanakan",
+    "active": "Aktif",
+    "inactive": "Tidak aktif"
+  },
+  "roomType": {
+    "whitespace": "Ruang server",
+    "mmr": "Meet-me room (MMR)",
+    "power": "Ruang daya",
+    "cooling": "Ruang pendingin",
+    "noc": "NOC",
+    "storage": "Gudang",
+    "staging": "Staging",
+    "other": "Lainnya"
+  },
+  "rackStatus": {
+    "planned": "Direncanakan",
+    "active": "Aktif",
+    "reserved": "Dipesan",
+    "decommissioning": "Dekomisioning",
+    "retired": "Pensiun"
+  },
+  "form": {
+    "save": "Simpan",
+    "cancel": "Batal",
+    "create": "Tambah",
+    "saving": "Menyimpan…",
+    "created": "{{name}} ditambahkan.",
+    "saved": "Perubahan disimpan.",
+    "renamed": "Nama rak diubah menjadi {{name}}.",
+    "archived": "{{name}} diarsipkan.",
+    "width19": "19 inci",
+    "width23": "23 inci",
+    "chooseRoom": "Pilih ruang"
+  },
+  "archive": {
+    "title": "Arsipkan {{name}}?",
+    "description": "Data tidak dihapus: tetap tersimpan dan terlihat dengan filter arsip. Nama bisa dipakai lagi. Hanya bisa diarsipkan bila tidak ada isi yang aktif.",
+    "confirm": "Arsipkan"
+  },
+  "conflict": {
+    "title": "Data sudah diubah pengguna lain",
+    "body": "Muat ulang untuk melihat versi terbaru, lalu ulangi perubahan Anda.",
+    "reload": "Muat ulang"
+  },
+  "list": {
+    "search": "Cari nama, asset tag, atau baris",
+    "allSites": "Semua site",
+    "allStatuses": "Semua status",
+    "includeArchived": "Tampilkan arsip",
+    "sort": "Urutkan",
+    "sortDefault": "Lokasi",
+    "sortName": "Nama (A–Z)",
+    "sortNameDesc": "Nama (Z–A)",
+    "sortStatus": "Status",
+    "sortUpdated": "Terakhir diubah",
+    "name": "Rak",
+    "location": "Lokasi",
+    "status": "Status",
+    "units": "U",
+    "empty": "Belum ada rak.",
+    "emptyFiltered": "Tidak ada rak yang cocok dengan filter.",
+    "range": "{{from}}–{{to}} dari {{total}}",
+    "prev": "Sebelumnya",
+    "next": "Berikutnya",
+    "pagination": "Halaman daftar rak",
+    "open": "Buka di hierarki"
+  }
+}
