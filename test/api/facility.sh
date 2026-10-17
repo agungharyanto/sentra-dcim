@@ -30,7 +30,8 @@ fi
 : "${SENTRA_APP_USER:?}" "${SENTRA_APP_PASS:?}" "${SENTRA_APP_TOTP_SECRET:?}"
 pass=0 fail=0
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
-check() { if [[ "$2" == "0" ]]; then printf '  PASS  %s\n' "$1"; pass=$((pass+1)); else printf '  FAIL  %s\n' "$1"; fail=$((fail+1)); fi; }
+# A failure also prints the last HTTP status and error code (no bodies: they may hold temporary passwords).
+check() { if [[ "$2" == "0" ]]; then printf '  PASS  %s\n' "$1"; pass=$((pass+1)); else printf '  FAIL  %s (last: %s %s)\n' "$1" "${code:-}" "$(jq -r '.error.code // empty' "$tmp/b" 2>/dev/null)"; fail=$((fail+1)); fi; }
 totp() { printf '%s' "$1" | test/lib/totp.py; }
 # http <jar> <method> <path> [json] [extra curl args…] → $code, body in $tmp/b, headers in $tmp/h
 http() {
@@ -39,7 +40,14 @@ http() {
   local args=(-sk -D "$tmp/h" -o "$tmp/b" -w '%{http_code}' -b "$jar" -c "$jar" -H "Origin: $BASE" -X "$method")
   [[ "$method" != GET ]] && args+=(-H "X-Sentra-CSRF: ${csrf:-login}")
   [[ -n "$data" ]] && args+=(-H 'Content-Type: application/json' --data-binary "$data")
-  code="$(curl "${args[@]}" "$@" "$BASE$path")"
+  local try
+  for try in 1 2 3 4 5; do
+    code="$(curl "${args[@]}" "$@" "$BASE$path")"
+    # The API rate limit (per client IP) answers 429 with Retry-After: wait and repeat, it is not what is tested.
+    [[ "$code" == 429 ]] || break
+    sleep "$(tr -d '\r' <"$tmp/h" | sed -n 's/^[Rr]etry-[Aa]fter: //p' | head -1 | grep -E '^[0-9]+$' || echo 1)"
+  done
+  [[ "$code" == 429 ]] && echo "  ...  $method $path still 429 after $try tries" >&2
 }
 j() { jq -r "$1" "$tmp/b"; }
 etag() { tr -d '\r' <"$tmp/h" | sed -n 's/^[Ee][Tt][Aa][Gg]: //p'; }
