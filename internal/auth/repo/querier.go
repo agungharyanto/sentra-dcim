@@ -26,7 +26,10 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
 	GetUserMFA(ctx context.Context, userID uuid.UUID) (UserMfa, error)
+	// GetUserRoleKeys returns the global roles (site_id NULL).
 	GetUserRoleKeys(ctx context.Context, userID uuid.UUID) ([]string, error)
+	// GetUserSiteRoles returns the site-scoped assignments as "role@site-uuid" (v0.4.1, D-084).
+	GetUserSiteRoles(ctx context.Context, userID uuid.UUID) ([]string, error)
 	InsertPasswordHistory(ctx context.Context, arg InsertPasswordHistoryParams) error
 	InsertRecoveryCode(ctx context.Context, arg InsertRecoveryCodeParams) error
 	ListActiveSessions(ctx context.Context, userID uuid.UUID) ([]ListActiveSessionsRow, error)

@@ -25,6 +25,7 @@ const (
 	CodeUsernameTaken = "username_taken"
 	CodeLastAdmin     = "last_admin"
 	CodeSelfAction    = "self_action"
+	CodeNoRoles       = "no_roles"
 	CodeKioskViewer   = "kiosk_requires_viewer"
 	CodeKioskAllow    = "kiosk_requires_allowlist"
 	CodeInvalidJSON   = "invalid_request"
@@ -47,6 +48,7 @@ func (h *Handler) Routes(r chi.Router, require func(rbac.Permission) func(http.H
 	r.With(read).Get("/users/{id}", h.get)
 	r.With(manage).Patch("/users/{id}", h.update)
 	r.With(manage).Put("/users/{id}/roles", h.setRoles)
+	r.With(manage).Put("/users/{id}/site-roles", h.setSiteRoles)
 	r.With(manage).Post("/users/{id}/disable", h.status(service.StatusDisabled))
 	r.With(manage).Post("/users/{id}/enable", h.status(service.StatusActive))
 	r.With(manage).Post("/users/{id}/password-reset", h.resetPassword)
@@ -160,6 +162,25 @@ func (h *Handler) setRoles(w http.ResponseWriter, r *http.Request) {
 	httpserver.JSON(w, http.StatusOK, u)
 }
 
+func (h *Handler) setSiteRoles(w http.ResponseWriter, r *http.Request) {
+	id, ok := userID(w, r)
+	if !ok {
+		return
+	}
+	var in struct {
+		SiteRoles []service.SiteRoleInput `json:"site_roles"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	u, err := h.svc.SetSiteRoles(r.Context(), id, in.SiteRoles, audit.MetaFromRequest(r))
+	if err != nil {
+		h.fail(w, r, "set site roles", err)
+		return
+	}
+	httpserver.JSON(w, http.StatusOK, u)
+}
+
 func (h *Handler) status(status string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := userID(w, r)
@@ -226,6 +247,8 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, what string, err 
 		httpserver.Error(w, r, http.StatusConflict, CodeKioskViewer, err.Error())
 	case errors.Is(err, service.ErrKioskNeedsAllowlist):
 		httpserver.Error(w, r, http.StatusConflict, CodeKioskAllow, err.Error())
+	case errors.Is(err, service.ErrNoRoles):
+		httpserver.Error(w, r, http.StatusConflict, CodeNoRoles, err.Error())
 	case errors.Is(err, service.ErrSelf):
 		httpserver.Error(w, r, http.StatusConflict, CodeSelfAction, err.Error())
 	default:

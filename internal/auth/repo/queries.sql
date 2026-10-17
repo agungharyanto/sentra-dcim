@@ -11,8 +11,15 @@ WITH u AS (
 )
 SELECT u.*, (SELECT count(*) FROM granted)::int AS roles_granted FROM u;
 
+-- GetUserRoleKeys returns the global roles (site_id NULL).
 -- name: GetUserRoleKeys :many
-SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = @user_id ORDER BY r.key;
+SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = @user_id AND ur.site_id IS NULL ORDER BY r.key;
+
+-- GetUserSiteRoles returns the site-scoped assignments as "role@site-uuid" (v0.4.1, D-084).
+-- name: GetUserSiteRoles :many
+SELECT (r.key || '@' || ur.site_id::text)::text AS grant
+FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+WHERE ur.user_id = @user_id AND ur.site_id IS NOT NULL ORDER BY 1;
 
 -- name: GetUserByUsername :one
 SELECT * FROM users WHERE username = @username;
@@ -59,7 +66,9 @@ RETURNING *;
 SELECT s.id AS session_id, s.user_id, s.created_at AS session_created_at, s.last_seen_at, s.expires_at, s.idle_expires_at,
        u.username, u.display_name, u.status, u.must_change_password,
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-             WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
+             WHERE ur.user_id = u.id AND ur.site_id IS NULL ORDER BY r.key)::text[] AS roles,
+       ARRAY(SELECT r.key || '@' || ur.site_id::text FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+             WHERE ur.user_id = u.id AND ur.site_id IS NOT NULL ORDER BY 1)::text[] AS site_roles,
        (s.mfa_verified_at IS NOT NULL)::boolean AS mfa_verified,
        EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled,
        s.kiosk AS session_kiosk, u.kiosk AS user_kiosk, u.password_changed_at

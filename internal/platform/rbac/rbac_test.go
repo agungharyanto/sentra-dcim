@@ -44,18 +44,18 @@ func TestResolve(t *testing.T) {
 	if got := Resolve(nil); len(got) != 0 {
 		t.Errorf("no roles = %v", got)
 	}
-	if got := Resolve([]string{"nope", RoleViewer}); len(got) != 0 {
+	if got := Resolve([]string{"nope", RoleViewer}); !slices.Equal(got, []Permission{FacilityRead, RackRead}) {
 		t.Errorf("unknown + viewer = %v", got)
 	}
 	got := Resolve([]string{RoleAuditor, RoleAuditor, RoleViewer})
-	if !slices.Equal(got, []Permission{AuditExport, AuditRead, RolesRead, UsersRead}) {
+	if !slices.Equal(got, []Permission{AuditExport, AuditRead, FacilityRead, RackRead, RolesRead, UsersRead}) {
 		t.Errorf("auditor = %v", got)
 	}
 	// Least privilege: only Admin may manage users or read build details.
 	for _, r := range SystemRoleKeys {
 		ps := Resolve([]string{r})
 		if r != RoleAdmin && (slices.Contains(ps, UsersManage) || slices.Contains(ps, SystemVersionRead) || slices.Contains(ps, UIDesignSystem) ||
-			slices.Contains(ps, HelpAdmin)) {
+			slices.Contains(ps, HelpAdmin) || slices.Contains(ps, FacilityManage) || slices.Contains(ps, RackManage)) {
 			t.Errorf("role %s must not have %v", r, ps)
 		}
 	}
@@ -64,6 +64,36 @@ func TestResolve(t *testing.T) {
 	p[0] = "x.y"
 	if RolePermissions(RoleAdmin)[0] == "x.y" {
 		t.Error("RolePermissions leaks internal slice")
+	}
+}
+
+// v0.4.1 (D-084): every role reads the facility; a site assignment grants only site-scoped permissions; Admin is
+// never assigned per site.
+func TestFacilityAndSiteScope(t *testing.T) {
+	for _, r := range SystemRoleKeys {
+		ps := Resolve([]string{r})
+		if !slices.Contains(ps, FacilityRead) || !slices.Contains(ps, RackRead) {
+			t.Errorf("role %s cannot read the facility: %v", r, ps)
+		}
+		for _, p := range ResolveSite(r) {
+			if !IsSiteScoped(p) {
+				t.Errorf("site assignment of %s grants global permission %s", r, p)
+			}
+		}
+	}
+	if got := ResolveSite(RoleAuditor); !slices.Equal(got, []Permission{FacilityRead, RackRead}) {
+		t.Errorf("auditor per site = %v", got)
+	}
+	if SiteAssignable(RoleAdmin) || SiteAssignable("nope") || !SiteAssignable(RoleTechnician) {
+		t.Error("SiteAssignable: admin/unknown must be global only")
+	}
+	for _, p := range SiteScoped {
+		if !slices.Contains(All, p) {
+			t.Errorf("site-scoped %s not in All", p)
+		}
+	}
+	if IsSiteScoped(UsersManage) || IsSiteScoped(SettingsManage) || IsSiteScoped(AuditRead) {
+		t.Error("global permissions must not be site-scoped")
 	}
 }
 

@@ -3,7 +3,7 @@ SELECT u.id, u.username::text AS username, u.display_name, COALESCE(u.email::tex
        (u.locked_until IS NOT NULL AND u.locked_until > now())::boolean AS locked,
        u.last_login_at, u.created_at, u.updated_at,
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-             WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
+             WHERE ur.user_id = u.id AND ur.site_id IS NULL ORDER BY r.key)::text[] AS roles,
        EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled,
        u.kiosk,
        count(*) OVER () AS total
@@ -21,7 +21,7 @@ SELECT u.id, u.username::text AS username, u.display_name, COALESCE(u.email::tex
        (u.locked_until IS NOT NULL AND u.locked_until > now())::boolean AS locked,
        u.last_login_at, u.created_at, u.updated_at,
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-             WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
+             WHERE ur.user_id = u.id AND ur.site_id IS NULL ORDER BY r.key)::text[] AS roles,
        EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled,
        u.kiosk
 FROM users u
@@ -49,15 +49,16 @@ WHERE id = @id;
 UPDATE sessions SET revoked_at = now() WHERE user_id = @user_id AND revoked_at IS NULL;
 
 -- name: ListRoles :many
-SELECT r.key, r.system, (SELECT count(*) FROM user_roles ur WHERE ur.role_id = r.id) AS user_count
+SELECT r.key, r.system, (SELECT count(DISTINCT ur.user_id) FROM user_roles ur WHERE ur.role_id = r.id) AS user_count
 FROM roles r
 ORDER BY r.key;
 
 -- name: GetRolesByKeys :many
 SELECT id, key FROM roles WHERE key = ANY(@keys::text[]);
 
+-- DeleteUserRoles removes the global assignments (site-scoped ones are managed by SetSiteRoles).
 -- name: DeleteUserRoles :exec
-DELETE FROM user_roles WHERE user_id = @user_id;
+DELETE FROM user_roles WHERE user_id = @user_id AND site_id IS NULL;
 
 -- name: AddUserRole :exec
 INSERT INTO user_roles (user_id, role_id, granted_by) VALUES (@user_id, @role_id, @granted_by);
@@ -70,7 +71,7 @@ SELECT pg_advisory_xact_lock(hashtext('sentra.admin_guard'));
 -- name: CountOtherActiveAdmins :one
 SELECT count(*) FROM users u
 JOIN user_roles ur ON ur.user_id = u.id
-JOIN roles r ON r.id = ur.role_id AND r.key = 'admin'
+JOIN roles r ON r.id = ur.role_id AND r.key = 'admin' AND ur.site_id IS NULL
 WHERE u.status = 'active' AND u.id <> @user_id;
 
 -- name: DeleteUserMFA :execrows
@@ -97,3 +98,21 @@ INSERT INTO password_history (user_id, password_hash) VALUES (@user_id, @passwor
 -- name: TrimPasswordHistoryTo :exec
 DELETE FROM password_history p
 WHERE p.user_id = @user_id::uuid AND p.id NOT IN (SELECT h.id FROM password_history h WHERE h.user_id = @user_id::uuid ORDER BY h.id DESC LIMIT @keep);
+
+-- Site-scoped role assignments (v0.4.1, D-084).
+-- name: ListUserSiteRoles :many
+SELECT r.key AS role, s.id AS site_id, s.code AS site_code, s.name AS site_name, (s.archived_at IS NOT NULL)::boolean AS site_archived
+FROM user_roles ur
+JOIN roles r ON r.id = ur.role_id
+JOIN sites s ON s.id = ur.site_id
+WHERE ur.user_id = @user_id
+ORDER BY s.code, r.key;
+
+-- name: DeleteUserSiteRoles :exec
+DELETE FROM user_roles WHERE user_id = @user_id AND site_id IS NOT NULL;
+
+-- name: AddUserSiteRole :exec
+INSERT INTO user_roles (user_id, role_id, site_id, granted_by) VALUES (@user_id, @role_id, @site_id, @granted_by);
+
+-- name: GetActiveSitesByIDs :many
+SELECT id, code FROM sites WHERE id = ANY(@ids::uuid[]) AND archived_at IS NULL;

@@ -8,6 +8,7 @@ import (
 	allowlisthandler "github.com/agungharyanto/sentra-dcim/internal/allowlist/handler"
 	audithandler "github.com/agungharyanto/sentra-dcim/internal/audit/handler"
 	authhandler "github.com/agungharyanto/sentra-dcim/internal/auth/handler"
+	facilityhandler "github.com/agungharyanto/sentra-dcim/internal/facility/handler"
 	helphandler "github.com/agungharyanto/sentra-dcim/internal/help/handler"
 	settingshandler "github.com/agungharyanto/sentra-dcim/internal/settings/handler"
 	systemhandler "github.com/agungharyanto/sentra-dcim/internal/system/handler"
@@ -25,6 +26,7 @@ type Modules struct {
 	Audit     *audithandler.Handler
 	Settings  *settingshandler.Handler
 	Allowlist *allowlisthandler.Handler
+	Facility  *facilityhandler.Handler
 }
 
 // PublicRoutes is the allowlist of "METHOD /path" reachable without a session on the public listener.
@@ -91,6 +93,23 @@ var AuditedRoutes = map[string][]string{
 	"DELETE /api/v1/settings/allowed-ips/{id}":  {"allowlist.remove"},
 	"PUT /api/v1/settings/allowed-ips/mode":     {"allowlist.mode"},
 	"POST /api/v1/settings/allowed-ips/confirm": {"allowlist.confirm"},
+	"PUT /api/v1/users/{id}/site-roles":         {"user.site_roles.update"},
+	// Facility (v0.4.1): before/after of the changed fields; a rack update that changes the name is rack.rename.
+	"POST /api/v1/sites":                  {"site.create"},
+	"PATCH /api/v1/sites/{id}":            {"site.update"},
+	"POST /api/v1/sites/{id}/archive":     {"site.archive"},
+	"POST /api/v1/buildings":              {"building.create"},
+	"PATCH /api/v1/buildings/{id}":        {"building.update"},
+	"POST /api/v1/buildings/{id}/archive": {"building.archive"},
+	"POST /api/v1/floors":                 {"floor.create"},
+	"PATCH /api/v1/floors/{id}":           {"floor.update"},
+	"POST /api/v1/floors/{id}/archive":    {"floor.archive"},
+	"POST /api/v1/rooms":                  {"room.create"},
+	"PATCH /api/v1/rooms/{id}":            {"room.update"},
+	"POST /api/v1/rooms/{id}/archive":     {"room.archive"},
+	"POST /api/v1/racks":                  {"rack.create"},
+	"PATCH /api/v1/racks/{id}":            {"rack.update", "rack.rename"},
+	"POST /api/v1/racks/{id}/archive":     {"rack.archive"},
 }
 
 // UnauditedRoutes are unsafe routes deliberately not audited, each with the reason (reviewed like AuditedRoutes).
@@ -129,6 +148,9 @@ func Mount(m Modules, internal bool) func(r chi.Router) {
 			m.Audit.Routes(r, m.Auth.Require)
 			m.Settings.Routes(r, m.Auth.Require)
 			m.Allowlist.Routes(r, m.Auth.Require)
+			if m.Facility != nil {
+				m.Facility.Routes(r, m.Auth.Require)
+			}
 		})
 	}
 }

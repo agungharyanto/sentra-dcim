@@ -53,6 +53,31 @@ type AuditEvent struct {
 	ChainSeq      int64
 }
 
+type Building struct {
+	ID         uuid.UUID
+	SiteID     uuid.UUID
+	Code       string
+	Name       string
+	Notes      string
+	Version    int32
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+	ArchivedAt pgtype.Timestamptz
+}
+
+type Floor struct {
+	ID         uuid.UUID
+	BuildingID uuid.UUID
+	SiteID     uuid.UUID
+	Name       string
+	Level      int32
+	Notes      string
+	Version    int32
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+	ArchivedAt pgtype.Timestamptz
+}
+
 // One-time MFA recovery codes (v0.3.3), stored as keyed hashes.
 type MfaRecoveryCode struct {
 	ID        int64
@@ -81,12 +106,49 @@ type PasswordHistory struct {
 	CreatedAt    pgtype.Timestamptz
 }
 
+// Racks (v0.4.1). site_id follows the room through the composite foreign key.
+type Rack struct {
+	ID           uuid.UUID
+	RoomID       uuid.UUID
+	SiteID       uuid.UUID
+	Name         string
+	AssetTag     pgtype.Text
+	RowLabel     string
+	RowPosition  pgtype.Int4
+	UHeight      int32
+	StartingUnit int32
+	DescUnits    bool
+	WidthIn      int32
+	DepthMm      pgtype.Int4
+	MaxWeightKg  pgtype.Numeric
+	MaxPowerKw   pgtype.Numeric
+	Status       string
+	Notes        string
+	Version      int32
+	CreatedAt    pgtype.Timestamptz
+	UpdatedAt    pgtype.Timestamptz
+	ArchivedAt   pgtype.Timestamptz
+}
+
 // Roles (v0.3.2). Permissions of system roles are defined in code (internal/platform/rbac).
 type Role struct {
 	ID        uuid.UUID
 	Key       string
 	System    bool
 	CreatedAt pgtype.Timestamptz
+}
+
+type Room struct {
+	ID         uuid.UUID
+	FloorID    uuid.UUID
+	SiteID     uuid.UUID
+	Name       string
+	RoomType   string
+	Notes      string
+	Version    int32
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+	ArchivedAt pgtype.Timestamptz
 }
 
 type SchemaMigration struct {
@@ -117,6 +179,19 @@ type Setting struct {
 	Value     []byte
 	UpdatedAt pgtype.Timestamptz
 	UpdatedBy *uuid.UUID
+}
+
+// Data center sites (v0.4.1). Top of the facility hierarchy; scope unit of site-scoped roles.
+type Site struct {
+	ID         uuid.UUID
+	Code       string
+	Name       string
+	Address    string
+	Status     string
+	Version    int32
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+	ArchivedAt pgtype.Timestamptz
 }
 
 // Key/value metadata about this Sentra DCIM installation. All timestamps are UTC.
@@ -169,4 +244,6 @@ type UserRole struct {
 	RoleID    uuid.UUID
 	GrantedAt pgtype.Timestamptz
 	GrantedBy *uuid.UUID
+	// NULL = global assignment; else the role applies to this site only (v0.4.1, D-084).
+	SiteID *uuid.UUID
 }

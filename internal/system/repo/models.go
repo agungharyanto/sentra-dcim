@@ -52,6 +52,31 @@ type AuditEvent struct {
 	ChainSeq      int64              `json:"chain_seq"`
 }
 
+type Building struct {
+	ID         pgtype.UUID        `json:"id"`
+	SiteID     pgtype.UUID        `json:"site_id"`
+	Code       string             `json:"code"`
+	Name       string             `json:"name"`
+	Notes      string             `json:"notes"`
+	Version    int32              `json:"version"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	ArchivedAt pgtype.Timestamptz `json:"archived_at"`
+}
+
+type Floor struct {
+	ID         pgtype.UUID        `json:"id"`
+	BuildingID pgtype.UUID        `json:"building_id"`
+	SiteID     pgtype.UUID        `json:"site_id"`
+	Name       string             `json:"name"`
+	Level      int32              `json:"level"`
+	Notes      string             `json:"notes"`
+	Version    int32              `json:"version"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	ArchivedAt pgtype.Timestamptz `json:"archived_at"`
+}
+
 // One-time MFA recovery codes (v0.3.3), stored as keyed hashes.
 type MfaRecoveryCode struct {
 	ID        int64              `json:"id"`
@@ -80,12 +105,49 @@ type PasswordHistory struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+// Racks (v0.4.1). site_id follows the room through the composite foreign key.
+type Rack struct {
+	ID           pgtype.UUID        `json:"id"`
+	RoomID       pgtype.UUID        `json:"room_id"`
+	SiteID       pgtype.UUID        `json:"site_id"`
+	Name         string             `json:"name"`
+	AssetTag     pgtype.Text        `json:"asset_tag"`
+	RowLabel     string             `json:"row_label"`
+	RowPosition  pgtype.Int4        `json:"row_position"`
+	UHeight      int32              `json:"u_height"`
+	StartingUnit int32              `json:"starting_unit"`
+	DescUnits    bool               `json:"desc_units"`
+	WidthIn      int32              `json:"width_in"`
+	DepthMm      pgtype.Int4        `json:"depth_mm"`
+	MaxWeightKg  pgtype.Numeric     `json:"max_weight_kg"`
+	MaxPowerKw   pgtype.Numeric     `json:"max_power_kw"`
+	Status       string             `json:"status"`
+	Notes        string             `json:"notes"`
+	Version      int32              `json:"version"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ArchivedAt   pgtype.Timestamptz `json:"archived_at"`
+}
+
 // Roles (v0.3.2). Permissions of system roles are defined in code (internal/platform/rbac).
 type Role struct {
 	ID        pgtype.UUID        `json:"id"`
 	Key       string             `json:"key"`
 	System    bool               `json:"system"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type Room struct {
+	ID         pgtype.UUID        `json:"id"`
+	FloorID    pgtype.UUID        `json:"floor_id"`
+	SiteID     pgtype.UUID        `json:"site_id"`
+	Name       string             `json:"name"`
+	RoomType   string             `json:"room_type"`
+	Notes      string             `json:"notes"`
+	Version    int32              `json:"version"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	ArchivedAt pgtype.Timestamptz `json:"archived_at"`
 }
 
 type SchemaMigration struct {
@@ -116,6 +178,19 @@ type Setting struct {
 	Value     []byte             `json:"value"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 	UpdatedBy pgtype.UUID        `json:"updated_by"`
+}
+
+// Data center sites (v0.4.1). Top of the facility hierarchy; scope unit of site-scoped roles.
+type Site struct {
+	ID         pgtype.UUID        `json:"id"`
+	Code       string             `json:"code"`
+	Name       string             `json:"name"`
+	Address    string             `json:"address"`
+	Status     string             `json:"status"`
+	Version    int32              `json:"version"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	ArchivedAt pgtype.Timestamptz `json:"archived_at"`
 }
 
 // Key/value metadata about this Sentra DCIM installation. All timestamps are UTC.
@@ -168,4 +243,6 @@ type UserRole struct {
 	RoleID    pgtype.UUID        `json:"role_id"`
 	GrantedAt pgtype.Timestamptz `json:"granted_at"`
 	GrantedBy pgtype.UUID        `json:"granted_by"`
+	// NULL = global assignment; else the role applies to this site only (v0.4.1, D-084).
+	SiteID pgtype.UUID `json:"site_id"`
 }
