@@ -38,6 +38,18 @@
     "password_reused": "Kata sandi ini sudah pernah dipakai baru-baru ini. Pilih kata sandi lain.",
     "kiosk_requires_viewer": "Mode monitoring hanya untuk akun yang role-nya hanya Viewer. Matikan mode monitoring sebelum mengubah role.",
     "kiosk_requires_allowlist": "Mode monitoring memerlukan Allowed IP aktif (Pantau atau Tegakkan) dengan minimal satu IP. Atur dulu di Pengaturan › Allowed IP.",
-    "maintenance": "Layanan sedang dalam pemeliharaan. Coba lagi sebentar lagi."
+    "maintenance": "Layanan sedang dalam pemeliharaan. Coba lagi sebentar lagi.",
+    "duplicate_name": "Nama itu sudah dipakai.",
+    "duplicate_code": "Kode itu sudah dipakai.",
+    "duplicate_asset_tag": "Asset tag itu sudah dipakai.",
+    "has_active_children": "Masih ada isi yang aktif. Arsipkan isinya terlebih dahulu.",
+    "archived": "Data ini sudah diarsipkan.",
+    "parent_archived": "Induknya sudah diarsipkan.",
+    "cross_site_move": "Rak tidak bisa dipindah ke site lain.",
+    "precondition_required": "Versi data tidak dikirim. Muat ulang lalu coba lagi.",
+    "version_conflict": "Data sudah diubah pengguna lain. Muat ulang untuk melihat versi terbaru.",
+    "global_scope_required": "Hanya pengelola fasilitas global yang dapat melakukan ini.",
+    "out_of_scope": "Anda tidak berwenang mengubah data site ini.",
+    "no_roles": "Akun harus punya minimal satu role (global atau per site)."
   }
 }

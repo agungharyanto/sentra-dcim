@@ -63,7 +63,11 @@
     "audit_read": "Melihat audit log",
     "audit_export": "Mengekspor audit log (CSV)",
     "help_admin": "Membaca panduan khusus Admin",
-    "settings_manage": "Mengubah pengaturan sistem"
+    "settings_manage": "Mengubah pengaturan sistem",
+    "facility_read": "Melihat fasilitas",
+    "facility_manage": "Mengelola fasilitas",
+    "rack_read": "Melihat rak",
+    "rack_manage": "Mengelola rak"
   },
   "rolesTab": {
     "description": "Role adalah kumpulan izin. Pengguna mendapat gabungan izin semua role-nya. Semua pengguna yang masuk dapat memakai Dasbor, Pusat Bantuan, dan akun sendiri.",
@@ -153,5 +157,18 @@
     "confirmOff": "Semua sesi akun ini diakhiri; masuk berikutnya kembali memakai batas idle dan absolut biasa.",
     "enabled": "Mode monitoring diaktifkan.",
     "disabled": "Mode monitoring dimatikan."
+  },
+  "siteRoles": {
+    "title": "Akses per site",
+    "description": "Role yang hanya berlaku di satu site: memberi akses data fasilitas dan rak site itu saja. Pengguna yang hanya boleh melihat site tertentu tidak boleh punya role global (role global berlaku di semua site). Admin selalu global.",
+    "empty": "Tidak ada role per site.",
+    "role": "Role",
+    "site": "Site",
+    "add": "Tambah",
+    "remove": "Hapus {{role}} di {{site}}",
+    "save": "Simpan akses site",
+    "saved": "Akses per site disimpan.",
+    "archived": "diarsipkan",
+    "duplicate": "Kombinasi role dan site itu sudah ada."
   }
 }

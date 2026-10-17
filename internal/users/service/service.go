@@ -39,6 +39,8 @@ var (
 	ErrKioskViewerOnly = errors.New("kiosk mode is only for accounts whose only role is Viewer")
 	// ErrKioskNeedsAllowlist: kiosk mode needs Allowed IP in monitor or enforce with at least one network.
 	ErrKioskNeedsAllowlist = errors.New("kiosk mode needs Allowed IP (monitor or enforce) with at least one network")
+	// ErrNoRoles: an account keeps at least one role, global or for a site (D-084).
+	ErrNoRoles = errors.New("an account needs at least one role (global or for a site)")
 )
 
 // ValidationError names the invalid input field.
@@ -66,6 +68,7 @@ const (
 	ActionMFAReset      = "user.mfa.reset"
 	ActionUnlock        = "user.unlock"
 	ActionKiosk         = "user.kiosk"
+	ActionSiteRoles     = "user.site_roles.update" // site-scoped role assignments (v0.4.1, D-084)
 )
 
 // Limits.
@@ -73,6 +76,7 @@ const (
 	MaxDisplayName = 128
 	MaxEmail       = 254
 	MaxRoles       = 16
+	MaxSiteRoles   = 200
 	DefaultLimit   = 50
 	MaxLimit       = 200
 )
@@ -179,10 +183,28 @@ type User struct {
 	Locked             bool      `json:"locked"`
 	MFAEnabled         bool      `json:"mfa_enabled"`
 	// Kiosk/monitoring account (v0.3.7, D-068): Viewer only, valid only from Allowed IP networks.
-	Kiosk       bool       `json:"kiosk"`
+	Kiosk bool `json:"kiosk"`
+	// SiteRoles are role assignments limited to one site (D-084); they grant only the role's site-scoped
+	// permissions (facility, racks) for that site. Filled by Get, not by List.
+	SiteRoles   []SiteRole `json:"site_roles"`
 	LastLoginAt *time.Time `json:"last_login_at"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+// SiteRole is one site-scoped role assignment.
+type SiteRole struct {
+	Role         string    `json:"role"`
+	SiteID       uuid.UUID `json:"site_id"`
+	SiteCode     string    `json:"site_code"`
+	SiteName     string    `json:"site_name"`
+	SiteArchived bool      `json:"site_archived"`
+}
+
+// SiteRoleInput is one requested site-scoped assignment.
+type SiteRoleInput struct {
+	Role   string    `json:"role"`
+	SiteID uuid.UUID `json:"site_id"`
 }
 
 // Role is a role with the permissions it grants.
@@ -370,9 +392,12 @@ func (s *Service) SetRoles(ctx context.Context, id uuid.UUID, roles []string, me
 	var u User
 	var added, removed []string
 	err := s.tx(ctx, func(q *repo.Queries) error {
-		roleIDs, err := resolveRoles(ctx, q, roles)
-		if err != nil {
-			return err
+		var roleIDs []uuid.UUID
+		if len(roles) > 0 {
+			var err error
+			if roleIDs, err = resolveRoles(ctx, q, roles); err != nil {
+				return err
+			}
 		}
 		if err := q.LockAdminRole(ctx); err != nil {
 			return fmt.Errorf("lock admin role: %w", err)
@@ -385,6 +410,10 @@ func (s *Service) SetRoles(ctx context.Context, id uuid.UUID, roles []string, me
 		if len(added) == 0 && len(removed) == 0 {
 			u = cur
 			return nil
+		}
+		// Only site roles left: the account then sees only its sites (D-084).
+		if len(roles) == 0 && len(cur.SiteRoles) == 0 {
+			return &ValidationError{Field: "roles", Reason: "at least one role is required"}
 		}
 		if cur.Kiosk && (len(roles) != 1 || roles[0] != rbac.RoleViewer) {
 			return ErrKioskViewerOnly // turn kiosk mode off first
@@ -589,7 +618,16 @@ func (s *Service) get(ctx context.Context, q *repo.Queries, id uuid.UUID) (User,
 	if err != nil {
 		return User{}, fmt.Errorf("get user: %w", err)
 	}
-	return view(r), nil
+	u := view(r)
+	rows, err := q.ListUserSiteRoles(ctx, id)
+	if err != nil {
+		return User{}, fmt.Errorf("site roles: %w", err)
+	}
+	for _, sr := range rows {
+		u.SiteRoles = append(u.SiteRoles, SiteRole{Role: sr.Role, SiteID: sr.SiteID, SiteCode: sr.SiteCode, SiteName: sr.SiteName,
+			SiteArchived: sr.SiteArchived})
+	}
+	return u, nil
 }
 
 func (s *Service) tx(ctx context.Context, fn func(q *repo.Queries) error) error {
@@ -711,6 +749,7 @@ func view(r repo.GetUserRow) User {
 	if u.Roles == nil {
 		u.Roles = []string{}
 	}
+	u.SiteRoles = []SiteRole{}
 	if r.Email != "" {
 		e := r.Email
 		u.Email = &e
@@ -763,4 +802,99 @@ func deref(s *string) string {
 // likeEscape escapes LIKE wildcards so the search is literal (the query uses ESCAPE '\').
 func likeEscape(s string) string {
 	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
+}
+
+// SetSiteRoles replaces the site-scoped role assignments of an account (D-084). Admin cannot be assigned per site;
+// sites must exist and not be archived; an account keeps at least one role overall.
+func (s *Service) SetSiteRoles(ctx context.Context, id uuid.UUID, in []SiteRoleInput, meta audit.Meta) (User, error) {
+	if len(in) > MaxSiteRoles {
+		return User{}, &ValidationError{Field: "site_roles", Reason: "too many site roles"}
+	}
+	seen := map[string]bool{}
+	keys := []string{}
+	sites := []uuid.UUID{}
+	for _, a := range in {
+		if !rbac.SiteAssignable(a.Role) {
+			return User{}, &ValidationError{Field: "site_roles", Reason: "role cannot be assigned per site"}
+		}
+		k := a.Role + "@" + a.SiteID.String()
+		if seen[k] {
+			return User{}, &ValidationError{Field: "site_roles", Reason: "duplicate assignment"}
+		}
+		seen[k] = true
+		if !slices.Contains(keys, a.Role) {
+			keys = append(keys, a.Role)
+		}
+		if !slices.Contains(sites, a.SiteID) {
+			sites = append(sites, a.SiteID)
+		}
+	}
+	var u User
+	var added, removed []string
+	err := s.tx(ctx, func(q *repo.Queries) error {
+		cur, err := s.get(ctx, q, id)
+		if err != nil {
+			return err
+		}
+		codes := map[uuid.UUID]string{}
+		if len(sites) > 0 {
+			rows, err := q.GetActiveSitesByIDs(ctx, sites)
+			if err != nil {
+				return fmt.Errorf("sites: %w", err)
+			}
+			for _, r := range rows {
+				codes[r.ID] = r.Code
+			}
+			if len(codes) != len(sites) {
+				return &ValidationError{Field: "site_roles", Reason: "unknown or archived site"}
+			}
+		}
+		roleIDs := map[string]uuid.UUID{}
+		if len(keys) > 0 {
+			rows, err := q.GetRolesByKeys(ctx, keys)
+			if err != nil {
+				return fmt.Errorf("get roles: %w", err)
+			}
+			for _, r := range rows {
+				roleIDs[r.Key] = r.ID
+			}
+		}
+		if cur.Kiosk && len(in) > 0 {
+			return ErrKioskViewerOnly
+		}
+		if len(in) == 0 && len(cur.Roles) == 0 && len(cur.SiteRoles) > 0 {
+			return ErrNoRoles
+		}
+		var before, after []string
+		for _, sr := range cur.SiteRoles {
+			before = append(before, sr.Role+"@"+sr.SiteCode)
+		}
+		for _, a := range in {
+			after = append(after, a.Role+"@"+codes[a.SiteID])
+		}
+		added, removed = diff(before, after)
+		if len(added) == 0 && len(removed) == 0 {
+			u = cur
+			return nil
+		}
+		if err := q.DeleteUserSiteRoles(ctx, id); err != nil {
+			return fmt.Errorf("delete site roles: %w", err)
+		}
+		for _, a := range in {
+			site := a.SiteID
+			if err := q.AddUserSiteRole(ctx, repo.AddUserSiteRoleParams{UserID: id, RoleID: roleIDs[a.Role], SiteID: &site,
+				GrantedBy: actorID(ctx)}); err != nil {
+				return fmt.Errorf("add site role: %w", err)
+			}
+		}
+		u, err = s.get(ctx, q, id)
+		return err
+	})
+	if err != nil {
+		return User{}, err
+	}
+	if len(added)+len(removed) > 0 {
+		s.record(ctx, ActionSiteRoles, audit.ResultSuccess, id.String(), meta, map[string]any{"added": added, "removed": removed})
+	}
+	return u, nil
 }

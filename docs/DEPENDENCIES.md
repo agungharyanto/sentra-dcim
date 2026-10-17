@@ -19,6 +19,7 @@ ditambah, diubah versinya, atau dihapus.
 | iproute2, curl (paket Ubuntu) | 6.1.0-1ubuntu6.4, 8.5.0-2ubuntu10.15 | GPL-2.0, curl | Uji ban nyata (`scripts/fail2ban-ban-test.sh`: network namespace + permintaan HTTPS) |
 | Docker Compose | 5.6.0 (plugin) | Apache-2.0 | Orkestrasi container lokal/server |
 | TimescaleDB (`timescale/timescaledb:2.30.2-pg16`) | 2.30.2 / PostgreSQL 16 | Timescale License (TSL) + Apache-2.0 (core); PostgreSQL License | Database relasional + time-series |
+| `btree_gist` (contrib PostgreSQL, dalam image TimescaleDB) | 1.7 (diperiksa 2026-10-18, PostgreSQL 16.15) | PostgreSQL License | **Belum dipasang.** Dipakai v0.4.3 untuk exclusion constraint posisi U perangkat di rak (`CREATE EXTENSION btree_gist` oleh role owner migrasi) |
 | Redis (`redis:8.10.2-alpine`) | 8.10.2 | AGPLv3 / RSALv2 / SSPLv1 (tri-license) | Cache, rate-limit store, queue ringan (lihat D-011) |
 | Caddy (`caddy:2.11.7-alpine`) | 2.11.7 | Apache-2.0 | Reverse proxy, TLS otomatis, security headers |
 | Let's Encrypt (ACME v2, layanan eksternal) | — | ISRG Subscriber Agreement | CA sertifikat TLS gratis untuk `sentra.bajastu.id`, diperpanjang otomatis oleh Caddy |

@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net/netip"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -168,8 +169,11 @@ type User struct {
 	DisplayName        string    `json:"display_name"`
 	MustChangePassword bool      `json:"must_change_password"`
 	Roles              []string  `json:"roles"`
-	Permissions        []string  `json:"permissions"`
-	MFAEnabled         bool      `json:"mfa_enabled"`
+	// Permissions held anywhere (global ∪ any site, D-084); GlobalPermissions only those of global assignments
+	// (e.g. creating a site needs facility.manage globally).
+	Permissions       []string `json:"permissions"`
+	GlobalPermissions []string `json:"global_permissions"`
+	MFAEnabled        bool     `json:"mfa_enabled"`
 	// Kiosk/monitoring account (v0.3.7, D-068).
 	Kiosk bool `json:"kiosk"`
 	// Password expiry (v0.3.7, D-070): null when the password does not expire (policy off or Viewer-only account).
@@ -357,6 +361,10 @@ func (s *Service) newSession(ctx context.Context, u repo.User, meta audit.Meta) 
 	if err != nil {
 		return LoginResult{}, fmt.Errorf("get roles: %w", err)
 	}
+	siteRoles, err := s.q.GetUserSiteRoles(ctx, u.ID)
+	if err != nil {
+		return LoginResult{}, fmt.Errorf("get site roles: %w", err)
+	}
 	pol := s.currentPolicy(ctx)
 	kiosk := u.Kiosk && viewerOnly(roles)
 	idle, abs := pol.Idle, pol.Absolute
@@ -379,7 +387,7 @@ func (s *Service) newSession(ctx context.Context, u repo.User, meta audit.Meta) 
 	if err != nil {
 		return LoginResult{}, err
 	}
-	p := newPrincipal(u.ID, u.Username, sess.ID, roles)
+	p := newPrincipal(u.ID, u.Username, sess.ID, roles, siteRoles)
 	pw := passwordState(pol, roles, u.PasswordChangedAt.Time, now)
 	must := u.MustChangePassword || pw.Expired
 	user := newUser(u.ID, u.Username, u.DisplayName, must, p)
@@ -458,7 +466,7 @@ func (s *Service) Authenticate(ctx context.Context, token string, ip netip.Addr,
 	pol := s.currentPolicy(ctx)
 	pw := passwordState(pol, row.Roles, row.PasswordChangedAt.Time, now)
 	must := row.MustChangePassword || pw.Expired
-	p := newPrincipal(row.UserID, row.Username, row.SessionID, row.Roles)
+	p := newPrincipal(row.UserID, row.Username, row.SessionID, row.Roles, row.SiteRoles)
 	user := newUser(row.UserID, row.Username, row.DisplayName, must, p)
 	user.MFAEnabled, user.Kiosk = row.MfaEnabled, row.SessionKiosk
 	user.PasswordExpiresAt, user.PasswordExpired, user.PasswordExpiresSoon = pw.ExpiresAt, pw.Expired, pw.ExpiresSoon
@@ -645,7 +653,7 @@ func (s *Service) CreateAdmin(ctx context.Context, username, displayName, pw str
 	_ = s.audit.Record(ctx, audit.Event{Action: ActionCreateAdmin, Result: audit.ResultSuccess, ActorType: audit.ActorSystem,
 		ActorUsername: "cli", TargetType: "user", TargetID: u.ID.String(),
 		Metadata: map[string]any{"username": u.Username, "roles": []string{rbac.RoleAdmin}}})
-	p := newPrincipal(u.ID, u.Username, uuid.Nil, []string{rbac.RoleAdmin})
+	p := newPrincipal(u.ID, u.Username, uuid.Nil, []string{rbac.RoleAdmin}, nil)
 	return newUser(u.ID, u.Username, u.DisplayName, u.MustChangePassword, p), nil
 }
 
@@ -693,17 +701,37 @@ func actorKey(ctx context.Context, meta audit.Meta) string {
 	return "anon"
 }
 
-func newPrincipal(id uuid.UUID, username string, sessionID uuid.UUID, roles []string) principal.Principal {
+// newPrincipal builds the principal from the global roles and the site-scoped assignments ("role@site-uuid",
+// D-084); an assignment that does not parse grants nothing.
+func newPrincipal(id uuid.UUID, username string, sessionID uuid.UUID, roles, siteRoles []string) principal.Principal {
 	if roles == nil {
 		roles = []string{}
 	}
-	return principal.Principal{Type: principal.TypeUser, ID: id, Username: username, SessionID: sessionID,
+	p := principal.Principal{Type: principal.TypeUser, ID: id, Username: username, SessionID: sessionID,
 		Roles: roles, Permissions: rbac.Resolve(roles)}
+	for _, g := range siteRoles {
+		role, site, ok := strings.Cut(g, "@")
+		sid, err := uuid.Parse(site)
+		if !ok || err != nil {
+			continue
+		}
+		ps := rbac.ResolveSite(role)
+		if len(ps) == 0 {
+			continue
+		}
+		if p.Sites == nil {
+			p.Sites = map[uuid.UUID][]rbac.Permission{}
+		}
+		merged := append(p.Sites[sid], ps...)
+		slices.Sort(merged)
+		p.Sites[sid] = slices.Compact(merged)
+	}
+	return p
 }
 
 func newUser(id uuid.UUID, username, displayName string, mustChange bool, p principal.Principal) User {
 	return User{ID: id, Username: username, DisplayName: displayName, MustChangePassword: mustChange,
-		Roles: p.Roles, Permissions: rbac.Strings(p.Permissions)}
+		Roles: p.Roles, Permissions: rbac.Strings(p.Effective()), GlobalPermissions: rbac.Strings(p.Permissions)}
 }
 
 func toInfo(id uuid.UUID, created, seen, exp, idle pgtype.Timestamptz, ip *netip.Addr, ua string, current bool) SessionInfo {

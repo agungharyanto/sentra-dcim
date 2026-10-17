@@ -63,7 +63,11 @@
     "audit_read": "View the audit log",
     "audit_export": "Export the audit log (CSV)",
     "help_admin": "Read Admin-only guides",
-    "settings_manage": "Change system settings"
+    "settings_manage": "Change system settings",
+    "facility_read": "View facility",
+    "facility_manage": "Manage facility",
+    "rack_read": "View racks",
+    "rack_manage": "Manage racks"
   },
   "rolesTab": {
     "description": "A role is a set of permissions. Users get the union of the permissions of all their roles. Every signed-in user can use the Dashboard, the Help Center and their own account.",
@@ -153,5 +157,18 @@
     "confirmOff": "All sessions of this account end; the next sign-in uses the normal idle and absolute limits again.",
     "enabled": "Monitoring mode turned on.",
     "disabled": "Monitoring mode turned off."
+  },
+  "siteRoles": {
+    "title": "Per-site access",
+    "description": "Roles that apply to one site only: they give access to the facility and rack data of that site. Users who may only see certain sites must not have a global role (global roles apply to every site). Admin is always global.",
+    "empty": "No per-site roles.",
+    "role": "Role",
+    "site": "Site",
+    "add": "Add",
+    "remove": "Remove {{role}} at {{site}}",
+    "save": "Save site access",
+    "saved": "Per-site access saved.",
+    "archived": "archived",
+    "duplicate": "That role and site combination already exists."
   }
 }

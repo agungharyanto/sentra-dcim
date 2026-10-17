@@ -35,6 +35,8 @@ import (
 	"github.com/agungharyanto/sentra-dcim/internal/auth/mfa"
 	authrepo "github.com/agungharyanto/sentra-dcim/internal/auth/repo"
 	authservice "github.com/agungharyanto/sentra-dcim/internal/auth/service"
+	facilityhandler "github.com/agungharyanto/sentra-dcim/internal/facility/handler"
+	facilityservice "github.com/agungharyanto/sentra-dcim/internal/facility/service"
 	helphandler "github.com/agungharyanto/sentra-dcim/internal/help/handler"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/cache"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/config"
@@ -79,6 +81,8 @@ type authEnv struct {
 	// with 127.0.0.1 as trusted proxy so X-Real-IP is honoured as from Caddy.
 	allow    *allowlistservice.Service
 	internal *httptest.Server
+	// fac is the facility service (v0.4.1) for scope tests that need principals no system role produces.
+	fac *facilityservice.Service
 }
 
 func testAuthConfig() config.Auth {
@@ -177,6 +181,8 @@ func newAuthEnv(t *testing.T, mod func(*config.Auth)) *authEnv {
 		t.Fatal(err)
 	}
 	mods.Allowlist = allowlisthandler.New(allow, log)
+	fac := facilityservice.New(appPool, rec, log)
+	mods.Facility = facilityhandler.New(fac, log)
 	// Same wiring as cmd/sentra (v0.3.7): policy from Settings, kiosk gate from Allowed IP, kiosk precondition.
 	svc.WithPolicy(set).WithKioskGate(func(ip netip.Addr) bool { return allow.Current().Covers(ip) })
 	usr.WithKioskReady(func(ctx context.Context) error {
@@ -193,7 +199,7 @@ func newAuthEnv(t *testing.T, mod func(*config.Auth)) *authEnv {
 	internal := httptest.NewServer(httpserver.NewRouter(log, nil, []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32")}, api.Mount(mods, true)))
 	t.Cleanup(internal.Close)
 	return &authEnv{t: t, srv: srv, pool: pool, svc: svc, usr: usr, dsn: dsn, appDSN: appDSN, totp: map[string][]byte{},
-		allow: allow, internal: internal}
+		allow: allow, internal: internal, fac: fac}
 }
 
 // createUser creates an account through the CLI code path; ready=true clears must_change_password.

@@ -58,10 +58,10 @@
       "key": "facility",
       "path": "/facility",
       "icon": "building-2",
-      "status": "coming_soon",
+      "status": "available",
       "group": "infrastructure",
       "order": 10,
-      "permission": ""
+      "permission": "facility.read"
     },
     {
       "key": "assets",

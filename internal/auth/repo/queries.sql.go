@@ -205,7 +205,9 @@ const getActiveSession = `-- name: GetActiveSession :one
 SELECT s.id AS session_id, s.user_id, s.created_at AS session_created_at, s.last_seen_at, s.expires_at, s.idle_expires_at,
        u.username, u.display_name, u.status, u.must_change_password,
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-             WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
+             WHERE ur.user_id = u.id AND ur.site_id IS NULL ORDER BY r.key)::text[] AS roles,
+       ARRAY(SELECT r.key || '@' || ur.site_id::text FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+             WHERE ur.user_id = u.id AND ur.site_id IS NOT NULL ORDER BY 1)::text[] AS site_roles,
        (s.mfa_verified_at IS NOT NULL)::boolean AS mfa_verified,
        EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled,
        s.kiosk AS session_kiosk, u.kiosk AS user_kiosk, u.password_changed_at
@@ -230,6 +232,7 @@ type GetActiveSessionRow struct {
 	Status             string
 	MustChangePassword bool
 	Roles              []string
+	SiteRoles          []string
 	MfaVerified        bool
 	MfaEnabled         bool
 	SessionKiosk       bool
@@ -252,6 +255,7 @@ func (q *Queries) GetActiveSession(ctx context.Context, tokenHash []byte) (GetAc
 		&i.Status,
 		&i.MustChangePassword,
 		&i.Roles,
+		&i.SiteRoles,
 		&i.MfaVerified,
 		&i.MfaEnabled,
 		&i.SessionKiosk,
@@ -332,9 +336,10 @@ func (q *Queries) GetUserMFA(ctx context.Context, userID uuid.UUID) (UserMfa, er
 }
 
 const getUserRoleKeys = `-- name: GetUserRoleKeys :many
-SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = $1 ORDER BY r.key
+SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = $1 AND ur.site_id IS NULL ORDER BY r.key
 `
 
+// GetUserRoleKeys returns the global roles (site_id NULL).
 func (q *Queries) GetUserRoleKeys(ctx context.Context, userID uuid.UUID) ([]string, error) {
 	rows, err := q.db.Query(ctx, getUserRoleKeys, userID)
 	if err != nil {
@@ -348,6 +353,33 @@ func (q *Queries) GetUserRoleKeys(ctx context.Context, userID uuid.UUID) ([]stri
 			return nil, err
 		}
 		items = append(items, key)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getUserSiteRoles = `-- name: GetUserSiteRoles :many
+SELECT (r.key || '@' || ur.site_id::text)::text AS grant
+FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+WHERE ur.user_id = $1 AND ur.site_id IS NOT NULL ORDER BY 1
+`
+
+// GetUserSiteRoles returns the site-scoped assignments as "role@site-uuid" (v0.4.1, D-084).
+func (q *Queries) GetUserSiteRoles(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, getUserSiteRoles, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var grant string
+		if err := rows.Scan(&grant); err != nil {
+			return nil, err
+		}
+		items = append(items, grant)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

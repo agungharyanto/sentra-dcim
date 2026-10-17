@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Sentra DCIM API
-  version: 0.3.3
+  version: 0.4.1
   summary: REST API Sentra DCIM — Diskominfo Provinsi Bali
   description: |
     Semua endpoint berada di bawah `/api/v1`. Waktu dikirim dalam UTC (RFC 3339);
@@ -32,6 +32,13 @@ info:
     sebagai `authz.denied`). Operasi tanpa ekstensi ini terbuka untuk semua pengguna yang masuk. Role sistem: Admin
     (semua izin), NOC, Security, Teknisi, Viewer, Auditor (`users.read`, `roles.read`). Role dibaca ulang setiap
     request, jadi perubahan role berlaku seketika.
+
+    **Scope site (sejak v0.4.1, D-084):** penugasan role bisa global atau **per site**. Penugasan per site hanya memberi
+    izin data site (`facility.*`, `rack.*`) untuk site itu. Daftar hanya berisi data dalam scope; detail/ubah objek di
+    luar scope menjawab `404` (seperti tidak ada); objek yang bisa dibaca tetapi tidak dikelola → `403 out_of_scope`.
+
+    **Optimistic locking (sejak v0.4.1, D-085):** objek facility membawa `version` dan header `ETag`; PATCH dan arsip
+    wajib `If-Match` (`428 precondition_required` bila tidak ada, `412 version_conflict` bila basi).
 
     Setiap respons menyertakan header `X-Request-Id` untuk penelusuran. Error memakai format `ErrorBody`.
     Rate limit per IP klien (default 20 req/detik, burst 40) — respons `429` menyertakan `Retry-After`.
@@ -66,6 +73,10 @@ tags:
     description: Audit log — penelusuran event, ekspor CSV, status & verifikasi hash chain (v0.3.4)
   - name: settings
     description: Pengaturan sistem (grup `regional` sejak v0.3.5) dan preferensi pengguna sendiri
+  - name: facility
+    description: Hierarki Site > Gedung > Lantai > Ruang (v0.4.1) dan pohon facility
+  - name: rack
+    description: Rack dengan nama bebas, lokasi, kapasitas, dan status (v0.4.1)
 paths:
   /api/v1/health:
     get:
@@ -566,7 +577,7 @@ paths:
       x-sentra-permission: users.manage
       summary: Ganti seluruh role pengguna
       description: |
-        Minimal satu role. Berlaku seketika. Ditolak `409 self_action` bila mencabut role Admin sendiri, `409
+        Minimal satu role (boleh kosong bila pengguna punya role per-site). Berlaku seketika. Ditolak `409 self_action` bila mencabut role Admin sendiri, `409
         last_admin` bila mencabut role Admin dari Admin aktif terakhir.
       security:
         - sessionCookie: []
@@ -1308,6 +1319,812 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/sites:
+    get:
+      tags: [facility]
+      operationId: listSites
+      x-sentra-access: login
+      x-sentra-permission: facility.read
+      summary: Daftar site
+      description: |
+        Hanya site dalam scope site pemanggil (D-084); yang di luar scope tidak pernah muncul. Arsip disembunyikan
+        kecuali `include_archived=true`. Paginasi `limit` (default 50, maks 200) / `offset`.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/SiteStatus"
+        - $ref: "#/components/parameters/IncludeArchived"
+        - $ref: "#/components/parameters/SiteSort"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Halaman daftar
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SiteList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+    post:
+      tags: [facility]
+      operationId: createSite
+      x-sentra-access: login
+      x-sentra-permission: facility.manage
+      summary: Tambah site
+      description: |
+        Hanya **pengelola facility global** (scope semua site) yang boleh membuat site → selain itu `403 global_scope_required`. Kode site (1–16 karakter A–Z, 0–9, `_`, `-`; huruf kecil diubah ke kapital) unik selamanya; nama unik di antara site aktif (tanpa membedakan huruf besar/kecil).
+        Dicatat di audit log (`site.create`, nilai `after`).
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteCreate" }
+      responses:
+        "201":
+          description: Dibuat
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Site" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/FacilityForbidden" }
+        "409": { $ref: "#/components/responses/FacilityConflict" }
+        "422": { $ref: "#/components/responses/FacilityInvalid" }
+  /api/v1/sites/{id}:
+    parameters:
+      - $ref: "#/components/parameters/SiteId"
+    get:
+      tags: [facility]
+      operationId: getSite
+      x-sentra-access: login
+      x-sentra-permission: facility.read
+      summary: Detail site
+      description: Di luar scope site pemanggil → `404` (sama dengan tidak ada). Header `ETag` = versi saat ini.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Detail
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Site" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [facility]
+      operationId: updateSite
+      x-sentra-access: login
+      x-sentra-permission: facility.manage
+      summary: Ubah site
+      description: |
+        Field yang tidak dikirim tidak berubah. Wajib `If-Match` berisi `ETag` terakhir (`428 precondition_required`
+        bila tidak ada, `412 version_conflict` bila data sudah diubah orang lain — muat ulang). Dicatat di audit log
+        dengan nilai `before`/`after` field yang berubah.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SitePatch" }
+      responses:
+        "200":
+          description: Setelah diubah
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Site" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/FacilityForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/FacilityConflict" }
+        "412": { $ref: "#/components/responses/VersionConflict" }
+        "422": { $ref: "#/components/responses/FacilityInvalid" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+  /api/v1/sites/{id}/archive:
+    parameters:
+      - $ref: "#/components/parameters/SiteId"
+    post:
+      tags: [facility]
+      operationId: archiveSite
+      x-sentra-access: login
+      x-sentra-permission: facility.manage
+      summary: Arsipkan site
+      description: |
+        Arsip, bukan hapus (D-085): data tetap ada dan terlihat dengan `include_archived=true`; nama bisa dipakai lagi.
+        Hanya pengelola global; ditolak `409 has_active_children` bila masih ada gedung aktif. Wajib `If-Match`. Dicatat `site.archive`.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Setelah diarsipkan
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Site" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/FacilityForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/FacilityConflict" }
+        "412": { $ref: "#/components/responses/VersionConflict" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+  /api/v1/buildings:
+    get:
+      tags: [facility]
+      operationId: listBuildings
+      x-sentra-access: login
+      x-sentra-permission: facility.read
+      summary: Daftar gedung
+      description: |
+        Hanya gedung dalam scope site pemanggil (D-084); yang di luar scope tidak pernah muncul. Arsip disembunyikan
+        kecuali `include_archived=true`. Paginasi `limit` (default 50, maks 200) / `offset`.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/SiteFilter"
+        - $ref: "#/components/parameters/IncludeArchived"
+        - $ref: "#/components/parameters/BuildingSort"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Halaman daftar
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BuildingList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+    post:
+      tags: [facility]
+      operationId: createBuilding
+      x-sentra-access: login
+      x-sentra-permission: facility.manage
+      summary: Tambah gedung
+      description: |
+        Site harus dalam scope kelola pemanggil (`403 out_of_scope` bila hanya bisa dibaca; `422` field `site_id` bila tidak terlihat) dan tidak diarsipkan (`422 parent_archived`). Nama unik per site di antara gedung aktif.
+        Dicatat di audit log (`building.create`, nilai `after`).
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BuildingCreate" }
+      responses:
+        "201":
+          description: Dibuat
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Building" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/FacilityForbidden" }
+        "409": { $ref: "#/components/responses/FacilityConflict" }
+        "422": { $ref: "#/components/responses/FacilityInvalid" }
+  /api/v1/buildings/{id}:
+    parameters:
+      - $ref: "#/components/parameters/BuildingId"
+    get:
+      tags: [facility]
+      operationId: getBuilding
+      x-sentra-access: login
+      x-sentra-permission: facility.read
+      summary: Detail gedung
+      description: Di luar scope site pemanggil → `404` (sama dengan tidak ada). Header `ETag` = versi saat ini.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Detail
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Building" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [facility]
+      operationId: updateBuilding
+      x-sentra-access: login
+      x-sentra-permission: facility.manage
+      summary: Ubah gedung
+      description: |
+        Field yang tidak dikirim tidak berubah. Wajib `If-Match` berisi `ETag` terakhir (`428 precondition_required`
+        bila tidak ada, `412 version_conflict` bila data sudah diubah orang lain — muat ulang). Dicatat di audit log
+        dengan nilai `before`/`after` field yang berubah.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BuildingPatch" }
+      responses:
+        "200":
+          description: Setelah diubah
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Building" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/FacilityForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/FacilityConflict" }
+        "412": { $ref: "#/components/responses/VersionConflict" }
+        "422": { $ref: "#/components/responses/FacilityInvalid" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+  /api/v1/buildings/{id}/archive:
+    parameters:
+      - $ref: "#/components/parameters/BuildingId"
+    post:
+      tags: [facility]
+      operationId: archiveBuilding
+      x-sentra-access: login
+      x-sentra-permission: facility.manage
+      summary: Arsipkan gedung
+      description: |
+        Arsip, bukan hapus (D-085): data tetap ada dan terlihat dengan `include_archived=true`; nama bisa dipakai lagi.
+        Ditolak `409 has_active_children` bila masih ada lantai aktif. Wajib `If-Match`. Dicatat `building.archive`.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Setelah diarsipkan
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Building" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/FacilityForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/FacilityConflict" }
+        "412": { $ref: "#/components/responses/VersionConflict" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+  /api/v1/floors:
+    get:
+      tags: [facility]
+      operationId: listFloors
+      x-sentra-access: login
+      x-sentra-permission: facility.read
+      summary: Daftar lantai
+      description: |
+        Hanya lantai dalam scope site pemanggil (D-084); yang di luar scope tidak pernah muncul. Arsip disembunyikan
+        kecuali `include_archived=true`. Paginasi `limit` (default 50, maks 200) / `offset`.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/SiteFilter"
+        - $ref: "#/components/parameters/BuildingFilter"
+        - $ref: "#/components/parameters/IncludeArchived"
+        - $ref: "#/components/parameters/FloorSort"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Halaman daftar
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FloorList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+    post:
+      tags: [facility]
+      operationId: createFloor
+      x-sentra-access: login
+      x-sentra-permission: facility.manage
+      summary: Tambah lantai
+      description: |
+        Gedung harus dalam scope kelola dan aktif. `site_id` diturunkan dari gedung (dijaga foreign key komposit). Nama unik per gedung.
+        Dicatat di audit log (`floor.create`, nilai `after`).
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FloorCreate" }
+      responses:
+        "201":
+          description: Dibuat
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Floor" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/FacilityForbidden" }
+        "409": { $ref: "#/components/responses/FacilityConflict" }
+        "422": { $ref: "#/components/responses/FacilityInvalid" }
+  /api/v1/floors/{id}:
+    parameters:
+      - $ref: "#/components/parameters/FloorId"
+    get:
+      tags: [facility]
+      operationId: getFloor
+      x-sentra-access: login
+      x-sentra-permission: facility.read
+      summary: Detail lantai
+      description: Di luar scope site pemanggil → `404` (sama dengan tidak ada). Header `ETag` = versi saat ini.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Detail
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Floor" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [facility]
+      operationId: updateFloor
+      x-sentra-access: login
+      x-sentra-permission: facility.manage
+      summary: Ubah lantai
+      description: |
+        Field yang tidak dikirim tidak berubah. Wajib `If-Match` berisi `ETag` terakhir (`428 precondition_required`
+        bila tidak ada, `412 version_conflict` bila data sudah diubah orang lain — muat ulang). Dicatat di audit log
+        dengan nilai `before`/`after` field yang berubah.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FloorPatch" }
+      responses:
+        "200":
+          description: Setelah diubah
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Floor" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/FacilityForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/FacilityConflict" }
+        "412": { $ref: "#/components/responses/VersionConflict" }
+        "422": { $ref: "#/components/responses/FacilityInvalid" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+  /api/v1/floors/{id}/archive:
+    parameters:
+      - $ref: "#/components/parameters/FloorId"
+    post:
+      tags: [facility]
+      operationId: archiveFloor
+      x-sentra-access: login
+      x-sentra-permission: facility.manage
+      summary: Arsipkan lantai
+      description: |
+        Arsip, bukan hapus (D-085): data tetap ada dan terlihat dengan `include_archived=true`; nama bisa dipakai lagi.
+        Ditolak `409 has_active_children` bila masih ada ruang aktif. Wajib `If-Match`. Dicatat `floor.archive`.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Setelah diarsipkan
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Floor" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/FacilityForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/FacilityConflict" }
+        "412": { $ref: "#/components/responses/VersionConflict" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+  /api/v1/rooms:
+    get:
+      tags: [facility]
+      operationId: listRooms
+      x-sentra-access: login
+      x-sentra-permission: facility.read
+      summary: Daftar ruang
+      description: |
+        Hanya ruang dalam scope site pemanggil (D-084); yang di luar scope tidak pernah muncul. Arsip disembunyikan
+        kecuali `include_archived=true`. Paginasi `limit` (default 50, maks 200) / `offset`.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/SiteFilter"
+        - $ref: "#/components/parameters/FloorFilter"
+        - $ref: "#/components/parameters/RoomTypeFilter"
+        - $ref: "#/components/parameters/IncludeArchived"
+        - $ref: "#/components/parameters/RoomSort"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Halaman daftar
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoomList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+    post:
+      tags: [facility]
+      operationId: createRoom
+      x-sentra-access: login
+      x-sentra-permission: facility.manage
+      summary: Tambah ruang
+      description: |
+        Lantai harus dalam scope kelola dan aktif. Jenis ruang: `whitespace` (ruang server), `mmr` (meet-me room), `power`, `cooling`, `noc`, `storage`, `staging`, `other`. Nama unik per lantai.
+        Dicatat di audit log (`room.create`, nilai `after`).
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoomCreate" }
+      responses:
+        "201":
+          description: Dibuat
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Room" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/FacilityForbidden" }
+        "409": { $ref: "#/components/responses/FacilityConflict" }
+        "422": { $ref: "#/components/responses/FacilityInvalid" }
+  /api/v1/rooms/{id}:
+    parameters:
+      - $ref: "#/components/parameters/RoomId"
+    get:
+      tags: [facility]
+      operationId: getRoom
+      x-sentra-access: login
+      x-sentra-permission: facility.read
+      summary: Detail ruang
+      description: Di luar scope site pemanggil → `404` (sama dengan tidak ada). Header `ETag` = versi saat ini.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Detail
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Room" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [facility]
+      operationId: updateRoom
+      x-sentra-access: login
+      x-sentra-permission: facility.manage
+      summary: Ubah ruang
+      description: |
+        Field yang tidak dikirim tidak berubah. Wajib `If-Match` berisi `ETag` terakhir (`428 precondition_required`
+        bila tidak ada, `412 version_conflict` bila data sudah diubah orang lain — muat ulang). Dicatat di audit log
+        dengan nilai `before`/`after` field yang berubah.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoomPatch" }
+      responses:
+        "200":
+          description: Setelah diubah
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Room" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/FacilityForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/FacilityConflict" }
+        "412": { $ref: "#/components/responses/VersionConflict" }
+        "422": { $ref: "#/components/responses/FacilityInvalid" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+  /api/v1/rooms/{id}/archive:
+    parameters:
+      - $ref: "#/components/parameters/RoomId"
+    post:
+      tags: [facility]
+      operationId: archiveRoom
+      x-sentra-access: login
+      x-sentra-permission: facility.manage
+      summary: Arsipkan ruang
+      description: |
+        Arsip, bukan hapus (D-085): data tetap ada dan terlihat dengan `include_archived=true`; nama bisa dipakai lagi.
+        Ditolak `409 has_active_children` bila masih ada rack aktif. Wajib `If-Match`. Dicatat `room.archive`.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Setelah diarsipkan
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Room" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/FacilityForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/FacilityConflict" }
+        "412": { $ref: "#/components/responses/VersionConflict" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+  /api/v1/racks:
+    get:
+      tags: [rack]
+      operationId: listRacks
+      x-sentra-access: login
+      x-sentra-permission: rack.read
+      summary: Daftar rack
+      description: |
+        Hanya rack dalam scope site pemanggil (D-084); yang di luar scope tidak pernah muncul. Arsip disembunyikan
+        kecuali `include_archived=true`. Paginasi `limit` (default 50, maks 200) / `offset`.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/SiteFilter"
+        - $ref: "#/components/parameters/RoomFilter"
+        - $ref: "#/components/parameters/RackStatusFilter"
+        - $ref: "#/components/parameters/IncludeArchived"
+        - $ref: "#/components/parameters/RackSort"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: Halaman daftar
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RackList" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+    post:
+      tags: [rack]
+      operationId: createRack
+      x-sentra-access: login
+      x-sentra-permission: rack.manage
+      summary: Tambah rack
+      description: |
+        Ruang harus dalam scope kelola rack (`rack.manage`) dan aktif. Nama rack bebas (D-083): 1–64 karakter, huruf, angka, spasi dan `. _ - /`, diawali huruf/angka, spasi di tepi dipangkas; unik per site di antara rack aktif tanpa membedakan huruf besar/kecil (`409 duplicate_name`). `asset_tag` unik selamanya bila diisi (`409 duplicate_asset_tag`). Default: 42U mulai U1, nomor naik, lebar 19", status `planned`.
+        Dicatat di audit log (`rack.create`, nilai `after`).
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RackCreate" }
+      responses:
+        "201":
+          description: Dibuat
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Rack" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/FacilityForbidden" }
+        "409": { $ref: "#/components/responses/FacilityConflict" }
+        "422": { $ref: "#/components/responses/FacilityInvalid" }
+  /api/v1/racks/{id}:
+    parameters:
+      - $ref: "#/components/parameters/RackId"
+    get:
+      tags: [rack]
+      operationId: getRack
+      x-sentra-access: login
+      x-sentra-permission: rack.read
+      summary: Detail rack
+      description: Di luar scope site pemanggil → `404` (sama dengan tidak ada). Header `ETag` = versi saat ini.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Detail
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Rack" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [rack]
+      operationId: updateRack
+      x-sentra-access: login
+      x-sentra-permission: rack.manage
+      summary: Ubah rack
+      description: |
+        Field yang tidak dikirim tidak berubah. Wajib `If-Match` berisi `ETag` terakhir (`428 precondition_required`
+        bila tidak ada, `412 version_conflict` bila data sudah diubah orang lain — muat ulang). Dicatat di audit log
+        dengan nilai `before`/`after` field yang berubah. Rename tercatat sebagai `rack.rename`; `room_id` memindahkan rack ke ruang lain **dalam site yang sama** (antar-site → `422 cross_site_move`).
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RackPatch" }
+      responses:
+        "200":
+          description: Setelah diubah
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Rack" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/FacilityForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/FacilityConflict" }
+        "412": { $ref: "#/components/responses/VersionConflict" }
+        "422": { $ref: "#/components/responses/FacilityInvalid" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+  /api/v1/racks/{id}/archive:
+    parameters:
+      - $ref: "#/components/parameters/RackId"
+    post:
+      tags: [rack]
+      operationId: archiveRack
+      x-sentra-access: login
+      x-sentra-permission: rack.manage
+      summary: Arsipkan rack
+      description: |
+        Arsip, bukan hapus (D-085): data tetap ada dan terlihat dengan `include_archived=true`; nama bisa dipakai lagi.
+        Rack belum punya anak di v0.4.1 (perangkat menyusul v0.4.3). Wajib `If-Match`. Dicatat `rack.archive`.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Setelah diarsipkan
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Rack" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/FacilityForbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/FacilityConflict" }
+        "412": { $ref: "#/components/responses/VersionConflict" }
+        "428": { $ref: "#/components/responses/PreconditionRequired" }
+  /api/v1/facility/tree:
+    get:
+      tags: [facility]
+      operationId: getFacilityTree
+      x-sentra-access: login
+      x-sentra-permission: facility.read
+      summary: Pohon Site > Gedung > Lantai > Ruang > Rack
+      description: |
+        Node aktif dalam scope site pemanggil. Rack (dan hitungannya) hanya disertakan untuk site yang rack-nya boleh
+        dibaca (`rack.read`). Setiap node membawa `rack_count`; ruang juga `racks_by_status`.
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Pohon
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FacilityTree" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/users/{id}/site-roles:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    put:
+      tags: [users]
+      operationId: setUserSiteRoles
+      x-sentra-access: login
+      x-sentra-permission: users.manage
+      summary: Ganti seluruh role per-site pengguna
+      description: |
+        Role yang berlaku **hanya untuk satu site** (D-084). Penugasan per-site hanya memberi izin data site
+        (`facility.*`, `rack.*`) untuk site itu; izin global (pengguna, pengaturan, audit) hanya dari role global.
+        Admin tidak bisa diberikan per site (`422`). Site harus ada dan aktif. Pengguna yang hanya boleh melihat
+        site tertentu tidak boleh punya role global (role global berlaku di semua site). Akun harus tetap punya
+        minimal satu role (global atau per-site) → `409 no_roles`. Dicatat `user.site_roles.update`.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: "#/components/parameters/CsrfHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserSiteRoles" }
+      responses:
+        "200":
+          description: Pengguna setelah diubah
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
 components:
   parameters:
     AuditSince:
@@ -1343,6 +2160,33 @@ components:
       required: true
       description: Token CSRF = nilai cookie `__Host-sentra_csrf` (sebelum login nilai apa pun yang tidak kosong)
       schema: { type: string }
+    SiteId: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    BuildingId: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    FloorId: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    RoomId: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    RackId: { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: '`ETag` terakhir yang dilihat (mis. `"3"`); wajib untuk PATCH dan arsip (D-085)'
+      schema: { type: string, example: '"3"' }
+    Q: { name: q, in: query, description: Cari (nama/kode; rack juga asset tag & label baris), schema: { type: string, maxLength: 100 } }
+    Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+    Offset: { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+    IncludeArchived: { name: include_archived, in: query, schema: { type: boolean, default: false } }
+    SiteFilter: { name: site_id, in: query, schema: { type: string, format: uuid } }
+    BuildingFilter: { name: building_id, in: query, schema: { type: string, format: uuid } }
+    FloorFilter: { name: floor_id, in: query, schema: { type: string, format: uuid } }
+    RoomFilter: { name: room_id, in: query, schema: { type: string, format: uuid } }
+    SiteStatus: { name: status, in: query, schema: { type: string, enum: [planned, active, inactive] } }
+    RoomTypeFilter: { name: room_type, in: query, schema: { $ref: "#/components/schemas/RoomType" } }
+    RackStatusFilter: { name: status, in: query, schema: { $ref: "#/components/schemas/RackStatus" } }
+    SiteSort: { name: sort, in: query, description: Default kode, schema: { type: string, enum: [code, -code, name, -name, updated_at, -updated_at] } }
+    BuildingSort: { name: sort, in: query, description: Default site lalu nama, schema: { type: string, enum: [name, -name, updated_at, -updated_at] } }
+    FloorSort: { name: sort, in: query, description: Default gedung lalu level, schema: { type: string, enum: [level, -level, name, -name] } }
+    RoomSort: { name: sort, in: query, description: Default lokasi lalu nama, schema: { type: string, enum: [name, -name, room_type] } }
+    RackSort: { name: sort, in: query, description: "Default lokasi, baris, posisi, nama", schema: { type: string, enum: [name, -name, status, -status, updated_at, -updated_at] } }
   securitySchemes:
     sessionCookie:
       type: apiKey
@@ -1354,6 +2198,9 @@ components:
         Lewat domain publik tidak ada lagi basic_auth (dicabut v0.3.3); login & kode MFA yang gagal dihitung jail
         fail2ban per IP (D-066).
   headers:
+    ETag:
+      description: Versi objek untuk optimistic locking (D-085), mis. `"3"`; kirim kembali di `If-Match`
+      schema: { type: string }
     X-Request-Id:
       description: ID unik request untuk penelusuran log
       schema: { type: string }
@@ -1382,7 +2229,8 @@ components:
       description: |
         `username_taken` (nama pengguna sudah ada, tidak peka huruf besar/kecil), `self_action` (aksi tidak boleh
         pada akun sendiri), `last_admin` (Admin aktif terakhir tidak boleh kehilangan akses), `kiosk_requires_viewer`
-        (kiosk hanya untuk akun Viewer saja; matikan kiosk sebelum mengubah role), atau `kiosk_requires_allowlist`
+        (kiosk hanya untuk akun Viewer saja; matikan kiosk sebelum mengubah role), `kiosk_requires_allowlist`, atau
+        `no_roles` (akun harus punya minimal satu role, global atau per-site)
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorBody" }
@@ -1436,7 +2284,356 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorBody" }
+    FacilityForbidden:
+      description: |
+        `forbidden` (tanpa izin), `out_of_scope` (site hanya bisa dibaca, tidak dikelola), `global_scope_required`
+        (membuat/mengarsipkan site hanya untuk pengelola global), atau penolakan CSRF/sesi seperti `Forbidden`.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+    FacilityConflict:
+      description: |
+        `duplicate_name` / `duplicate_code` / `duplicate_asset_tag` (sudah dipakai; `error.field`),
+        `has_active_children` (arsipkan anaknya dulu), atau `archived` (data sudah diarsipkan).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+    FacilityInvalid:
+      description: |
+        `validation_failed` (`error.field`), `parent_archived` (induk sudah diarsipkan), atau `cross_site_move`
+        (rack tidak bisa dipindah ke site lain).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+    VersionConflict:
+      description: "`version_conflict`: data sudah diubah pengguna lain (If-Match tidak cocok) — muat ulang lalu ulangi"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+    PreconditionRequired:
+      description: "`precondition_required`: header If-Match (ETag terakhir) wajib"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
   schemas:
+    RoomType: { type: string, enum: [whitespace, mmr, power, cooling, noc, storage, staging, other] }
+    RackStatus: { type: string, enum: [planned, active, reserved, decommissioning, retired] }
+    Site:
+      type: object
+      required: [id, code, name, address, status, version, created_at, updated_at, archived_at]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, pattern: "^[A-Z0-9][A-Z0-9_-]{0,15}$", example: DPS1 }
+        name: { type: string }
+        address: { type: string }
+        status: { type: string, enum: [planned, active, inactive] }
+        version: { type: integer, minimum: 1, description: Versi optimistic lock (= ETag) }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        archived_at: { type: [string, "null"], format: date-time, description: Terisi bila diarsipkan }
+    SiteList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Site" } }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    SiteCreate:
+      type: object
+      additionalProperties: false
+      required: [code, name]
+      properties:
+        code: { type: string, maxLength: 16, description: "A–Z, 0–9, _ dan -; huruf kecil diubah ke kapital; tidak bisa diubah setelah dibuat" }
+        name: { type: string, minLength: 1, maxLength: 100, description: "Spasi di tepi dipangkas; unik per induk (tanpa membedakan huruf besar/kecil) di antara yang aktif" }
+        address: { type: string, maxLength: 500 }
+        status: { type: string, enum: [planned, active, inactive], default: active }
+    SitePatch:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100, description: "Spasi di tepi dipangkas; unik per induk (tanpa membedakan huruf besar/kecil) di antara yang aktif" }
+        address: { type: string, maxLength: 500 }
+        status: { type: string, enum: [planned, active, inactive] }
+    Building:
+      type: object
+      required: [id, site_id, site_code, site_name, code, name, notes, version, created_at, updated_at, archived_at]
+      properties:
+        id: { type: string, format: uuid }
+        site_id: { type: string, format: uuid }
+        site_code: { type: string }
+        site_name: { type: string }
+        code: { type: string, description: Opsional (string kosong) }
+        name: { type: string }
+        notes: { type: string }
+        version: { type: integer, minimum: 1, description: Versi optimistic lock (= ETag) }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        archived_at: { type: [string, "null"], format: date-time, description: Terisi bila diarsipkan }
+    BuildingList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Building" } }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    BuildingCreate:
+      type: object
+      additionalProperties: false
+      required: [site_id, name]
+      properties:
+        site_id: { type: string, format: uuid }
+        code: { type: string, maxLength: 16 }
+        name: { type: string, minLength: 1, maxLength: 100, description: "Spasi di tepi dipangkas; unik per induk (tanpa membedakan huruf besar/kecil) di antara yang aktif" }
+        notes: { type: string, maxLength: 2000 }
+    BuildingPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        code: { type: string, maxLength: 16 }
+        name: { type: string, minLength: 1, maxLength: 100, description: "Spasi di tepi dipangkas; unik per induk (tanpa membedakan huruf besar/kecil) di antara yang aktif" }
+        notes: { type: string, maxLength: 2000 }
+    Floor:
+      type: object
+      required: [id, building_id, building_name, site_id, site_code, name, level, notes, version, created_at, updated_at, archived_at]
+      properties:
+        id: { type: string, format: uuid }
+        building_id: { type: string, format: uuid }
+        building_name: { type: string }
+        site_id: { type: string, format: uuid }
+        site_code: { type: string }
+        name: { type: string }
+        level: { type: integer, minimum: -20, maximum: 200, description: "Urutan lantai (0 = dasar, negatif = basement)" }
+        notes: { type: string }
+        version: { type: integer, minimum: 1, description: Versi optimistic lock (= ETag) }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        archived_at: { type: [string, "null"], format: date-time, description: Terisi bila diarsipkan }
+    FloorList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Floor" } }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    FloorCreate:
+      type: object
+      additionalProperties: false
+      required: [building_id, name]
+      properties:
+        building_id: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 100, description: "Spasi di tepi dipangkas; unik per induk (tanpa membedakan huruf besar/kecil) di antara yang aktif" }
+        level: { type: integer, minimum: -20, maximum: 200, default: 0 }
+        notes: { type: string, maxLength: 2000 }
+    FloorPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100, description: "Spasi di tepi dipangkas; unik per induk (tanpa membedakan huruf besar/kecil) di antara yang aktif" }
+        level: { type: integer, minimum: -20, maximum: 200 }
+        notes: { type: string, maxLength: 2000 }
+    Room:
+      type: object
+      required: [id, floor_id, floor_name, building_id, building_name, site_id, site_code, name, room_type, notes, rack_count, version, created_at, updated_at, archived_at]
+      properties:
+        id: { type: string, format: uuid }
+        floor_id: { type: string, format: uuid }
+        floor_name: { type: string }
+        building_id: { type: string, format: uuid }
+        building_name: { type: string }
+        site_id: { type: string, format: uuid }
+        site_code: { type: string }
+        name: { type: string }
+        room_type: { $ref: "#/components/schemas/RoomType" }
+        notes: { type: string }
+        rack_count: { type: integer, description: Rack aktif di ruang ini }
+        version: { type: integer, minimum: 1, description: Versi optimistic lock (= ETag) }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        archived_at: { type: [string, "null"], format: date-time, description: Terisi bila diarsipkan }
+    RoomList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Room" } }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    RoomCreate:
+      type: object
+      additionalProperties: false
+      required: [floor_id, name]
+      properties:
+        floor_id: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 100, description: "Spasi di tepi dipangkas; unik per induk (tanpa membedakan huruf besar/kecil) di antara yang aktif" }
+        room_type: { $ref: "#/components/schemas/RoomType" }
+        notes: { type: string, maxLength: 2000 }
+    RoomPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100, description: "Spasi di tepi dipangkas; unik per induk (tanpa membedakan huruf besar/kecil) di antara yang aktif" }
+        room_type: { $ref: "#/components/schemas/RoomType" }
+        notes: { type: string, maxLength: 2000 }
+    Rack:
+      type: object
+      required: [id, room_id, room_name, room_type, floor_id, floor_name, building_id, building_name, site_id, site_code, site_name, name, asset_tag, row_label, row_position, u_height, starting_unit, desc_units, width_in, depth_mm, max_weight_kg, max_power_kw, status, notes, version, created_at, updated_at, archived_at]
+      properties:
+        id: { type: string, format: uuid }
+        room_id: { type: string, format: uuid }
+        room_name: { type: string }
+        room_type: { $ref: "#/components/schemas/RoomType" }
+        floor_id: { type: string, format: uuid }
+        floor_name: { type: string }
+        building_id: { type: string, format: uuid }
+        building_name: { type: string }
+        site_id: { type: string, format: uuid }
+        site_code: { type: string }
+        site_name: { type: string }
+        name: { type: string, example: "R-A01" }
+        asset_tag: { type: [string, "null"] }
+        row_label: { type: string }
+        row_position: { type: [integer, "null"] }
+        u_height: { type: integer, minimum: 1, maximum: 60 }
+        starting_unit: { type: integer, minimum: 1, maximum: 100 }
+        desc_units: { type: boolean, description: Nomor U menurun dari atas }
+        width_in: { type: integer, enum: [19, 23] }
+        depth_mm: { type: [integer, "null"] }
+        max_weight_kg: { type: [number, "null"] }
+        max_power_kw: { type: [number, "null"] }
+        status: { $ref: "#/components/schemas/RackStatus" }
+        notes: { type: string }
+        version: { type: integer, minimum: 1, description: Versi optimistic lock (= ETag) }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        archived_at: { type: [string, "null"], format: date-time, description: Terisi bila diarsipkan }
+    RackList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Rack" } }
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+    RackCreate:
+      type: object
+      additionalProperties: false
+      required: [room_id, name]
+      properties:
+        room_id: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 64, pattern: "^[ ]*[A-Za-z0-9][A-Za-z0-9 ._/-]{0,63}$" }
+        asset_tag: { type: [string, "null"], maxLength: 64 }
+        row_label: { type: string, maxLength: 16 }
+        row_position: { type: [integer, "null"], minimum: 1, maximum: 999 }
+        u_height: { type: integer, minimum: 1, maximum: 60, default: 42 }
+        starting_unit: { type: integer, minimum: 1, maximum: 100, default: 1 }
+        desc_units: { type: boolean, default: false }
+        width_in: { type: integer, enum: [19, 23], default: 19 }
+        depth_mm: { type: [integer, "null"], minimum: 100, maximum: 2000 }
+        max_weight_kg: { type: [number, "null"], exclusiveMinimum: 0, maximum: 999999.99 }
+        max_power_kw: { type: [number, "null"], exclusiveMinimum: 0, maximum: 9999.99 }
+        status: { $ref: "#/components/schemas/RackStatus" }
+        notes: { type: string, maxLength: 2000 }
+    RackPatch:
+      type: object
+      additionalProperties: false
+      description: Field yang tidak dikirim tidak berubah; `null` mengosongkan field opsional.
+      properties:
+        room_id: { type: string, format: uuid, description: Pindah ke ruang lain dalam site yang sama }
+        name: { type: string, minLength: 1, maxLength: 64 }
+        asset_tag: { type: [string, "null"], maxLength: 64 }
+        row_label: { type: string, maxLength: 16 }
+        row_position: { type: [integer, "null"], minimum: 1, maximum: 999 }
+        u_height: { type: integer, minimum: 1, maximum: 60 }
+        starting_unit: { type: integer, minimum: 1, maximum: 100 }
+        desc_units: { type: boolean }
+        width_in: { type: integer, enum: [19, 23] }
+        depth_mm: { type: [integer, "null"], minimum: 100, maximum: 2000 }
+        max_weight_kg: { type: [number, "null"] }
+        max_power_kw: { type: [number, "null"] }
+        status: { $ref: "#/components/schemas/RackStatus" }
+        notes: { type: string, maxLength: 2000 }
+    FacilityTree:
+      type: object
+      required: [sites]
+      properties:
+        sites:
+          type: array
+          items:
+            type: object
+            required: [id, code, name, status, rack_count, buildings]
+            properties:
+              id: { type: string, format: uuid }
+              code: { type: string }
+              name: { type: string }
+              status: { type: string }
+              rack_count: { type: integer }
+              buildings:
+                type: array
+                items:
+                  type: object
+                  required: [id, code, name, rack_count, floors]
+                  properties:
+                    id: { type: string, format: uuid }
+                    code: { type: string }
+                    name: { type: string }
+                    rack_count: { type: integer }
+                    floors:
+                      type: array
+                      items:
+                        type: object
+                        required: [id, name, level, rack_count, rooms]
+                        properties:
+                          id: { type: string, format: uuid }
+                          name: { type: string }
+                          level: { type: integer }
+                          rack_count: { type: integer }
+                          rooms:
+                            type: array
+                            items:
+                              type: object
+                              required: [id, name, room_type, rack_count, racks_by_status, racks]
+                              properties:
+                                id: { type: string, format: uuid }
+                                name: { type: string }
+                                room_type: { $ref: "#/components/schemas/RoomType" }
+                                rack_count: { type: integer }
+                                racks_by_status: { type: object, additionalProperties: { type: integer } }
+                                racks:
+                                  type: array
+                                  items:
+                                    type: object
+                                    required: [id, name, status]
+                                    properties:
+                                      id: { type: string, format: uuid }
+                                      name: { type: string }
+                                      status: { $ref: "#/components/schemas/RackStatus" }
+    SiteRole:
+      type: object
+      required: [role, site_id, site_code, site_name, site_archived]
+      properties:
+        role: { type: string, example: technician }
+        site_id: { type: string, format: uuid }
+        site_code: { type: string }
+        site_name: { type: string }
+        site_archived: { type: boolean }
+    UserSiteRoles:
+      type: object
+      additionalProperties: false
+      required: [site_roles]
+      properties:
+        site_roles:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            additionalProperties: false
+            required: [role, site_id]
+            properties:
+              role: { type: string, description: Role sistem selain admin }
+              site_id: { type: string, format: uuid }
     AuditEvent:
       type: object
       required: [seq, occurred_at, actor_type, actor_id, actor_username, action, target_type, target_id, result, ip, user_agent, request_id, metadata, hash]
@@ -1521,8 +2718,12 @@ components:
         permissions:
           type: array
           items: { type: string }
-          description: Gabungan izin semua role (UI menyembunyikan menu tanpa izin; API tetap memeriksa)
+          description: Gabungan izin semua role, global dan per-site (UI menyembunyikan menu tanpa izin; API tetap memeriksa)
           example: [roles.read, system.version.read, users.manage, users.read]
+        global_permissions:
+          type: array
+          items: { type: string }
+          description: Izin dari role global saja (v0.4.1); mis. membuat site butuh `facility.manage` global
         mfa_enabled: { type: boolean, description: "MFA aktif; false → enrolment saat login" }
         kiosk: { type: boolean, description: "Akun monitoring/kiosk (v0.3.7): sesi tanpa batas waktu, hanya dari Allowed IP" }
         password_expires_at:
@@ -1777,7 +2978,9 @@ components:
                 `rate_limited`, `unauthenticated`, `invalid_credentials`, `csrf_failed`, `password_change_required`,
                 `password_policy`, `invalid_current_password`, `invalid_request`, `auth_unavailable`,
                 `validation_failed`, `username_taken`, `self_action`, `last_admin`, `mfa_required`, `invalid_mfa_code`,
-                `mfa_already_enabled`, `mfa_not_enrolled`.
+                `mfa_already_enabled`, `mfa_not_enrolled`, `no_roles`; facility (v0.4.1): `duplicate_name`,
+                `duplicate_code`, `duplicate_asset_tag`, `has_active_children`, `archived`, `parent_archived`,
+                `cross_site_move`, `precondition_required`, `version_conflict`, `global_scope_required`, `out_of_scope`.
             message: { type: string, description: Pesan teknis berbahasa Inggris; jangan ditampilkan apa adanya }
             field: { type: string, description: "Field input yang tidak valid (validation_failed, username_taken)", example: email }
             request_id: { type: string }
@@ -1795,6 +2998,10 @@ components:
         locked: { type: boolean, description: Sedang terkunci karena salah kata sandi atau kode MFA (lockout) }
         mfa_enabled: { type: boolean }
         kiosk: { type: boolean, description: "Akun monitoring/kiosk (v0.3.7)" }
+        site_roles:
+          type: array
+          description: Role per site (v0.4.1, D-084); diisi pada detail pengguna, kosong pada daftar
+          items: { $ref: "#/components/schemas/SiteRole" }
         last_login_at: { type: [string, "null"], format: date-time }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -1826,7 +3033,12 @@ components:
       additionalProperties: false
       required: [roles]
       properties:
-        roles: { type: array, minItems: 1, maxItems: 16, uniqueItems: true, items: { type: string } }
+        roles:
+          type: array
+          maxItems: 16
+          uniqueItems: true
+          items: { type: string }
+          description: Boleh kosong hanya bila pengguna punya role per-site (akses terbatas ke site itu saja)
     TemporaryPassword:
       type: object
       required: [temporary_password]

@@ -21,6 +21,11 @@ import (
 var appGrants = map[string][]string{
 	"allowed_ips":        {"DELETE", "INSERT", "SELECT", "UPDATE"},
 	"audit_checkpoints":  {"SELECT"},
+	"buildings":          {"INSERT", "SELECT", "UPDATE"}, // facility (v0.4.1): archived, never deleted (D-085)
+	"floors":             {"INSERT", "SELECT", "UPDATE"},
+	"racks":              {"INSERT", "SELECT", "UPDATE"},
+	"rooms":              {"INSERT", "SELECT", "UPDATE"},
+	"sites":              {"INSERT", "SELECT", "UPDATE"},
 	"audit_events":       {"INSERT", "SELECT"},
 	"mfa_recovery_codes": {"DELETE", "INSERT", "SELECT", "UPDATE"},
 	"ops_runs":           {"SELECT"},

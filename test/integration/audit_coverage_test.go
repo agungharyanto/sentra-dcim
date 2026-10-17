@@ -119,6 +119,23 @@ func TestAuditCoverage(t *testing.T) {
 	want(t, "enforce", admin.put("/api/v1/settings/allowed-ips/mode", map[string]any{"mode": "enforce"}), http.StatusOK, "")
 	want(t, "keep", admin.post("/api/v1/settings/allowed-ips/confirm", nil), http.StatusOK, "")
 	want(t, "off", admin.put("/api/v1/settings/allowed-ips/mode", map[string]any{"mode": "off"}), http.StatusOK, "")
+	// Facility (v0.4.1): create, update, rename/update a rack, archive bottom-up; site roles of cov.tech.
+	fac := makeFacility(t, admin, "COV")
+	for _, p := range []string{"/api/v1/sites/" + fac.site, "/api/v1/buildings/" + fac.building, "/api/v1/floors/" + fac.floor, "/api/v1/rooms/" + fac.room} {
+		want(t, "update "+p, admin.patch2(p, map[string]any{"name": "Renamed"}, etagOf(t, admin.get(p))), http.StatusOK, "")
+	}
+	rk := admin.post("/api/v1/racks", map[string]any{"room_id": fac.room, "name": "COV-1"})
+	want(t, "rack", rk, http.StatusCreated, "")
+	rk = admin.patch2("/api/v1/racks/"+idOf(t, rk), map[string]any{"name": "COV-2"}, etagOf(t, rk))
+	want(t, "rename rack", rk, http.StatusOK, "")
+	rk = admin.patch2("/api/v1/racks/"+idOf(t, rk), map[string]any{"status": "active"}, etagOf(t, rk))
+	want(t, "update rack", rk, http.StatusOK, "")
+	want(t, "site roles", admin.put("/api/v1/users/"+id+"/site-roles", map[string]any{"site_roles": []map[string]any{{"role": "noc", "site_id": fac.site}}}),
+		http.StatusOK, "")
+	want(t, "archive rack", admin.archive("/api/v1/racks/"+idOf(t, rk), etagOf(t, rk)), http.StatusOK, "")
+	for _, p := range []string{"/api/v1/rooms/" + fac.room, "/api/v1/floors/" + fac.floor, "/api/v1/buildings/" + fac.building, "/api/v1/sites/" + fac.site} {
+		want(t, "archive "+p, admin.archive(p, etagOf(t, admin.get(p))), http.StatusOK, "")
+	}
 	if r := admin.post("/api/v1/auth/logout", nil); r.code != http.StatusNoContent {
 		t.Fatalf("logout: %d", r.code)
 	}

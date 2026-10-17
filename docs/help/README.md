@@ -53,6 +53,8 @@ order: 30                # urutan di daftar (kecil = atas)
 | `dashboard` | Dasbor | Dashboard | user | `dashboard` |
 | `users` | Pengguna & Role | Users & Roles | admin | `users` |
 | `users/roles` | Role & izin | Roles & permissions | admin | — |
+| `facility` | Fasilitas | Facility | user | `facility` |
+| `facility/rack` | Rak dan penamaannya | Racks and their names | user | — |
 | `api` | Dokumentasi API | API documentation | admin | — |
 
 Referensi API (viewer read-only, dari `api/openapi.yaml`): route UI `/help/api/reference`.

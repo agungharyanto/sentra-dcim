@@ -12,16 +12,22 @@ import (
 
 type Querier interface {
 	AddUserRole(ctx context.Context, arg AddUserRoleParams) error
+	AddUserSiteRole(ctx context.Context, arg AddUserSiteRoleParams) error
 	CountOtherActiveAdmins(ctx context.Context, userID uuid.UUID) (int64, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (uuid.UUID, error)
 	DeleteUserMFA(ctx context.Context, userID uuid.UUID) (int64, error)
 	DeleteUserRecoveryCodes(ctx context.Context, userID uuid.UUID) error
+	// DeleteUserRoles removes the global assignments (site-scoped ones are managed by SetSiteRoles).
 	DeleteUserRoles(ctx context.Context, userID uuid.UUID) error
+	DeleteUserSiteRoles(ctx context.Context, userID uuid.UUID) error
+	GetActiveSitesByIDs(ctx context.Context, ids []uuid.UUID) ([]GetActiveSitesByIDsRow, error)
 	GetPasswordHash(ctx context.Context, id uuid.UUID) (string, error)
 	GetRolesByKeys(ctx context.Context, keys []string) ([]GetRolesByKeysRow, error)
 	GetUser(ctx context.Context, id uuid.UUID) (GetUserRow, error)
 	GetUserIDByUsername(ctx context.Context, username string) (uuid.UUID, error)
 	ListRoles(ctx context.Context) ([]ListRolesRow, error)
+	// Site-scoped role assignments (v0.4.1, D-084).
+	ListUserSiteRoles(ctx context.Context, userID uuid.UUID) ([]ListUserSiteRolesRow, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error)
 	// LockAdminRole serialises every change that could remove the last active Admin (role changes, disabling). An
 	// advisory transaction lock: the application role has no UPDATE on roles, which SELECT … FOR UPDATE would need.

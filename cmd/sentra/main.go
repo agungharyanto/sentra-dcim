@@ -40,6 +40,8 @@ import (
 	authhandler "github.com/agungharyanto/sentra-dcim/internal/auth/handler"
 	authrepo "github.com/agungharyanto/sentra-dcim/internal/auth/repo"
 	authservice "github.com/agungharyanto/sentra-dcim/internal/auth/service"
+	facilityhandler "github.com/agungharyanto/sentra-dcim/internal/facility/handler"
+	facilityservice "github.com/agungharyanto/sentra-dcim/internal/facility/service"
 	helphandler "github.com/agungharyanto/sentra-dcim/internal/help/handler"
 	helpservice "github.com/agungharyanto/sentra-dcim/internal/help/service"
 	"github.com/agungharyanto/sentra-dcim/internal/platform/buildinfo"
@@ -183,7 +185,8 @@ func serve() error {
 	users := usershandler.New(usersservice.New(pool, rec, log, cfg.Auth).WithKioskReady(kioskReady(allow)), log)
 	mods := api.Modules{System: systemhandler.New(sys), UI: uihandler.New(ui), Help: help, Auth: authH, Users: users,
 		Audit:    audithandler.New(auditrepo.New(pool), rec, integrity, settings.LocationFor, log),
-		Settings: settingshandler.New(settings, log), Allowlist: allowlisthandler.New(allow, log)}
+		Settings: settingshandler.New(settings, log), Allowlist: allowlisthandler.New(allow, log),
+		Facility: facilityhandler.New(facilityservice.New(pool, rec, log), log)}
 	servers := []*http.Server{
 		httpserver.NewServer(cfg.HTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, api.Mount(mods, false)), log),
 		httpserver.NewServer(cfg.InternalHTTPAddr, httpserver.NewRouter(log, rl, cfg.TrustedProxies, api.Mount(mods, true)), log),

@@ -23,12 +23,12 @@ sempit untuk setiap pengguna (*least privilege*).
 
 | Role | Untuk siapa | Izin saat ini |
 |---|---|---|
-| Admin | Pengelola aplikasi | Semua izin: `users.read`, `users.manage`, `roles.read`, `system.version.read`, `ui.design_system`, `audit.read`, `audit.export`, `help.admin` |
-| NOC | Operator pemantauan 24/7 | — (bertambah saat modul monitoring & alarm hadir) |
-| Security | Petugas keamanan & akses fisik | — (bertambah saat modul akses & pengunjung hadir) |
-| Teknisi | Teknisi fasilitas & perangkat | — (bertambah saat modul aset & pemeliharaan hadir) |
-| Viewer | Pimpinan/pemangku kepentingan, hanya melihat | — (bertambah saat modul baca hadir) |
-| Auditor | Pemeriksa internal/eksternal | `users.read`, `roles.read`, `audit.read`, `audit.export` |
+| Admin | Pengelola aplikasi | Semua izin: `users.read`, `users.manage`, `roles.read`, `system.version.read`, `ui.design_system`, `audit.read`, `audit.export`, `help.admin`, `settings.manage`, `facility.read`, `facility.manage`, `rack.read`, `rack.manage` |
+| NOC | Operator pemantauan 24/7 | `facility.read`, `rack.read` (bertambah saat modul monitoring & alarm hadir) |
+| Security | Petugas keamanan & akses fisik | `facility.read`, `rack.read` (bertambah saat modul akses & pengunjung hadir) |
+| Teknisi | Teknisi fasilitas & perangkat | `facility.read`, `rack.read` (bertambah saat modul aset & pemeliharaan hadir) |
+| Viewer | Pimpinan/pemangku kepentingan, hanya melihat | `facility.read`, `rack.read` |
+| Auditor | Pemeriksa internal/eksternal | `users.read`, `roles.read`, `audit.read`, `audit.export`, `facility.read`, `rack.read` |
 
 Daftar terkini selalu tampil di tab **Role** pada menu Pengguna & Role, beserta jumlah pengguna per role.
 
@@ -44,7 +44,22 @@ Daftar terkini selalu tampil di tab **Role** pada menu Pengguna & Role, beserta 
 | `audit.read` | Melihat audit log, status integritas hash chain, dan menjalankan verifikasi ([Audit Log](../audit/index.md)) |
 | `audit.export` | Mengekspor audit log ke CSV (ekspornya sendiri tercatat) |
 | `help.admin` | Membaca panduan khusus Admin di Pusat Bantuan, termasuk referensi API |
+| `facility.read` | Melihat site, gedung, lantai, ruang, dan pohon [Fasilitas](../facility/index.md) |
+| `facility.manage` | Menambah, mengubah, dan mengarsipkan gedung, lantai, ruang (dan site bila global) |
+| `rack.read` | Melihat rak |
+| `rack.manage` | Menambah, mengubah, mengganti nama, memindah, dan mengarsipkan rak |
+
+## Role per site
+
+Selain role **global** (berlaku di semua site), Admin dapat memberi role **per site** di detail pengguna → **Akses
+per site**. Role per site hanya memberi izin data site (`facility.*`, `rack.*`) untuk site itu; izin lain (pengguna,
+pengaturan, audit) hanya datang dari role global. Admin tidak bisa diberikan per site.
+
+Contoh: teknisi site Denpasar → tanpa role global, role **Teknisi** per site `DPS1`. Ia hanya melihat data `DPS1`.
+Bila ia juga diberi role global Viewer, ia akan melihat **semua** site. Akun harus tetap punya minimal satu role
+(global atau per site).
 
 ## Endpoint API terkait
 
 `GET /api/v1/roles` (izin `roles.read`) — daftar role, izin per role, dan jumlah pengguna.
+`PUT /api/v1/users/{id}/site-roles` (izin `users.manage`) — ganti seluruh role per site seorang pengguna.

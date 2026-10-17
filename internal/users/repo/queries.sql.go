@@ -27,10 +27,31 @@ func (q *Queries) AddUserRole(ctx context.Context, arg AddUserRoleParams) error 
 	return err
 }
 
+const addUserSiteRole = `-- name: AddUserSiteRole :exec
+INSERT INTO user_roles (user_id, role_id, site_id, granted_by) VALUES ($1, $2, $3, $4)
+`
+
+type AddUserSiteRoleParams struct {
+	UserID    uuid.UUID
+	RoleID    uuid.UUID
+	SiteID    *uuid.UUID
+	GrantedBy *uuid.UUID
+}
+
+func (q *Queries) AddUserSiteRole(ctx context.Context, arg AddUserSiteRoleParams) error {
+	_, err := q.db.Exec(ctx, addUserSiteRole,
+		arg.UserID,
+		arg.RoleID,
+		arg.SiteID,
+		arg.GrantedBy,
+	)
+	return err
+}
+
 const countOtherActiveAdmins = `-- name: CountOtherActiveAdmins :one
 SELECT count(*) FROM users u
 JOIN user_roles ur ON ur.user_id = u.id
-JOIN roles r ON r.id = ur.role_id AND r.key = 'admin'
+JOIN roles r ON r.id = ur.role_id AND r.key = 'admin' AND ur.site_id IS NULL
 WHERE u.status = 'active' AND u.id <> $1
 `
 
@@ -88,12 +109,51 @@ func (q *Queries) DeleteUserRecoveryCodes(ctx context.Context, userID uuid.UUID)
 }
 
 const deleteUserRoles = `-- name: DeleteUserRoles :exec
-DELETE FROM user_roles WHERE user_id = $1
+DELETE FROM user_roles WHERE user_id = $1 AND site_id IS NULL
 `
 
+// DeleteUserRoles removes the global assignments (site-scoped ones are managed by SetSiteRoles).
 func (q *Queries) DeleteUserRoles(ctx context.Context, userID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteUserRoles, userID)
 	return err
+}
+
+const deleteUserSiteRoles = `-- name: DeleteUserSiteRoles :exec
+DELETE FROM user_roles WHERE user_id = $1 AND site_id IS NOT NULL
+`
+
+func (q *Queries) DeleteUserSiteRoles(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteUserSiteRoles, userID)
+	return err
+}
+
+const getActiveSitesByIDs = `-- name: GetActiveSitesByIDs :many
+SELECT id, code FROM sites WHERE id = ANY($1::uuid[]) AND archived_at IS NULL
+`
+
+type GetActiveSitesByIDsRow struct {
+	ID   uuid.UUID
+	Code string
+}
+
+func (q *Queries) GetActiveSitesByIDs(ctx context.Context, ids []uuid.UUID) ([]GetActiveSitesByIDsRow, error) {
+	rows, err := q.db.Query(ctx, getActiveSitesByIDs, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetActiveSitesByIDsRow
+	for rows.Next() {
+		var i GetActiveSitesByIDsRow
+		if err := rows.Scan(&i.ID, &i.Code); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getPasswordHash = `-- name: GetPasswordHash :one
@@ -141,7 +201,7 @@ SELECT u.id, u.username::text AS username, u.display_name, COALESCE(u.email::tex
        (u.locked_until IS NOT NULL AND u.locked_until > now())::boolean AS locked,
        u.last_login_at, u.created_at, u.updated_at,
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-             WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
+             WHERE ur.user_id = u.id AND ur.site_id IS NULL ORDER BY r.key)::text[] AS roles,
        EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled,
        u.kiosk
 FROM users u
@@ -197,7 +257,7 @@ func (q *Queries) GetUserIDByUsername(ctx context.Context, username string) (uui
 }
 
 const listRoles = `-- name: ListRoles :many
-SELECT r.key, r.system, (SELECT count(*) FROM user_roles ur WHERE ur.role_id = r.id) AS user_count
+SELECT r.key, r.system, (SELECT count(DISTINCT ur.user_id) FROM user_roles ur WHERE ur.role_id = r.id) AS user_count
 FROM roles r
 ORDER BY r.key
 `
@@ -228,12 +288,56 @@ func (q *Queries) ListRoles(ctx context.Context) ([]ListRolesRow, error) {
 	return items, nil
 }
 
+const listUserSiteRoles = `-- name: ListUserSiteRoles :many
+SELECT r.key AS role, s.id AS site_id, s.code AS site_code, s.name AS site_name, (s.archived_at IS NOT NULL)::boolean AS site_archived
+FROM user_roles ur
+JOIN roles r ON r.id = ur.role_id
+JOIN sites s ON s.id = ur.site_id
+WHERE ur.user_id = $1
+ORDER BY s.code, r.key
+`
+
+type ListUserSiteRolesRow struct {
+	Role         string
+	SiteID       uuid.UUID
+	SiteCode     string
+	SiteName     string
+	SiteArchived bool
+}
+
+// Site-scoped role assignments (v0.4.1, D-084).
+func (q *Queries) ListUserSiteRoles(ctx context.Context, userID uuid.UUID) ([]ListUserSiteRolesRow, error) {
+	rows, err := q.db.Query(ctx, listUserSiteRoles, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUserSiteRolesRow
+	for rows.Next() {
+		var i ListUserSiteRolesRow
+		if err := rows.Scan(
+			&i.Role,
+			&i.SiteID,
+			&i.SiteCode,
+			&i.SiteName,
+			&i.SiteArchived,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUsers = `-- name: ListUsers :many
 SELECT u.id, u.username::text AS username, u.display_name, COALESCE(u.email::text, '')::text AS email, u.status, u.must_change_password,
        (u.locked_until IS NOT NULL AND u.locked_until > now())::boolean AS locked,
        u.last_login_at, u.created_at, u.updated_at,
        ARRAY(SELECT r.key FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-             WHERE ur.user_id = u.id ORDER BY r.key)::text[] AS roles,
+             WHERE ur.user_id = u.id AND ur.site_id IS NULL ORDER BY r.key)::text[] AS roles,
        EXISTS (SELECT 1 FROM user_mfa m WHERE m.user_id = u.id AND m.enabled_at IS NOT NULL)::boolean AS mfa_enabled,
        u.kiosk,
        count(*) OVER () AS total

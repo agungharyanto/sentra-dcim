@@ -250,7 +250,7 @@ func TestUsersAdminFlow(t *testing.T) {
 	want(t, "auditor cannot create", tech.post("/api/v1/users", map[string]any{"username": "x.y.z", "display_name": "x",
 		"roles": []string{"viewer"}}), http.StatusForbidden, "forbidden")
 	me := tech.get("/api/v1/auth/me")
-	if p := strs(me.body["user"].(map[string]any)["permissions"]); !slices.Equal(p, []string{"audit.export", "audit.read", "roles.read", "users.read"}) {
+	if p := strs(me.body["user"].(map[string]any)["permissions"]); !slices.Equal(p, []string{"audit.export", "audit.read", "facility.read", "rack.read", "roles.read", "users.read"}) {
 		t.Fatalf("auditor permissions in /me = %v", p)
 	}
 

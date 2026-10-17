@@ -3,6 +3,42 @@
 Format mengikuti [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan versi mengikuti konvensi proyek
 `v0.<sprint>.<sub>` (lihat `CLAUDE.md`).
 
+## [v0.4.1] - 2026-10-18 — Facility Hierarchy & Rack
+
+### Ditambahkan
+- **Hierarki fasilitas** Site › Gedung › Lantai › Ruang › Rak (migrasi 000011, D-082): 5 tabel bertipe, `site_id`
+  terdenormalisasi dijaga foreign key komposit, nama unik per induk tanpa membedakan huruf besar/kecil di antara
+  data aktif, kode site unik selamanya; jenis ruang termasuk **Meet-me room (MMR)**.
+- **Rak dengan nama bebas** (D-083): 1–64 karakter (huruf, angka, spasi, `. _ - /`), unik per site; asset tag, baris
+  & posisi, tinggi U (bawaan 42), nomor U awal/menurun, lebar 19/23", kedalaman, beban & daya maks., status
+  (Direncanakan/Aktif/Dipesan/Dekomisioning/Pensiun). Pindah rak antar-ruang dalam satu site; antar-site ditolak
+  (`422 cross_site_move`). Rename dicatat `rack.rename`.
+- **Scope RBAC per site** (D-084): `user_roles.site_id` (NULL = global); penugasan per site hanya memberi izin data
+  site; Admin selalu global. Semua query facility difilter scope; di luar scope → 404. `PUT /api/v1/users/{id}/site-roles`
+  dan kartu **Akses per site** di detail pengguna. `/auth/me` membawa `global_permissions`.
+- Izin `facility.read`, `facility.manage`, `rack.read`, `rack.manage`: Admin semua; NOC, Security, Teknisi, Viewer,
+  Auditor baca.
+- **API** `/api/v1/sites`, `/buildings`, `/floors`, `/rooms`, `/racks` (daftar dengan paginasi, filter, urutan;
+  detail; tambah; ubah; arsip) dan `/api/v1/facility/tree`; **ETag/If-Match** (`428`/`412`) dan arsip alih-alih
+  hapus (`409 has_active_children`) (D-085); audit before/after untuk setiap perubahan. OpenAPI 0.4.1.
+- **UI Fasilitas** (menu kini tersedia): pohon dengan navigasi keyboard, panel detail, form tambah/ubah/ganti nama/
+  arsip, pesan "Data sudah diubah pengguna lain" + muat ulang, daftar rak dengan filter dan badge status warna design
+  system; ikon khusus ruang MMR. Pusat Bantuan ID/EN: Fasilitas, Rak dan penamaannya; Role & izin dan Dokumentasi
+  API diperbarui.
+- Tes: integrasi (FK komposit, keunikan & pakai ulang setelah arsip, 409, 412/428, audit rename, scope, migrasi
+  000011 down), unit (validasi, scope di setiap query, If-Match), `test/api/facility.sh` (matriks 6 role, scope,
+  ETag) di CI, Playwright facility + screenshot.
+
+### Diubah
+- Caddy meneruskan `/api/v1/facility/*`, `/sites`, `/buildings`, `/floors`, `/rooms`, `/racks` ke app (sesi + izin
+  diperiksa app); edge test publik memeriksa jalur baru menjawab `401` tanpa sesi.
+- Penugasan role "global" kini berarti `site_id IS NULL`; daftar role pengguna (`roles`) hanya berisi role global.
+- Auditor dan role operasional mendapat izin baca fasilitas.
+- ROADMAP: rincian v0.4.1–v0.4.9; v0.9 "Visitor, Goods & Cross-Connect Order"; v0.10 menambah Smart Hands (D-086).
+
+### Catatan rollback
+- `down` 000011 menghapus data fasilitas dan penugasan role per site (lihat DISASTER_RECOVERY › Rollback versi).
+
 ## [v0.3.9] - 2026-10-15 — Penutup Sprint v0.3
 
 ### Ditambahkan

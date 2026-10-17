@@ -35,6 +35,7 @@ import {
 } from "./api";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { RoleCheckboxes } from "./RoleCheckboxes";
+import { SiteRolesCard } from "./SiteRolesCard";
 import { TemporaryPassword } from "./TemporaryPassword";
 import { RoleBadges, UserStatusBadges } from "./UserBadges";
 import { useFieldError } from "./useFieldError";
@@ -90,6 +91,9 @@ function UserDetail({ user }: { user: User }) {
         <AccountCard user={user} canManage={canManage} self={self} />
         <div className="lg:col-span-2">
           <RolesCard key={user.roles.join()} user={user} canManage={canManage} self={self} />
+        </div>
+        <div className="lg:col-span-2">
+          <SiteRolesCard key={(user.site_roles ?? []).map((r) => `${r.role}@${r.site_id}`).join()} user={user} canManage={canManage} />
         </div>
         {(user.kiosk || (user.roles.length === 1 && user.roles[0] === "viewer")) && (
           <div className="lg:col-span-2">
@@ -206,7 +210,11 @@ function RolesCard({ user, canManage, self }: { user: User; canManage: boolean; 
           <>
             {/* Own Admin role is locked: removing it would lock the caller out (the API refuses it too). */}
             <RoleCheckboxes roles={keys} value={roles} onChange={setLocal} locked={self && user.roles.includes("admin") ? ["admin"] : []} />
-            <Button disabled={!dirty || roles.length === 0 || save.isPending} onClick={() => save.mutate()} data-testid="save-roles">
+            <Button
+              disabled={!dirty || (roles.length === 0 && (user.site_roles ?? []).length === 0) || save.isPending}
+              onClick={() => save.mutate()}
+              data-testid="save-roles"
+            >
               {save.isPending ? t("detail.saving") : t("detail.saveRoles")}
             </Button>
           </>

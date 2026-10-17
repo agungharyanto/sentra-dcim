@@ -1,0 +1,148 @@
+{
+  "title": "Facility",
+  "description": "Site, building, floor, room and rack hierarchy.",
+  "readOnly": "You can only view facility data.",
+  "tabs": {
+    "hierarchy": "Hierarchy",
+    "racks": "Rack list"
+  },
+  "level": {
+    "site": "Site",
+    "building": "Building",
+    "floor": "Floor",
+    "room": "Room",
+    "rack": "Rack"
+  },
+  "add": {
+    "site": "Add site",
+    "building": "Add building",
+    "floor": "Add floor",
+    "room": "Add room",
+    "rack": "Add rack"
+  },
+  "tree": {
+    "label": "Facility tree",
+    "empty": "No sites yet.",
+    "emptyHint": "Add the first site to start building the facility hierarchy.",
+    "racks_one": "{{count}} rack",
+    "racks_other": "{{count}} racks",
+    "expand": "Expand {{name}}",
+    "collapse": "Collapse {{name}}",
+    "mmr": "Meet-me room"
+  },
+  "detail": {
+    "select": "Select a site, building, floor, room or rack in the tree to see its details.",
+    "location": "Location",
+    "archived": "Archived",
+    "edit": "Edit",
+    "rename": "Rename",
+    "archive": "Archive",
+    "updated": "Last changed",
+    "version": "Version {{version}}",
+    "children": "Contents",
+    "noChildren": "Nothing here yet.",
+    "notFound": "Not found or outside your access."
+  },
+  "fields": {
+    "code": "Code",
+    "name": "Name",
+    "address": "Address",
+    "status": "Status",
+    "notes": "Notes",
+    "level": "Floor level",
+    "room_type": "Room type",
+    "asset_tag": "Asset tag",
+    "row_label": "Row",
+    "row_position": "Position in row",
+    "u_height": "Height (U)",
+    "starting_unit": "First U number",
+    "desc_units": "Descending U numbers (from the top)",
+    "width_in": "Width",
+    "depth_mm": "Depth (mm)",
+    "max_weight_kg": "Max. load (kg)",
+    "max_power_kw": "Max. power (kW)",
+    "room_id": "Room",
+    "site_id": "Site",
+    "building_id": "Building",
+    "floor_id": "Floor",
+    "units": "Units"
+  },
+  "hint": {
+    "rackName": "1–64 characters: letters, digits, space and . _ - /, starting with a letter or digit. Unique per site (case-insensitive).",
+    "siteCode": "1–16 characters A–Z, 0–9, _ and -. Cannot be changed later.",
+    "codeFixed": "The site code cannot be changed.",
+    "buildingCode": "Optional, up to 16 characters.",
+    "level": "0 = ground floor, negative = basement.",
+    "optional": "Optional",
+    "moveRack": "A rack can only move to another room of the same site.",
+    "siteGlobalOnly": "Only global facility managers can add or archive sites."
+  },
+  "siteStatus": {
+    "planned": "Planned",
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "roomType": {
+    "whitespace": "Server room",
+    "mmr": "Meet-me room (MMR)",
+    "power": "Power room",
+    "cooling": "Cooling room",
+    "noc": "NOC",
+    "storage": "Storage",
+    "staging": "Staging",
+    "other": "Other"
+  },
+  "rackStatus": {
+    "planned": "Planned",
+    "active": "Active",
+    "reserved": "Reserved",
+    "decommissioning": "Decommissioning",
+    "retired": "Retired"
+  },
+  "form": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "create": "Add",
+    "saving": "Saving…",
+    "created": "{{name}} added.",
+    "saved": "Changes saved.",
+    "renamed": "Rack renamed to {{name}}.",
+    "archived": "{{name}} archived.",
+    "width19": "19 inch",
+    "width23": "23 inch",
+    "chooseRoom": "Choose a room"
+  },
+  "archive": {
+    "title": "Archive {{name}}?",
+    "description": "Nothing is deleted: the data stays and is visible with the archive filter. The name can be reused. Only possible when nothing active is inside.",
+    "confirm": "Archive"
+  },
+  "conflict": {
+    "title": "Someone else changed this data",
+    "body": "Reload to see the latest version, then repeat your change.",
+    "reload": "Reload"
+  },
+  "list": {
+    "search": "Search name, asset tag or row",
+    "allSites": "All sites",
+    "allStatuses": "All statuses",
+    "includeArchived": "Show archived",
+    "sort": "Sort",
+    "sortDefault": "Location",
+    "sortName": "Name (A–Z)",
+    "sortNameDesc": "Name (Z–A)",
+    "sortStatus": "Status",
+    "sortUpdated": "Last changed",
+    "name": "Rack",
+    "location": "Location",
+    "status": "Status",
+    "units": "U",
+    "empty": "No racks yet.",
+    "emptyFiltered": "No racks match the filters.",
+    "range": "{{from}}–{{to}} of {{total}}",
+    "prev": "Previous",
+    "next": "Next",
+    "pagination": "Rack list pages",
+    "open": "Open in hierarchy"
+  }
+}

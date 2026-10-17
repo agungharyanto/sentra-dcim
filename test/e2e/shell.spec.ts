@@ -21,6 +21,7 @@ function pageTestId(status: string, key: string) {
   if (key === "users") return "users-page"; // the test account has users.read (Admin)
   if (key === "audit") return "audit-page"; // and audit.read (Admin)
   if (key === "settings") return "settings-regional"; // and settings.manage (Admin); /settings opens Regional
+  if (key === "facility") return "facility-hierarchy"; // facility.read (every role); /facility opens the hierarchy
   return status === "not_connected" ? "not-connected" : "coming-soon";
 }
 
@@ -35,7 +36,8 @@ test.describe("app shell", () => {
     for (const m of menus) {
       const link = mainNav(page).locator(`a[data-menu="${m.key}"]`);
       await link.click();
-      await expect(page).toHaveURL(new RegExp(`${m.path}$`));
+      // Modules with sub-pages open their first one (/settings/regional, /facility/hierarchy).
+      await expect(page).toHaveURL(new RegExp(`${m.path}(/[a-z-]+)?$`));
       await expect(link).toHaveAttribute("aria-current", "page");
       await expect(mainNav(page).locator('a[aria-current="page"]')).toHaveCount(1);
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(cat.id.sidebar[m.key]);

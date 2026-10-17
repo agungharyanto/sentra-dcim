@@ -38,6 +38,18 @@
     "password_reused": "This password was used recently. Choose a different one.",
     "kiosk_requires_viewer": "Monitoring mode is only for accounts whose only role is Viewer. Turn monitoring mode off before changing roles.",
     "kiosk_requires_allowlist": "Monitoring mode needs Allowed IP in use (Monitor or Enforce) with at least one IP. Set it up in Settings › Allowed IP first.",
-    "maintenance": "The service is under maintenance. Try again shortly."
+    "maintenance": "The service is under maintenance. Try again shortly.",
+    "duplicate_name": "That name is already in use.",
+    "duplicate_code": "That code is already in use.",
+    "duplicate_asset_tag": "That asset tag is already in use.",
+    "has_active_children": "Something active is still inside. Archive it first.",
+    "archived": "This item is archived.",
+    "parent_archived": "Its parent is archived.",
+    "cross_site_move": "A rack cannot move to another site.",
+    "precondition_required": "The data version was not sent. Reload and try again.",
+    "version_conflict": "Someone else changed this data. Reload to see the latest version.",
+    "global_scope_required": "Only global facility managers can do this.",
+    "out_of_scope": "You may not change data of this site.",
+    "no_roles": "An account needs at least one role (global or per site)."
   }
 }

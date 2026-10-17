@@ -23,12 +23,12 @@ role that fits (*least privilege*).
 
 | Role | For | Current permissions |
 |---|---|---|
-| Admin | Application administrators | All: `users.read`, `users.manage`, `roles.read`, `system.version.read`, `ui.design_system`, `audit.read`, `audit.export`, `help.admin` |
-| NOC | 24/7 monitoring operators | — (grows with the monitoring & alarm modules) |
-| Security | Security & physical access staff | — (grows with the access & visitor modules) |
-| Technician | Facility & equipment technicians | — (grows with the asset & maintenance modules) |
-| Viewer | Management/stakeholders, read only | — (grows with the read-only modules) |
-| Auditor | Internal/external auditors | `users.read`, `roles.read`, `audit.read`, `audit.export` |
+| Admin | Application administrators | All: `users.read`, `users.manage`, `roles.read`, `system.version.read`, `ui.design_system`, `audit.read`, `audit.export`, `help.admin`, `settings.manage`, `facility.read`, `facility.manage`, `rack.read`, `rack.manage` |
+| NOC | 24/7 monitoring operators | `facility.read`, `rack.read` (grows with the monitoring & alarm modules) |
+| Security | Security & physical access staff | `facility.read`, `rack.read` (grows with the access & visitor modules) |
+| Technician | Facility & equipment technicians | `facility.read`, `rack.read` (grows with the asset & maintenance modules) |
+| Viewer | Management/stakeholders, read only | `facility.read`, `rack.read` |
+| Auditor | Internal/external auditors | `users.read`, `roles.read`, `audit.read`, `audit.export`, `facility.read`, `rack.read` |
 
 The current list is always shown on the **Roles** tab of the Users & Roles menu, with the number of users per role.
 
@@ -44,7 +44,22 @@ The current list is always shown on the **Roles** tab of the Users & Roles menu,
 | `audit.read` | Viewing the audit log and the hash-chain integrity status, running a verification ([Audit Log](../audit/index.md)) |
 | `audit.export` | Exporting the audit log to CSV (the export itself is recorded) |
 | `help.admin` | Reading Admin-only Help Center guides, including the API reference |
+| `facility.read` | Viewing sites, buildings, floors, rooms and the [Facility](../facility/index.md) tree |
+| `facility.manage` | Adding, editing and archiving buildings, floors, rooms (and sites when global) |
+| `rack.read` | Viewing racks |
+| `rack.manage` | Adding, editing, renaming, moving and archiving racks |
+
+## Per-site roles
+
+Besides **global** roles (every site), an Admin can give roles **per site** on the user details → **Per-site
+access**. A per-site role grants only the site data permissions (`facility.*`, `rack.*`) for that site; other
+permissions (users, settings, audit) come from global roles only. Admin cannot be given per site.
+
+Example: a technician of the Denpasar site → no global role, role **Technician** for site `DPS1`. They see `DPS1`
+data only. If they also get the global Viewer role they see **every** site. An account keeps at least one role
+(global or per site).
 
 ## Related API endpoints
 
 `GET /api/v1/roles` (permission `roles.read`) — roles, permissions per role and number of users.
+`PUT /api/v1/users/{id}/site-roles` (permission `users.manage`) — replace all per-site roles of a user.
