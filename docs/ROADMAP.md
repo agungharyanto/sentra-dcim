@@ -12,13 +12,13 @@ Sprint = 1 minggu.
 | v0.1 | Foundation | Scaffold repo, infra Docker, hardening server, backend skeleton (health/ready/version), Ops & DR (backup/restore/rollback/bootstrap), CI | Selesai (lihat docs/releases/v0.1.9.md) |
 | v0.2 | UI Shell & Design System | Shell UI, design system, kerangka Pusat Bantuan; status menu *Available / Coming Soon / Not Connected*; warna status *Normal / Warning / Critical / Offline / Maintenance*; keputusan framework frontend; **i18n wajib sejak awal** (lihat rincian) | Selesai (lihat docs/releases/v0.2.9.md) |
 | v0.3 | Auth, RBAC & Audit Log | Login & sesi, RBAC (Admin, NOC, Security, Teknisi, Viewer, Auditor), audit log hash chain, MFA Admin, cabut basic_auth; detail `/api/v1/version` hanya Admin; Settings – Regional (v0.3.5) & Allowed IP (v0.3.6) — rincian di bawah | Selesai (v0.3.1–v0.3.7, penutup v0.3.9 2026-10-15) |
-| v0.4 | Facility, Tenant & Asset | Hierarki Site > Gedung > Lantai > Ruang > Rack, tenant, aset | Berikutnya |
+| v0.4 | Facility, Tenant & Asset | Hierarki Site > Gedung > Lantai > Ruang > Rack, tenant, aset/perangkat, port & kabel (model data, D-086) — rincian di bawah | Berjalan (v0.4.1 selesai 2026-10-18) |
 | v0.5 | Dashboard & Alarm Engine | Dashboard, alarm (aktif / diakui / eskalasi / selesai), notifikasi | Rencana |
 | v0.6 | Telemetry Ingestion | Adapter + simulator, time-series (TimescaleDB), deteksi offline vs stale | Rencana |
 | v0.7 | Power & Environment | Power/PDU/UPS, environment (suhu, kelembapan, asap, kebocoran air), genset & tangki solar | Rencana |
 | v0.8 | Access Control | Zona, validasi real-time, perlindungan data biometrik | Rencana |
-| v0.9 | Visitor & Movement | Visitor pass, goods movement, cross-connect | Rencana |
-| v0.10 | Maintenance & SLA | Maintenance, work order, SLA | Rencana |
+| v0.9 | Visitor, Goods & Cross-Connect Order | Visitor pass; workflow barang masuk/keluar; order cross-connect (LOA/CFA) di atas model kabel v0.4.4 (D-086) | Rencana |
+| v0.10 | Maintenance, Smart Hands & SLA | Maintenance, work order, **Smart Hands** sebagai jenis Work Order (katalog: install/move/remove equipment, install/move/remove cable, power cycle, visual check/foto, loopback/cek kabel, shipment, other — D-086), SLA | Rencana |
 | v0.11 | Analytics | Analitik, deteksi anomali, rekomendasi, ekspor laporan | Rencana |
 | v0.12 | Hardening | Hardening, pentest, load test, optimasi query, uji restore; **WireGuard + allowlist SSH** (dipindah dari v0.3.6, D-078); tinjau ulang token `gh` untuk GitHub Release (D-081) | Rencana |
 | v1.0 | Produksi | UAT, deployment produksi, training, as-built docs | Rencana |
@@ -60,6 +60,19 @@ Ditambahkan 2026-10-13 (D-035). Berlaku untuk seluruh UI mulai v0.2, bukan fitur
 - **Locale & timezone default dibaca dari setting server** (sementara `.env`: `DISPLAY_TIMEZONE`; mulai v0.3.5 dari
   Settings – Regional). Format tanggal/jam/angka memakai locale aktif; data tetap UTC.
 - Pusat Bantuan tersedia dalam ID (wajib) dan EN.
+
+## Rincian v0.4 Facility, Tenant & Asset
+
+Keputusan: D-082–D-086. v0.4 = **model data** (workflow order/barang di v0.9, Smart Hands di v0.10).
+
+| Versi | Judul | Isi | Status |
+|---|---|---|---|
+| v0.4.1 | Facility Hierarchy & Rack | 5 tabel bertipe + `site_id` terdenormalisasi dijaga FK komposit (D-082); rak nama custom unik per site, asset tag (D-083); scope RBAC per site `user_roles.site_id` + `authz.Scope` di semua query (D-084); arsip + optimistic lock ETag/If-Match 428/412 + audit before/after (D-085); izin `facility.read/manage`, `rack.read/manage`; API `/sites`, `/buildings`, `/floors`, `/rooms`, `/racks`, `/facility/tree`, `/users/{id}/site-roles`; menu **Fasilitas** (pohon + detail + daftar rak), Pusat Bantuan ID/EN | Selesai (2026-10-18) |
+| v0.4.2 | Tenant | Tenant (penyewa) + kontak; `tenant_id` pada site/ruang/rak (alokasi rak/ruang ke tenant), scope data per tenant untuk akun penyewa (rencana) | Rencana |
+| v0.4.3 | DeviceType & Device | Katalog DeviceType (pabrikan, model, tinggi U kelipatan 0,5, berat, daya, full/half depth), Device (SN, MAC, asset tag, status) dan penempatan di rak (posisi U, muka depan/belakang); tumpang-tindih U dicegah exclusion constraint **`btree_gist`** (ekstensi tersedia di image DB, lihat DEPENDENCIES) | Rencana |
+| v0.4.4 | Port, Patch Panel & Kabel | Port perangkat (interface/console/power), patch panel (front/rear port), kabel (jenis, warna, panjang, label), trace end-to-end rak↔rak dan rak↔MMR | Rencana |
+| v0.4.5–v0.4.8 | Cadangan | Kandidat: import DeviceType dari YAML/CSV (library komunitas), template nama rak per site (pola + nomor urut), UI penugasan scope yang lebih kaya | Cadangan |
+| v0.4.9 | Penutup Sprint v0.4 | Full regression + DoD, matriks izin (termasuk scope site), uji migrasi up/down, backup/restore | Rencana |
 
 ## Rincian v0.3 Auth, RBAC & Audit Log
 

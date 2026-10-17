@@ -6,7 +6,7 @@ Format: ID, judul, prioritas (P1 kritis – P4 rendah), versi ditemukan, versi d
 
 | ID | Judul | Prioritas | Ditemukan | Diperbaiki | Catatan |
 |---|---|---|---|---|---|
-| — | Tidak ada issue terbuka per v0.3.9 | — | — | — | — |
+| ISS-048 | Balapan arsip vs tambah anak: bila induk diarsipkan tepat saat anak baru dibuat di sesi lain, anak aktif bisa tercipta di bawah induk terarsip (cek "tidak ada anak aktif" dan INSERT anak tidak dikunci bersama) | P4 | v0.4.1 | — (target v0.4.9) | Jendela milidetik, butuh dua admin bersamaan; data tetap konsisten secara FK. Perbaikan: transaksi dengan `SELECT … FOR UPDATE` pada induk saat arsip dan `FOR SHARE` saat membuat anak |
 
 ## Solved
 

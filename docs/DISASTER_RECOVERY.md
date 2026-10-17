@@ -283,6 +283,12 @@ Aturan migrasi (CLAUDE.md aturan 9): setiap migrasi wajib punya `down` dan backw
 > `audit_events` beserta isinya (akun, sesi, log audit). Backup otomatis `rollback` menyimpannya; naik kembali ke
 > v0.3.1+ lalu `ops/restore.sh <backup>` bila data itu dibutuhkan.
 
+> **Rollback melewati v0.4.1** (ke `v0.3.x`): `down` migrasi `000011_facility` menghapus tabel `sites`, `buildings`,
+> `floors`, `rooms`, `racks` beserta isinya dan **semua penugasan role per site** (kolom `user_roles.site_id`;
+> binary v0.3 akan membacanya sebagai role global). Pengguna yang hanya punya role per site tidak punya role sama
+> sekali setelah rollback (tidak bisa memakai modul apa pun) — beri role global bila perlu. Backup otomatis
+> `rollback` menyimpan data facility; naik kembali ke v0.4.1+ lalu `ops/restore.sh <backup>` bila dibutuhkan.
+
 ## Prosedur darurat auth — ringkasan (v0.3.9)
 
 Semua dari server (SSH, atau OCI Serial Console bila SSH pun gagal), di `/opt/sentra-dcim`, tercatat di audit sebagai
